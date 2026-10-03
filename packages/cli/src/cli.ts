@@ -129,10 +129,52 @@ export function runHarvestPlacesCli(category?: string): void {
   console.log('\n✓ Potok zasilający gotowy do masowej synchronizacji bazy.');
 }
 
+export async function runDownloadTilesCli(args: string[] = []): Promise<void> {
+  const { downloadGeoportalTiles } = await import('./tiles');
+  console.log('--- Kraków bez barier: Pobieranie kafelków BDOT10k Geoportal ---');
+  let area: 'demo' | 'city' | 'region' = 'city';
+  let minZoom = 7;
+  let maxZoom = 10;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--area' && args[i + 1]) {
+      area = args[i + 1] as any;
+      i++;
+    } else if (args[i] === '--min-zoom' && args[i + 1]) {
+      minZoom = parseInt(args[i + 1]!, 10);
+      i++;
+    } else if (args[i] === '--max-zoom' && args[i + 1]) {
+      maxZoom = parseInt(args[i + 1]!, 10);
+      i++;
+    }
+  }
+
+  console.log(`Obszar: ${area} (minZoom: ${minZoom}, maxZoom: ${maxZoom})`);
+  console.log('Pobieranie kafelków z oficjalnego serwisu Geoportal (EPSG:2180 / BDOT10k-BDOO)...');
+
+  const result = await downloadGeoportalTiles({
+    area,
+    minZoom,
+    maxZoom,
+    onProgress: (p) => {
+      process.stdout.write(
+        `\rPostęp: ${p.done}/${p.total} (nowych: ${p.downloaded}, w cache: ${p.cached}, rozmiar: ${(p.bytes / 1024 / 1024).toFixed(1)} MB)`
+      );
+    },
+  });
+
+  console.log('\n\n✓ Zakończono pobieranie kafelków BDOT10k!');
+  console.log(`- Kafelki w siatce: ${result.total}`);
+  console.log(`- Nowo pobrane z sieci: ${result.downloaded}`);
+  console.log(`- Użyte z dysku (cache): ${result.cached}`);
+  console.log(`- Łączny rozmiar: ${(result.sizeBytes / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`- Lokalizacja na dysku: ${result.targetDir}`);
+}
+
 /**
  * Main dispatcher for CLI subcommands.
  */
-export function main(args: string[] = process.argv.slice(2)): void {
+export async function main(args: string[] = process.argv.slice(2)): Promise<void> {
   const subcommand = args[0];
 
   switch (subcommand) {
@@ -147,6 +189,10 @@ export function main(args: string[] = process.argv.slice(2)): void {
     case 'import-places':
       runHarvestPlacesCli(args[1]);
       break;
+    case 'download-tiles':
+    case 'cache-tiles':
+      await runDownloadTilesCli(args.slice(1));
+      break;
     case '--help':
     case '-h':
     case undefined:
@@ -154,7 +200,9 @@ export function main(args: string[] = process.argv.slice(2)): void {
       console.log('Użycie:');
       console.log('  krakow-cli <polecenie> [opcje]\n');
       console.log('Dostępne polecenia:');
-      console.log('  server                 Uruchamia serwer HTTP');
+      console.log('  server                 Uruchamia serwer HTTP z cachem kafelków');
+      console.log('  download-tiles         Pobiera kafelki Geoportalu dla Krakowa na dysk');
+      console.log('                         Opcje: --area [demo|city|region] --min-zoom [N] --max-zoom [N]');
       console.log('  datagen                Buduje i waliduje snapshot danych demonstracyjnych');
       console.log('  build-snapshot         Alias dla datagen');
       console.log('  harvest-places [kat]   Generuje zapytanie masowego importu z Overpass (kat: culture|office|transit|health|education)\n');

@@ -212,6 +212,7 @@ export function MapView({
 
       return {
         index: i + 1,
+        type: f.type,
         lat: f.fact.subject.lat,
         lon: f.fact.subject.lon,
         title: `#${i + 1}${distLabel}: ${typeLabel}`,
@@ -254,17 +255,15 @@ export function MapView({
       border-radius: 50%;
       border-width: 3px;
       border-style: solid;
-      font-weight: 800;
-      text-align: center;
-      line-height: 22px;
-      font-size: 11px;
-      width: 28px;
-      height: 28px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.38);
+      width: 30px;
+      height: 30px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.38);
       display: flex;
       align-items: center;
       justify-content: center;
       box-sizing: border-box;
+      padding: 2px;
+      transition: transform 0.15s ease-out;
     }
     .endpoint-marker {
       background-color: #005CA9;
@@ -407,7 +406,63 @@ export function MapView({
     var map = L.map('map', mapOptions).setView([${initialCenterRef.current.lat}, ${initialCenterRef.current.lon}], initialZoom);
 
     if (isGeoportal && map.options.crs && map.options.crs.code === 'EPSG:2180') {
-      var geoportalLayer = L.tileLayer(
+      var CachedTileLayer = L.TileLayer.extend({
+        createTile: function(coords, done) {
+          var tile = document.createElement('img');
+          tile.alt = '';
+          tile.setAttribute('role', 'presentation');
+          var url = this.getTileUrl(coords);
+
+          if (typeof window !== 'undefined' && 'caches' in window) {
+            caches.open('geoportal-bdot10k-v1').then(function(cache) {
+              cache.match(url).then(function(cachedResponse) {
+                if (cachedResponse) {
+                  cachedResponse.blob().then(function(blob) {
+                    tile.src = URL.createObjectURL(blob);
+                    done(null, tile);
+                  }).catch(function() {
+                    tile.src = url;
+                    L.DomEvent.on(tile, 'load', L.Util.bind(done, null, null, tile));
+                    L.DomEvent.on(tile, 'error', L.Util.bind(done, null, null, tile));
+                  });
+                } else {
+                  fetch(url, { mode: 'cors' }).then(function(networkRes) {
+                    if (networkRes.ok) {
+                      var clone = networkRes.clone();
+                      cache.put(url, clone);
+                      return networkRes.blob();
+                    }
+                    throw new Error('HTTP ' + networkRes.status);
+                  }).then(function(blob) {
+                    tile.src = URL.createObjectURL(blob);
+                    done(null, tile);
+                  }).catch(function() {
+                    tile.src = url;
+                    L.DomEvent.on(tile, 'load', L.Util.bind(done, null, null, tile));
+                    L.DomEvent.on(tile, 'error', L.Util.bind(done, null, null, tile));
+                  });
+                }
+              }).catch(function() {
+                tile.src = url;
+                L.DomEvent.on(tile, 'load', L.Util.bind(done, null, null, tile));
+                L.DomEvent.on(tile, 'error', L.Util.bind(done, null, null, tile));
+              });
+            }).catch(function() {
+              tile.src = url;
+              L.DomEvent.on(tile, 'load', L.Util.bind(done, null, null, tile));
+              L.DomEvent.on(tile, 'error', L.Util.bind(done, null, null, tile));
+            });
+          } else {
+            tile.src = url;
+            L.DomEvent.on(tile, 'load', L.Util.bind(done, null, null, tile));
+            L.DomEvent.on(tile, 'error', L.Util.bind(done, null, null, tile));
+          }
+
+          return tile;
+        }
+      });
+
+      var geoportalLayer = new CachedTileLayer(
         'https://mapy.geoportal.gov.pl/wss/service/WMTS/guest/wmts/BDOT10k-BDOO?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=BDOT10k-BDOO&STYLE=default&TILEMATRIXSET=EPSG:2180&TILEMATRIX=EPSG:2180:{z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png',
         {
           minZoom: 0,
@@ -417,6 +472,53 @@ export function MapView({
         }
       );
       geoportalLayer.addTo(map);
+
+      // Pre-warm local persistent tile cache for Krakow center and immediate surroundings
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        setTimeout(function() {
+          caches.open('geoportal-bdot10k-v1').then(function(cache) {
+            var krakowPreloadTiles = [
+              { z: 0, r: 0, c: 0 },
+              { z: 1, r: 1, c: 0 },
+              { z: 2, r: 2, c: 1 },
+              { z: 3, r: 4, c: 3 },
+              { z: 4, r: 8, c: 6 },
+              { z: 5, r: 17, c: 13 },
+              { z: 6, r: 44, c: 34 },
+              { z: 7, r: 89, c: 68 },
+              { z: 7, r: 89, c: 69 },
+              { z: 8, r: 178, c: 137 },
+              { z: 8, r: 178, c: 138 },
+              { z: 8, r: 179, c: 137 },
+              { z: 8, r: 179, c: 138 },
+              { z: 9, r: 446, c: 344 },
+              { z: 9, r: 447, c: 344 },
+              { z: 9, r: 448, c: 344 },
+              { z: 9, r: 446, c: 345 },
+              { z: 9, r: 447, c: 345 },
+              { z: 9, r: 448, c: 345 },
+              { z: 10, r: 892, c: 688 },
+              { z: 10, r: 893, c: 688 },
+              { z: 10, r: 894, c: 688 },
+              { z: 10, r: 895, c: 688 },
+              { z: 10, r: 892, c: 689 },
+              { z: 10, r: 893, c: 689 },
+              { z: 10, r: 894, c: 689 },
+              { z: 10, r: 895, c: 689 }
+            ];
+            krakowPreloadTiles.forEach(function(t) {
+              var u = 'https://mapy.geoportal.gov.pl/wss/service/WMTS/guest/wmts/BDOT10k-BDOO?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=BDOT10k-BDOO&STYLE=default&TILEMATRIXSET=EPSG:2180&TILEMATRIX=EPSG:2180:' + t.z + '&TILEROW=' + t.r + '&TILECOL=' + t.c + '&FORMAT=image/png';
+              cache.match(u).then(function(has) {
+                if (!has) {
+                  fetch(u, { mode: 'cors' }).then(function(r) {
+                    if (r.ok) cache.put(u, r);
+                  }).catch(function() {});
+                }
+              });
+            });
+          }).catch(function() {});
+        }, 800);
+      }
     } else {
       L.tileLayer('${tileUrl}', {
         maxZoom: 19,
@@ -464,13 +566,56 @@ export function MapView({
         .bindPopup('<b>Cel:</b> ' + (endPin.name || 'Koniec trasy'));
     }
 
+    function getObstacleSvgIcon(type, color) {
+      var sWidth = "2.3";
+      if (type === 'steps') {
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M21 5h-5v5h-5v5H6v5H3" />' +
+          '</svg>';
+      }
+      if (type === 'kerb') {
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M3 17h6V7h12" />' +
+          '<line x1="9" y1="7" x2="9" y2="17" stroke-width="3.5" />' +
+          '</svg>';
+      }
+      if (type === 'surface') {
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+          '<rect x="2" y="5" width="9" height="6" rx="1.5" />' +
+          '<rect x="13" y="5" width="9" height="6" rx="1.5" />' +
+          '<rect x="7.5" y="13" width="9" height="6" rx="1.5" />' +
+          '</svg>';
+      }
+      if (type === 'incline') {
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M3 19h18L3 8v11z" fill="' + color + '" fill-opacity="0.18" />' +
+          '<path d="M14 6h7v7" />' +
+          '<path d="M21 6L10 17" />' +
+          '</svg>';
+      }
+      if (type === 'width') {
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<line x1="3" y1="4" x2="3" y2="20" stroke-width="2.6" />' +
+          '<line x1="21" y1="4" x2="21" y2="20" stroke-width="2.6" />' +
+          '<path d="M3 12h6m-2-3l3 3-3 3" />' +
+          '<path d="M21 12h-6m2-3l-3 3 3 3" />' +
+          '</svg>';
+      }
+      return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+        '<circle cx="12" cy="12" r="9" />' +
+        '<line x1="12" y1="8" x2="12" y2="12" stroke-width="2.5" />' +
+        '<circle cx="12" cy="16" r="0.8" fill="' + color + '" />' +
+        '</svg>';
+    }
+
     var markers = ${JSON.stringify(markersData)};
     markers.forEach(function(m) {
+      var iconSvg = getObstacleSvgIcon(m.type, m.color);
       var icon = L.divIcon({
         className: 'custom-marker',
-        html: '<div class="custom-marker-badge" style="border-color:' + m.color + '; color:' + m.color + ';">' + m.index + '</div>',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
+        html: '<div class="custom-marker-badge" style="border-color:' + m.color + '; color:' + m.color + ';" title="' + m.title + '">' + iconSvg + '</div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
       });
 
       var statusText = m.severity === 'blocker' ? 'Blokada' : m.severity === 'warning' ? 'Ostrzeżenie' : m.severity === 'ok' ? 'Dostępne' : m.severity;
