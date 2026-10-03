@@ -1164,7 +1164,7 @@ export default function MapHomeScreen() {
                   <LocationPicker
                     label={t(locale, 'from')}
                     badge="A"
-                    badgeColor="#1B5E20"
+                    badgeColor="#22C55E"
                     point={{ name: fromQuery, position: fromPos }}
                     onChangePoint={(p) => {
                       setFromQuery(p.name);

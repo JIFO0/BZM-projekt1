@@ -305,7 +305,7 @@ export function MapView({
       transition: transform 0.15s ease-out;
     }
     .endpoint-marker {
-      background-color: #1B5E20;
+      background-color: #22C55E;
       color: #FFFFFF;
       border: 3px solid #FFFFFF;
       border-radius: 50%;
@@ -318,7 +318,7 @@ export function MapView({
       box-shadow: 0 3px 6px rgba(0,0,0,0.4);
     }
     .endpoint-marker.start {
-      background-color: #1B5E20;
+      background-color: #22C55E;
     }
     .endpoint-marker.destination {
       background-color: #D32F2F;
