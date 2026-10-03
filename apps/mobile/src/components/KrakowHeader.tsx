@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowLeft, Globe, IdentificationCard, PersonArmsSpread } from 'phosphor-react-native';
+import { ArrowLeft, Globe, PersonArmsSpread, User } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
 import { t, type Locale } from '@/i18n/strings';
@@ -48,8 +48,8 @@ export function KrakowHeader({
     setAccessibilityModalVisible,
     highlightLinks,
     increasedSpacing,
-    krakowCardUser,
-    setKrakowCardModalVisible,
+    userAccount,
+    setUserModalVisible,
   } = useSession();
 
   const handleDefaultBack = () => {
@@ -178,34 +178,34 @@ export function KrakowHeader({
         </Text>
       </Pressable>
 
-      {/* 3. Karta Krakowska / Profile Button */}
+      {/* 3. User Account / Profile Button */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={
-          krakowCardUser
-            ? `${t(locale, 'krakowCard')}: ${krakowCardUser.displayName}`
-            : t(locale, 'krakowCardLoginTitle')
+          userAccount
+            ? `${t(locale, 'userAccount')}: ${userAccount.displayName || userAccount.email}`
+            : t(locale, 'userAccountLoginTitle')
         }
-        accessibilityHint="Otwiera panel Karty Krakowskiej i tożsamości mieszkańca"
-        onPress={() => setKrakowCardModalVisible(true)}
+        accessibilityHint="Otwiera panel logowania i profilu użytkownika"
+        onPress={() => setUserModalVisible(true)}
         style={[
           styles.secondaryBtn,
           {
-            borderColor: krakowCardUser
+            borderColor: userAccount
               ? (isHighContrast ? colors.focus : '#22C55E')
               : colors.border,
-            backgroundColor: krakowCardUser
+            backgroundColor: userAccount
               ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.22)')
               : (isHighContrast ? colors.background : 'rgba(255,255,255,0.12)'),
             minHeight: minTouch,
           },
         ]}
       >
-        <IdentificationCard
+        <User
           size={16}
-          weight={krakowCardUser ? 'fill' : 'bold'}
+          weight={userAccount ? 'fill' : 'bold'}
           color={
-            krakowCardUser
+            userAccount
               ? (isHighContrast ? colors.accentText : '#4ADE80')
               : (isHighContrast ? colors.text : colors.headerText)
           }
@@ -215,16 +215,16 @@ export function KrakowHeader({
             styles.secondaryBtnText,
             {
               color: isHighContrast
-                ? (krakowCardUser ? colors.accentText : colors.text)
+                ? (userAccount ? colors.accentText : colors.text)
                 : colors.headerText,
               fontSize: fontSize(12),
-              fontWeight: krakowCardUser ? '800' : '600',
+              fontWeight: userAccount ? '800' : '600',
             },
           ]}
         >
-          {krakowCardUser
-            ? krakowCardUser.displayName.split(' ')[0]
-            : t(locale, 'krakowCard')}
+          {userAccount
+            ? (userAccount.displayName.split(' ')[0] || userAccount.email.split('@')[0])
+            : t(locale, 'userAccount')}
         </Text>
       </Pressable>
     </>

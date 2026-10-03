@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AccessibilityModal } from '@/components/AccessibilityModal';
-import { KrakowCardModal } from '@/components/KrakowCardModal';
+import { UserAccountModal } from '@/components/UserAccountModal';
 import { ReadingRuler } from '@/components/ReadingRuler';
 import { SessionProvider, useSession } from '@/state/session';
 
@@ -33,7 +33,7 @@ function RootNavigatorInner() {
         <Stack.Screen name="about" options={{ headerShown: false, title: 'O aplikacji' }} />
       </Stack>
       <AccessibilityModal />
-      <KrakowCardModal />
+      <UserAccountModal />
       <ReadingRuler />
     </View>
   );
