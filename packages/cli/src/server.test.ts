@@ -1,8 +1,9 @@
 import http from 'node:http';
 import { createServer } from './server';
+import type { ServerType } from '@hono/node-server';
 
 describe('Server component', () => {
-  let server: http.Server;
+  let server: ServerType;
   let port: number;
 
   beforeAll((done) => {
@@ -22,8 +23,8 @@ describe('Server component', () => {
     server.close(done);
   });
 
-  test('responds with 200 status code and OK body', (done) => {
-    http.get(`http://127.0.0.1:${port}/`, (res) => {
+  test('responds with 200 status code and OK body on GET /status', (done) => {
+    http.get(`http://127.0.0.1:${port}/status`, (res) => {
       expect(res.statusCode).toBe(200);
       let body = '';
       res.on('data', (chunk) => {
@@ -33,6 +34,15 @@ describe('Server component', () => {
         expect(body.trim()).toBe('OK');
         done();
       });
+    }).on('error', (err) => {
+      done(err);
+    });
+  });
+
+  test('responds with 404 for unhandled routes like GET /', (done) => {
+    http.get(`http://127.0.0.1:${port}/`, (res) => {
+      expect(res.statusCode).toBe(404);
+      done();
     }).on('error', (err) => {
       done(err);
     });
