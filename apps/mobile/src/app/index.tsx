@@ -178,6 +178,27 @@ function extractRouteParams(params: Record<string, any>) {
   return { fromName, fromLat, fromLon, toName, toLat, toLon, demoRoute, variant };
 }
 
+function formatBlockerCount(count: number, locale: string): string {
+  if (locale === 'pl') {
+    if (count === 1) return '1 blokada';
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+      return `${count} blokady`;
+    }
+    return `${count} blokad`;
+  } else if (locale === 'uk') {
+    if (count === 1) return '1 блокада';
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+      return `${count} блокади`;
+    }
+    return `${count} блокад`;
+  }
+  return `${count} ${count === 1 ? 'blocker' : 'blockers'}`;
+}
+
 export default function MapHomeScreen() {
   const rawParams = useLocalSearchParams();
   const initialParamsHandled = useRef(false);
@@ -1112,7 +1133,7 @@ export default function MapHomeScreen() {
             <Path size={18} weight="bold" color={colors.accent} />
             <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
               {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
-              {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length} {t(locale, 'severityBlocker').toLowerCase()}
+              {formatBlockerCount(activeRouteReport.findings.filter((f) => f.severity === 'blocker').length, locale)}
             </Text>
           </Pressable>
         ) : null}
@@ -1230,11 +1251,6 @@ export default function MapHomeScreen() {
                 {getProfileLabel(profileId)}
               </Text>
             </View>
-            {popupExpanded ? (
-              <View style={styles.sheetToggleBtn}>
-                <CaretDown size={14} weight="bold" color={colors.accent} />
-              </View>
-            ) : null}
           </View>
         </Pressable>
 
@@ -1544,7 +1560,7 @@ export default function MapHomeScreen() {
                                   },
                                 ]}
                               >
-                                {(routeVariants.accessible.report.lengthMetres / 1000).toFixed(1)} km • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                                {(routeVariants.accessible.report.lengthMetres / 1000).toFixed(1)} km • {formatBlockerCount(routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length, locale)}
                               </Text>
                             </Pressable>
 
@@ -1591,7 +1607,7 @@ export default function MapHomeScreen() {
                                   },
                                 ]}
                               >
-                                {(routeVariants.shortest.report.lengthMetres / 1000).toFixed(1)} km • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                                {(routeVariants.shortest.report.lengthMetres / 1000).toFixed(1)} km • {formatBlockerCount(routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length, locale)}
                               </Text>
                             </Pressable>
                           </View>
@@ -1616,8 +1632,8 @@ export default function MapHomeScreen() {
                                     routeVariants.accessible.report.lengthMetres - routeVariants.shortest.report.lengthMetres,
                                   )}{' '}
                                   m krótsza, ale zawiera{' '}
-                                  {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length}{' '}
-                                  blokad(y) dla Twojego profilu. Trasa bez barier omija przeszkody.
+                                  {formatBlockerCount(routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length, locale)}{' '}
+                                  dla Twojego profilu. Trasa bez barier omija przeszkody.
                                 </Text>
                               </View>
                             )}
