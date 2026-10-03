@@ -14,16 +14,21 @@ ENV EXPO_PUBLIC_GRAPHHOPPER_URL=$EXPO_PUBLIC_GRAPHHOPPER_URL
 ENV EXPO_PUBLIC_MAPY_API_KEY=$EXPO_PUBLIC_MAPY_API_KEY
 ENV CI=1
 
-# Copy workspace metadata and configs
+# Copy workspace metadata and dependency manifests
 COPY package.json package-lock.json tsconfig.base.json tsconfig.json ./
+COPY packages/core/package.json ./packages/core/
+COPY packages/sources/package.json ./packages/sources/
+COPY apps/mobile/package.json ./apps/mobile/
+
+# Install dependencies across workspaces (cached until package manifests change)
+RUN npm ci
+
+# Copy application source and assets
 COPY packages/core/ ./packages/core/
 COPY packages/sources/ ./packages/sources/
 COPY apps/mobile/ ./apps/mobile/
 COPY cities/ ./cities/
 COPY fixtures/ ./fixtures/
-
-# Install dependencies across workspaces
-RUN npm ci --verbose
 
 # Export static web files for production hosting
 RUN npx expo export -p web apps/mobile
