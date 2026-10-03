@@ -3,6 +3,7 @@ import { router, Stack } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -48,6 +49,8 @@ export default function SearchScreen() {
     highlightLinks,
     dyslexicFont,
     activeThresholds,
+    userLocation,
+    fetchUserLocation,
   } = useSession();
 
   const [activeTab, setActiveTab] = useState<'route' | 'place'>('route');
@@ -65,10 +68,22 @@ export default function SearchScreen() {
   const [debugVisible, setDebugVisible] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const handleUseMyLocation = () => {
-    // Explicit user tap as required by P3
-    setFromQuery('Moja lokalizacja (Centrum Krakowa)');
-    setFromPos({ lon: 19.9373, lat: 50.0619 });
+  const handleUseMyLocation = async () => {
+    if (userLocation) {
+      setFromQuery('Moja lokalizacja');
+      setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
+      return;
+    }
+    const result = await fetchUserLocation();
+    if (result) {
+      setFromQuery(result.address || 'Moja lokalizacja');
+      setFromPos({ lon: result.lon, lat: result.lat });
+    } else {
+      Alert.alert(
+        'Lokalizacja niedostępna',
+        'Nie udało się pobrać Twojej obecnej lokalizacji. Upewnij się, że masz włączony GPS i przyznane uprawnienia.',
+      );
+    }
   };
 
   const handleAnalyzeRoute = async () => {

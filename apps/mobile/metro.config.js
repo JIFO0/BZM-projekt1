@@ -20,6 +20,11 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+config.resolver.extraNodeModules = {
+  ...(config.resolver.extraNodeModules ?? {}),
+  'expo-location': path.resolve(workspaceRoot, 'node_modules/expo-location'),
+};
+
 // Exclude backend directory and graphhopper data cache from Metro bundler
 const backendPattern = new RegExp(
   `^${path.resolve(workspaceRoot, 'backend').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`

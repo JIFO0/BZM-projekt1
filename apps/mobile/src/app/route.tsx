@@ -55,6 +55,7 @@ export default function RouteScreen() {
     isHighContrast,
     increasedSpacing,
     dyslexicFont,
+    userLocation,
   } = useSession();
 
   const [showMap, setShowMap] = useState(true);
@@ -409,7 +410,13 @@ export default function RouteScreen() {
           onPress={() => setShowMap(!showMap)}
         />
 
-        {showMap ? <MapView route={activeWalkingRoute} findings={report.findings} /> : null}
+        {showMap ? (
+          <MapView
+            route={activeWalkingRoute}
+            findings={report.findings}
+            userLocation={userLocation}
+          />
+        ) : null}
 
         {/* ORDERED FINDINGS LIST (R3, R5, R6) */}
         <View style={styles.findingsSection}>

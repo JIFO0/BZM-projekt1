@@ -12,6 +12,11 @@ import { createContext, useContext, useMemo, useState, useCallback, type ReactNo
 
 import type { Locale } from '@/i18n/strings';
 import {
+  getCurrentUserLocation,
+  type UserCoordinates,
+  type UserLocationResult,
+} from '@/services/location';
+import {
   getColors,
   scaleFontSize,
   getLineHeight,
@@ -57,6 +62,12 @@ interface SessionValue {
   setActiveWalkingRoute: (route: WalkingRoute | null) => void;
   activePlaceReport: PlaceAnalysisReport | null;
   setActivePlaceReport: (report: PlaceAnalysisReport | null) => void;
+
+  // Real user GPS location
+  userLocation: UserCoordinates | null;
+  setUserLocation: (loc: UserCoordinates | null) => void;
+  isLocating: boolean;
+  fetchUserLocation: () => Promise<UserLocationResult | null>;
 
   // Accessibility & Design System State
   contrastMode: ContrastMode;
@@ -197,6 +208,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [activeWalkingRoute, setActiveWalkingRoute] = useState<WalkingRoute | null>(null);
   const [activePlaceReport, setActivePlaceReport] = useState<PlaceAnalysisReport | null>(null);
 
+  // User GPS location state
+  const [userLocation, setUserLocation] = useState<UserCoordinates | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+
+  const fetchUserLocation = useCallback(async (): Promise<UserLocationResult | null> => {
+    setIsLocating(true);
+    try {
+      const res = await getCurrentUserLocation();
+      if (res) {
+        setUserLocation({ lat: res.lat, lon: res.lon });
+      }
+      return res;
+    } finally {
+      setIsLocating(false);
+    }
+  }, []);
+
   // Advanced Public-Sector Accessibility State (WCAG 2.2 AAA)
   const [contrastMode, setContrastMode] = useState<ContrastMode>('standard-light');
   const [textSize, setTextSize] = useState<TextSize>('normal');
@@ -300,6 +328,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setActiveWalkingRoute,
       activePlaceReport,
       setActivePlaceReport,
+      userLocation,
+      setUserLocation,
+      isLocating,
+      fetchUserLocation,
       // Accessibility
       contrastMode,
       setContrastMode,
@@ -352,6 +384,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activeRouteReport,
       activeWalkingRoute,
       activePlaceReport,
+      userLocation,
+      isLocating,
+      fetchUserLocation,
       contrastMode,
       textSize,
       lineHeightMode,
