@@ -405,6 +405,7 @@ export default function MapHomeScreen() {
       if (result.selectedVariant) {
         selectRouteVariant(result.selectedVariant);
       }
+      setBarrierViewMode('route');
       setPopupExpanded(true);
       setActiveTab('route');
 
@@ -476,6 +477,7 @@ export default function MapHomeScreen() {
       if (result.selectedVariant) {
         selectRouteVariant(result.selectedVariant);
       }
+      setBarrierViewMode('route');
       if (result.walkingRoute.coordinates.length > 0) {
         setMapCenter({
           lat: result.walkingRoute.coordinates[0]![1],
@@ -714,26 +716,28 @@ export default function MapHomeScreen() {
         ) : null}
 
         {/* Floating Barrier View Mode Selector (Bez barier | Na trasie | Wszystkie) */}
-        <View
-          style={[
-            styles.floatingBarrierControlWrapper,
-            { top: activeWalkingRoute && activeRouteReport ? 62 : 14 },
-          ]}
-        >
-          <BarrierViewControl
-            mode={barrierViewMode}
-            onChangeMode={(newMode) => {
-              if (newMode === 'route' && !activeWalkingRoute) {
-                setStatusMessage(t(locale, 'noActiveRouteForBarriers'));
-                setTimeout(() => setStatusMessage(null), 3500);
-              }
-              setBarrierViewMode(newMode);
-            }}
-            routeBarriersCount={routeBarriers.length}
-            allBarriersCount={allCityBarriers.length}
-            hasActiveRoute={Boolean(activeWalkingRoute)}
-          />
-        </View>
+        {activeWalkingRoute ? (
+          <View
+            style={[
+              styles.floatingBarrierControlWrapper,
+              { top: activeRouteReport ? 62 : 14 },
+            ]}
+          >
+            <BarrierViewControl
+              mode={barrierViewMode}
+              onChangeMode={(newMode) => {
+                if (newMode === 'route' && !activeWalkingRoute) {
+                  setStatusMessage(t(locale, 'noActiveRouteForBarriers'));
+                  setTimeout(() => setStatusMessage(null), 3500);
+                }
+                setBarrierViewMode(newMode);
+              }}
+              routeBarriersCount={routeBarriers.length}
+              allBarriersCount={allCityBarriers.length}
+              hasActiveRoute={Boolean(activeWalkingRoute)}
+            />
+          </View>
+        ) : null}
 
         {/* Status Toast Notification */}
         {statusMessage ? (
@@ -1745,19 +1749,95 @@ export default function MapHomeScreen() {
                     <View style={styles.thresholdRow}>
                       <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
                         {t(locale, 'stepsTreatment')}{' '}
-                        <Text style={{ fontWeight: '800', color: activeThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
-                          {activeThresholds.stepsAreBlocker ? t(locale, 'blockedStatusBlocked') : t(locale, 'severityWarning')}
+                        <Text
+                          style={{
+                            fontWeight: '800',
+                            color:
+                              (activeThresholds.stepsTreatment ??
+                                (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'blocker'
+                                ? colors.blockerText
+                                : (activeThresholds.stepsTreatment ??
+                                    (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'warning'
+                                ? colors.warningText
+                                : colors.okText,
+                          }}
+                        >
+                          {(activeThresholds.stepsTreatment ??
+                            (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'blocker'
+                            ? t(locale, 'blockedStatusBlocked')
+                            : (activeThresholds.stepsTreatment ??
+                                (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'warning'
+                            ? t(locale, 'severityWarning')
+                            : t(locale, 'stepsAllowed')}
                         </Text>
                       </Text>
-                      <GovButton
-                        variant="secondary"
-                        title={activeThresholds.stepsAreBlocker ? (locale === 'pl' ? 'Zmień na: Ostrzeżenie (nie blokada)' : t(locale, 'toggleStepsStatus')) : (locale === 'pl' ? 'Zmień na: Blokada trasy' : t(locale, 'toggleStepsStatus'))}
-                        onPress={() =>
-                          updateActiveThresholds({
-                            stepsAreBlocker: !activeThresholds.stepsAreBlocker,
-                          })
-                        }
-                      />
+                      <View style={styles.presetChipsRow}>
+                        {[
+                          {
+                            id: 'blocker' as const,
+                            label: t(locale, 'blockedStatusBlocked'),
+                            bg: colors.blockerBg,
+                            border: colors.blockerBorder,
+                            text: colors.blockerText,
+                          },
+                          {
+                            id: 'warning' as const,
+                            label: t(locale, 'severityWarning'),
+                            bg: colors.warningBg,
+                            border: colors.warningBorder,
+                            text: colors.warningText,
+                          },
+                          {
+                            id: 'allowed' as const,
+                            label: t(locale, 'stepsAllowed'),
+                            bg: colors.okBg,
+                            border: colors.okBorder,
+                            text: colors.okText,
+                          },
+                        ].map((opt) => {
+                          const currentTreatment =
+                            activeThresholds.stepsTreatment ??
+                            (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning');
+                          const isSelected = currentTreatment === opt.id;
+                          return (
+                            <Pressable
+                              key={opt.id}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${t(locale, 'stepsTreatment')} ${opt.label}`}
+                              onPress={() =>
+                                updateActiveThresholds({
+                                  stepsTreatment: opt.id,
+                                  stepsAreBlocker: opt.id === 'blocker',
+                                })
+                              }
+                              style={[
+                                styles.presetChip,
+                                {
+                                  flex: 1,
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  backgroundColor: isSelected ? opt.bg : colors.background,
+                                  borderColor: isSelected ? opt.border : colors.border,
+                                  borderWidth: isSelected ? 2 : 1,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.presetChipText,
+                                  {
+                                    color: isSelected ? opt.text : colors.text,
+                                    fontSize: fontSize(12),
+                                    fontWeight: isSelected ? '800' : '600',
+                                  },
+                                ]}
+                              >
+                                {opt.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
                     </View>
                   </GovCard>
                 </View>

@@ -23,6 +23,7 @@ const pl = {
   surfaceSteps: 'Schody piesze',
   blockedStatusBlocked: 'ZABLOKOWANA',
   blockedStatusAllowed: 'DOZWOLONA',
+  stepsAllowed: 'Dozwolone',
   continue: 'Przejdź do wyszukiwania',
   privacy:
     'Współrzędne trasy wysyłane są wyłącznie do Mapy.com (geometria trasy) oraz publicznego API Overpass / OpenStreetMap (dane o barierach). Aplikacja nie wysyła żadnych identyfikatorów użytkownika ani danych osobowych.',
@@ -414,8 +415,9 @@ const en: typeof pl = {
   surfaceCompacted: 'Compacted gravel',
   surfacePavingStones: 'Paving stones',
   surfaceSteps: 'Pedestrian steps',
-  blockedStatusBlocked: 'BLOCKED',
-  blockedStatusAllowed: 'ALLOWED',
+  blockedStatusBlocked: 'Blocked',
+  blockedStatusAllowed: 'Allowed',
+  stepsAllowed: 'Allowed',
   continue: 'Continue to search',
   privacy:
     'Route coordinates are sent strictly to Mapy.com (route geometry) and public Overpass / OpenStreetMap API (barrier analysis). No personal or user identifiers are ever sent.',
@@ -806,6 +808,7 @@ const uk: typeof pl = {
   surfaceSteps: 'Пішохідні сходи',
   blockedStatusBlocked: 'ЗАБЛОКОВАНО',
   blockedStatusAllowed: 'ДОЗВОЛЕНО',
+  stepsAllowed: 'Дозволено',
   continue: 'Перейти до пошуку',
   privacy:
     'Координати маршруту надсилаються виключно до Mapy.com (геометрія маршруту) та публічного API Overpass / OpenStreetMap (дані про бар’єри). Додаток не передає жодних ідентифікаторів користувача чи персональних даних.',

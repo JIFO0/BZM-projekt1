@@ -102,6 +102,12 @@ describe('Route Analysis (T5)', () => {
 
     const sevWithRamp = evaluateFactSeverity(stepFactWithRamp, MOCK_CONFIG.profiles.wheelchair);
     expect(sevWithRamp.severity).toBe('warning');
+
+    const sevAllowed = evaluateFactSeverity(stepFactWithoutRamp, {
+      ...MOCK_CONFIG.profiles.wheelchair,
+      stepsTreatment: 'allowed',
+    });
+    expect(sevAllowed.severity).toBe('ok');
   });
 
   test('high kerb is blocker for wheelchair (120mm > 30mm)', () => {

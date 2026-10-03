@@ -173,8 +173,12 @@ export function mapGraphHopperPathToResult(
 
     // Steps analysis
     const hasSteps = roadClass === 'steps';
+    const stepsTreatment =
+      thresholds.stepsTreatment ?? (thresholds.stepsAreBlocker ? 'blocker' : 'warning');
     const stepsSeverity: Severity = hasSteps
-      ? thresholds.stepsAreBlocker
+      ? stepsTreatment === 'allowed'
+        ? 'ok'
+        : stepsTreatment === 'blocker'
         ? 'blocker'
         : 'warning'
       : 'ok';
@@ -224,7 +228,7 @@ export function mapGraphHopperPathToResult(
     const centerCoord = coordinates[midIdx] || coordinates[0];
     const distFromStart = Math.round(pointDistances[midIdx]);
 
-    if (hasSteps) {
+    if (hasSteps && stepsSeverity !== 'ok') {
       barriers.push({
         id: `barrier-steps-${segIdx}`,
         type: 'steps',
@@ -232,7 +236,7 @@ export function mapGraphHopperPathToResult(
         status: 'community',
         criterion: 'Schody',
         value: 'Schody piesze (highway=steps)',
-        message: thresholds.stepsAreBlocker
+        message: stepsSeverity === 'blocker'
           ? 'Schody stanowią blokadę dla wybranego profilu wózka'
           : 'Schody na trasie – zalecana ostrożność',
         lat: centerCoord[1],

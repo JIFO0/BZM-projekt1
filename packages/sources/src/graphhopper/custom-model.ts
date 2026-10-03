@@ -65,12 +65,15 @@ export function buildCustomModel(
     (thresholds.blockedRoadTypes ?? thresholds.blockedSurfaces ?? []).map((s) => s.toLowerCase().trim()),
   );
 
-  if (thresholds.stepsAreBlocker || blockedRoads.has('steps')) {
+  const treatment =
+    thresholds.stepsTreatment ?? (thresholds.stepsAreBlocker ? 'blocker' : 'warning');
+
+  if (treatment === 'blocker' || (treatment !== 'allowed' && blockedRoads.has('steps'))) {
     priority.push({
       if: 'road_class == STEPS',
       multiply_by: '0.0',
     });
-  } else {
+  } else if (treatment === 'warning') {
     // For profiles like stroller where steps are a warning/inconvenience rather than complete blocker
     priority.push({
       if: 'road_class == STEPS',

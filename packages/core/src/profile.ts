@@ -21,12 +21,16 @@ export function evaluateSteps(
 ): Severity {
   if (input.stepCount === null) return 'unknown';
   if (input.stepCount <= 0) return 'ok';
+  const treatment =
+    thresholds.stepsTreatment ?? (thresholds.stepsAreBlocker ? 'blocker' : 'warning');
+  if (treatment === 'allowed') return 'ok';
+  if (input.ramp === true) return 'warning';
   const blockedRoads = (thresholds.blockedRoadTypes ?? thresholds.blockedSurfaces ?? []).map((s) =>
     s.trim().toLowerCase(),
   );
   if (blockedRoads.includes('steps')) return 'blocker';
-  if (input.ramp === true) return 'warning';
-  return thresholds.stepsAreBlocker ? 'blocker' : 'warning';
+  if (treatment === 'blocker') return 'blocker';
+  return 'warning';
 }
 
 export function evaluateWidth(metres: number | null, thresholds: BarrierThresholds): Severity {

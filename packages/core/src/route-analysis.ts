@@ -156,10 +156,12 @@ export function evaluateFactSeverity(
 
   if (crit === 'wheelchair') {
     if (val === 'no' || val.includes('no')) {
+      const treatment = thresholds.stepsTreatment ?? (thresholds.stepsAreBlocker ? 'blocker' : 'warning');
+      const isBlocker = treatment === 'blocker';
       return {
-        severity: thresholds.stepsAreBlocker ? 'blocker' : 'warning',
+        severity: isBlocker ? 'blocker' : 'warning',
         type: 'wheelchair',
-        evidence: thresholds.stepsAreBlocker
+        evidence: isBlocker
           ? 'Niedostępne dla wózka'
           : 'Ograniczenie dostępności dla wózka',
       };
