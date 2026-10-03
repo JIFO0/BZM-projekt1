@@ -1077,7 +1077,6 @@ export default function MapHomeScreen() {
               {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
               {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length} {t(locale, 'severityBlocker').toLowerCase()}
             </Text>
-            <CaretUp size={16} weight="bold" color={colors.accent} />
           </Pressable>
         ) : null}
 
@@ -1194,18 +1193,11 @@ export default function MapHomeScreen() {
                 {getProfileLabel(profileId)}
               </Text>
             </View>
-            <View style={styles.sheetToggleBtn}>
-              {!popupExpanded ? (
-                <Text style={[styles.toggleText, { color: colors.muted, fontSize: fontSize(12) }]}>
-                  {t(locale, 'expandMenu')}
-                </Text>
-              ) : null}
-              {popupExpanded ? (
+            {popupExpanded ? (
+              <View style={styles.sheetToggleBtn}>
                 <CaretDown size={14} weight="bold" color={colors.accent} />
-              ) : (
-                <CaretUp size={14} weight="bold" color={colors.accent} />
-              )}
-            </View>
+              </View>
+            ) : null}
           </View>
         </Pressable>
 
@@ -1628,27 +1620,6 @@ export default function MapHomeScreen() {
                             {t(locale, 'facilitiesCount')}
                           </Text>
                         </View>
-                      </View>
-
-                      {/* Barrier View Mode Selection on Card */}
-                      <View style={{ marginTop: 12, marginBottom: 4 }}>
-                        <Text style={[styles.fieldLabel, { color: colors.muted, fontSize: fontSize(12), marginBottom: 6 }]}>
-                          {t(locale, 'barrierViewModeLabel')}:
-                        </Text>
-                        <BarrierViewControl
-                          compact
-                          mode={barrierViewMode}
-                          onChangeMode={(newMode) => {
-                            if (newMode === 'route' && !activeWalkingRoute) {
-                              setStatusMessage(t(locale, 'noActiveRouteForBarriers'));
-                              setTimeout(() => setStatusMessage(null), 3500);
-                            }
-                            setBarrierViewMode(newMode);
-                          }}
-                          routeBarriersCount={routeBarriers.length}
-                          allBarriersCount={allCityBarriers.length}
-                          hasActiveRoute={Boolean(activeWalkingRoute)}
-                        />
                       </View>
 
                       <View style={styles.routeActionRow}>
