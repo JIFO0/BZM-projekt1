@@ -10,6 +10,16 @@ export interface RouteRequest {
   thresholds?: BarrierThresholds;
 }
 
+/**
+ * Piece of a walked line coloured by surface.
+ * `ok` — surface is on the profile okay-list, or OSM has no surface tag.
+ * `other` — a mapped surface outside that list.
+ */
+export interface RouteSurfaceSpan {
+  coordinates: Array<[number, number]>;
+  tone: 'ok' | 'other';
+}
+
 /** A walking route from a routing provider. Not an accessibility verdict. */
 export interface WalkingRoute {
   provider: string;
@@ -18,6 +28,11 @@ export interface WalkingRoute {
   /** GeoJSON LineString coordinates: [lon, lat]. */
   coordinates: Array<[number, number]>;
   retrievedAt: string;
+  /**
+   * Set only when a barrier-free walk would be an unreasonable detour.
+   * The map paints `ok` blue and `other` orange.
+   */
+  surfaceSpans?: RouteSurfaceSpan[];
 }
 
 export interface PlaceHit {

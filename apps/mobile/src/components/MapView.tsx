@@ -149,6 +149,12 @@ export function MapView({
   // htmlContent is memoized so it does NOT reload on userLocation updates
   const htmlContent = useMemo(() => {
     const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
+    const surfaceSpans = (route?.surfaceSpans ?? []).map((span) => ({
+      tone: span.tone,
+      coordinates: span.coordinates.map(([lon, lat]) => [lat, lon]),
+    }));
+    const okRouteColor = isHighContrast ? '#42A5F5' : '#005CA9';
+    const otherRouteColor = '#F57C00';
 
     const markersData = findings.map((f, i) => {
       let color = colors.infoBorder;
@@ -307,10 +313,19 @@ export function MapView({
     }).addTo(map);
 
     var routeCoords = ${JSON.stringify(routeGeoJsonCoords)};
+    var surfaceSpans = ${JSON.stringify(surfaceSpans)};
+    var routeLine = null;
     if (routeCoords.length > 0) {
-      var routeLineBg = L.polyline(routeCoords, { color: '#FFFFFF', weight: 8, opacity: 0.95 }).addTo(map);
-      var routeLine = L.polyline(routeCoords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(map);
-      map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+      L.polyline(routeCoords, { color: '#FFFFFF', weight: 8, opacity: 0.95 }).addTo(map);
+      if (surfaceSpans.length > 0) {
+        surfaceSpans.forEach(function(span) {
+          var color = span.tone === 'other' ? '${otherRouteColor}' : '${okRouteColor}';
+          routeLine = L.polyline(span.coordinates, { color: color, weight: 5, opacity: 0.95 }).addTo(map);
+        });
+      } else {
+        routeLine = L.polyline(routeCoords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(map);
+      }
+      map.fitBounds(L.polyline(routeCoords).getBounds(), { padding: [40, 40] });
     }
 
     var startPin = ${JSON.stringify(startPin)};
@@ -440,6 +455,7 @@ export function MapView({
     colors.warningBorder,
     colors.okBorder,
     colors.unknownBorder,
+    isHighContrast,
     locale,
     isPickingMode,
   ]);

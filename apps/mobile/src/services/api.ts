@@ -106,7 +106,10 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
         thresholds: params.thresholds,
       });
       routed = true;
-      fallbackNotice = 'Trasa zoptymalizowana przez silnik GraphHopper (dynamiczne wagi barier).';
+      const hasOtherSurface = walkingRoute.surfaceSpans?.some((span) => span.tone === 'other');
+      fallbackNotice = hasOtherSurface
+        ? 'Objazd bez barier wychodzi poza rozsądny dystans, więc trasa idzie krócej po chodniku. Niebieski odcinek ma nawierzchnię z listy „okej”, pomarańczowy — inną.'
+        : 'Trasa zoptymalizowana przez silnik GraphHopper (dynamiczne wagi barier).';
     } catch {
       // GraphHopper unavailable or point out of sample bounds
     }

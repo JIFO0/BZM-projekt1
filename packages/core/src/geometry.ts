@@ -114,6 +114,29 @@ export function findNearestPointOnRoute(
   };
 }
 
+/**
+ * Largest distance from any sample of `points` to the polyline `line`.
+ * Used to tell a barrier-free route that stays near the practical walk
+ * from one that swings off in another direction.
+ */
+export function maxOffsetFromPolylineMetres(
+  points: Array<[number, number]>,
+  line: Array<[number, number]>,
+): number {
+  if (points.length === 0 || line.length === 0) return 0;
+  const step = points.length > 400 ? Math.ceil(points.length / 400) : 1;
+  let max = 0;
+  for (let i = 0; i < points.length; i += step) {
+    const point = points[i]!;
+    const nearest = findNearestPointOnRoute(line, { lon: point[0], lat: point[1] });
+    if (nearest && nearest.distanceToLineMetres > max) max = nearest.distanceToLineMetres;
+  }
+  const last = points[points.length - 1]!;
+  const nearestLast = findNearestPointOnRoute(line, { lon: last[0], lat: last[1] });
+  if (nearestLast && nearestLast.distanceToLineMetres > max) max = nearestLast.distanceToLineMetres;
+  return max;
+}
+
 /** Check if latitude and longitude are within valid geographic bounds. */
 export function isValidCoordinate(lat: number, lon: number): boolean {
   return (

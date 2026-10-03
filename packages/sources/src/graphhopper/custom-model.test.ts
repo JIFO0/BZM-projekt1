@@ -81,6 +81,23 @@ describe('buildCustomModel', () => {
     expect(smoothnessRule).toBeDefined();
   });
 
+  it('prefers sidewalks by lowering carriageway priority', () => {
+    const model = buildCustomModel(wheelchairThresholds);
+    const sidewalkRule = model.priority?.find((r) => r.if.includes('road_class == RESIDENTIAL'));
+    expect(sidewalkRule?.multiply_by).toBe('0.35');
+    expect(sidewalkRule?.if).not.toContain('FOOTWAY');
+  });
+
+  it('practical mode keeps sidewalk preference and does not forbid surfaces', () => {
+    const model = buildCustomModel(
+      { ...wheelchairThresholds, blockedRoadTypes: ['cobblestone'] },
+      { mode: 'practical' },
+    );
+    expect(model.priority).toHaveLength(1);
+    expect(model.priority?.[0]?.if).toContain('road_class == RESIDENTIAL');
+    expect(model.priority?.some((r) => r.multiply_by === '0.0')).toBe(false);
+  });
+
   it('completely blocks (multiply_by 0.0) surfaces in blockedRoadTypes such as cobblestone', () => {
     const model = buildCustomModel({
       ...wheelchairThresholds,
