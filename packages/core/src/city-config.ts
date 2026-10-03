@@ -35,6 +35,7 @@ export interface CityConfig {
     language: 'pl' | 'en';
     tileMapset: 'basic' | 'outdoor' | 'aerial' | 'names-overlay' | 'winter';
   };
+  apiBase: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -69,8 +70,8 @@ function readThresholds(value: unknown, profile: ProfileId): BarrierThresholds {
   const rawBlocked = Array.isArray(value.blockedRoadTypes)
     ? value.blockedRoadTypes
     : Array.isArray(value.blockedSurfaces)
-    ? value.blockedSurfaces
-    : [];
+      ? value.blockedSurfaces
+      : [];
   const blockedRoadTypes = rawBlocked.filter((item): item is string => typeof item === 'string');
 
   return {
@@ -173,5 +174,6 @@ export function parseCityConfig(input: unknown): CityConfig {
       language,
       tileMapset,
     },
+    apiBase: readString(input, 'apiBase'),
   };
 }

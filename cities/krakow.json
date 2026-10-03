@@ -2,7 +2,10 @@
   "id": "krakow",
   "displayName": "Kraków",
   "defaultLanguage": "pl",
-  "languages": ["pl", "en"],
+  "languages": [
+    "pl",
+    "en"
+  ],
   "teamId": null,
   "demoArea": {
     "label": "Rynek Główny – Kazimierz – Wawel – Planty",
@@ -31,15 +34,28 @@
       "minWidthMetres": 0.9,
       "maxInclinePercent": 6,
       "stepsAreBlocker": true,
-      "allowedSurfaces": ["asphalt", "concrete", "paving_stones", "compacted"],
-      "blockedRoadTypes": ["cobblestone"]
+      "allowedSurfaces": [
+        "asphalt",
+        "concrete",
+        "paving_stones",
+        "compacted"
+      ],
+      "blockedRoadTypes": [
+        "cobblestone"
+      ]
     },
     "stroller": {
       "maxKerbMillimetres": 60,
       "minWidthMetres": 0.75,
       "maxInclinePercent": 8,
       "stepsAreBlocker": false,
-      "allowedSurfaces": ["asphalt", "concrete", "paving_stones", "compacted", "fine_gravel"],
+      "allowedSurfaces": [
+        "asphalt",
+        "concrete",
+        "paving_stones",
+        "compacted",
+        "fine_gravel"
+      ],
       "blockedRoadTypes": []
     },
     "custom": {
@@ -47,8 +63,15 @@
       "minWidthMetres": 0.9,
       "maxInclinePercent": 6,
       "stepsAreBlocker": true,
-      "allowedSurfaces": ["asphalt", "concrete", "paving_stones", "compacted"],
-      "blockedRoadTypes": ["cobblestone"]
+      "allowedSurfaces": [
+        "asphalt",
+        "concrete",
+        "paving_stones",
+        "compacted"
+      ],
+      "blockedRoadTypes": [
+        "cobblestone"
+      ]
     }
   },
   "overpass": {
@@ -61,5 +84,6 @@
     "geometryFormat": "geojson",
     "language": "pl",
     "tileMapset": "basic"
-  }
+  },
+  "apiBase": "http://localhost:3000"
 }

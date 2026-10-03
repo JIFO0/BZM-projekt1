@@ -1,6 +1,6 @@
 import { parseCityConfig } from './city-config';
 import { analyzeRoute, evaluateFactSeverity } from './route-analysis';
-import type { Fact, ProfileId } from './types';
+import type { Fact } from './types';
 
 const MOCK_CONFIG = parseCityConfig({
   id: 'krakow',
@@ -46,6 +46,7 @@ const MOCK_CONFIG = parseCityConfig({
     language: 'pl',
     tileMapset: 'basic',
   },
+  apiBase: 'https://localhost:3000',
 });
 
 describe('Route Analysis (T5)', () => {
