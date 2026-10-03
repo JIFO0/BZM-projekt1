@@ -309,7 +309,7 @@ export default function SearchScreen() {
               <LocationPicker
                 label={t(locale, 'from')}
                 badge="A"
-                badgeColor="#005CA9"
+                badgeColor="#22C55E"
                 point={{ name: fromQuery, position: fromPos }}
                 onChangePoint={(p) => {
                   setFromQuery(p.name);
