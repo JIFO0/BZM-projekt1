@@ -48,7 +48,12 @@ export interface LocalReport {
   id: string;
   description: string;
   createdAt: string;
-  status: 'reported';
+  status: 'reported' | 'confirmed' | 'resolved';
+  photoUrl?: string;
+  category?: 'hole' | 'obstacle' | 'flood' | 'surface' | 'other';
+  position?: { lat: number; lon: number };
+  stillHereCount?: number;
+  fixedCount?: number;
 }
 
 export interface DebugState {
@@ -86,7 +91,14 @@ interface SessionValue {
   debugState: DebugState;
   setDebugState: (updater: (prev: DebugState) => DebugState) => void;
   localReports: LocalReport[];
-  addLocalReport: (description: string) => void;
+  addLocalReport: (
+    description: string,
+    extra?: {
+      photoUrl?: string;
+      category?: 'hole' | 'obstacle' | 'flood' | 'surface' | 'other';
+      position?: { lat: number; lon: number };
+    }
+  ) => void;
   activeRouteReport: RouteReport | null;
   setActiveRouteReport: (report: RouteReport | null) => void;
   activeWalkingRoute: WalkingRoute | null;
@@ -651,12 +663,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setReadingMask(false);
   }, [setContrastMode, setTextSize]);
 
-  const addLocalReport = (description: string) => {
+  const addLocalReport = (
+    description: string,
+    extra?: {
+      photoUrl?: string;
+      category?: 'hole' | 'obstacle' | 'flood' | 'surface' | 'other';
+      position?: { lat: number; lon: number };
+    }
+  ) => {
     const newReport: LocalReport = {
       id: `local-report-${Date.now()}`,
       description,
       createdAt: new Date().toISOString(),
       status: 'reported',
+      photoUrl: extra?.photoUrl,
+      category: extra?.category || 'obstacle',
+      position: extra?.position,
+      stillHereCount: 0,
+      fixedCount: 0,
     };
     setLocalReports((prev) => [newReport, ...prev]);
   };

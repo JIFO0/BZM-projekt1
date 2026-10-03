@@ -41,12 +41,17 @@ export class OsmRoutingProvider implements RoutingProvider {
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
+      const headers: Record<string, string> = {
+        Accept: 'application/json',
+      };
+      const isBrowser = typeof globalThis !== 'undefined' && 'window' in globalThis;
+      if (!isBrowser) {
+        headers['User-Agent'] = 'KrakowBezBarier/0.1 (HackYeah 2026 prototype; contact@example.com)';
+      }
+
       const response = await this.fetchFn(url, {
         method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'KrakowBezBarier/0.1 (HackYeah 2026 prototype; contact@example.com)',
-        },
+        headers,
         signal: controller.signal,
       });
 

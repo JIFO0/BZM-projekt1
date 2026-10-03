@@ -1,3 +1,4 @@
+import { credibilityFromSource } from '@krakow-bez-barier/core';
 import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 import type { AccessibleRouteResult, RouteBarrier } from '@krakow-bez-barier/sources';
 import { darkColors, lightColors } from '@/theme/tokens';
@@ -8,6 +9,7 @@ import {
   t,
   type Locale,
 } from '@/i18n/strings';
+import { CredibilityNote, sourceWithCredit } from './CredibilityNote';
 
 interface BarriersListProps {
   route: AccessibleRouteResult;
@@ -108,6 +110,12 @@ export function BarriersList({ route, locale }: BarriersListProps) {
             const localizedCrit = getLocalizedFindingType(barrier.criterion, locale);
             const localizedVal = getLocalizedFactValue(barrier.value, locale);
             const localizedMsg = getLocalizedBarrierMessage(barrier, locale) || barrier.message;
+            const credibility = credibilityFromSource({
+              name: barrier.source.name,
+              licence: barrier.source.licence,
+              status: barrier.status,
+            });
+            const sourceLine = sourceWithCredit(barrier.source.name, barrier.source.licence);
 
             return (
               <View
@@ -134,9 +142,12 @@ export function BarriersList({ route, locale }: BarriersListProps) {
 
                 <Text style={[styles.body, { color: colors.text }]}>{localizedMsg}</Text>
 
+                <CredibilityNote assessment={credibility} locale={locale} />
+
                 <View style={styles.footerRow}>
                   <Text style={[styles.sourceText, { color: colors.muted }]}>
-                    {t(locale, 'source')}: {barrier.source.name} ({barrier.source.licence})
+                    {t(locale, 'source')}: {sourceLine}
+                    {barrier.source.licence ? ` (${barrier.source.licence})` : ''}
                   </Text>
                 </View>
               </View>

@@ -1,12 +1,16 @@
-import { DEMO_SNAPSHOT, findConflicts, isStale } from '@krakow-bez-barier/core';
+import { DEMO_SNAPSHOT, findConflicts, isStale, credibilityFromReports } from '@krakow-bez-barier/core';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,8 +27,15 @@ import {
   Tree,
   NotePencil,
   NavigationArrow,
+  Camera,
+  Image as ImageIcon,
+  Trash,
+  Plus,
+  ThumbsUp,
+  ThumbsDown,
 } from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
+import { CredibilityNote } from '@/components/CredibilityNote';
 import { DemoBanner } from '@/components/DemoBanner';
 import { FactRow } from '@/components/FactRow';
 import { GovButton } from '@/components/GovButton';
@@ -32,7 +43,14 @@ import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { t } from '@/i18n/strings';
-import { inspectPlace } from '@/services/api';
+import {
+  inspectPlace,
+  fetchPlaceServerComments,
+  addPlaceServerComment,
+  uploadPhotoToServer,
+  ServerPlaceComment,
+} from '@/services/api';
+import { pickPhotoAsync } from '@/services/photo';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -86,9 +104,24 @@ export default function PlaceScreen() {
 
   const [debugVisible, setDebugVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [placeComments, setPlaceComments] = useState<ServerPlaceComment[]>([]);
+  const [showAddComment, setShowAddComment] = useState(false);
+  const [commentSentiment, setCommentSentiment] = useState<'positive' | 'negative'>('positive');
+  const [commentCategory, setCommentCategory] = useState<'entrance' | 'inside' | 'toilet' | 'surroundings' | 'general'>('entrance');
+  const [commentText, setCommentText] = useState('');
+  const [commentPhoto, setCommentPhoto] = useState<string | null>(null);
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   const rawParams = useLocalSearchParams();
   const placeParams = useMemo(() => extractPlaceParams(rawParams), [rawParams]);
+
+  useEffect(() => {
+    if (!activePlaceReport?.placeName) return;
+    const placeId = `place-${activePlaceReport.placeName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    fetchPlaceServerComments(placeId)
+      .then((c) => setPlaceComments(c))
+      .catch(() => {});
+  }, [activePlaceReport?.placeName]);
 
   useEffect(() => {
     if (activePlaceReport) return;
@@ -210,6 +243,54 @@ export default function PlaceScreen() {
       }
     } catch {
       router.replace('/');
+    }
+  };
+
+  const handleAddPlaceComment = async () => {
+    if (!report?.placeName) return;
+    if (!commentText.trim() && !commentPhoto) {
+      Alert.alert(
+        locale === 'pl' ? 'Uwaga' : 'Warning',
+        locale === 'pl'
+          ? 'Wpisz opis weryfikacji lub dołącz zdjęcie.'
+          : 'Please enter verification description or attach a photo.'
+      );
+      return;
+    }
+    setCommentSubmitting(true);
+    try {
+      let photoUrl: string | undefined;
+      if (commentPhoto) {
+        photoUrl = (await uploadPhotoToServer(commentPhoto)) || commentPhoto;
+      }
+      const placeId = `place-${report.placeName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      const newComment = await addPlaceServerComment(placeId, {
+        sentiment: commentSentiment,
+        category: commentCategory,
+        comment:
+          commentText.trim() ||
+          (commentSentiment === 'positive'
+            ? 'Dostępność potwierdzona ze zdjęciem'
+            : 'Zgłoszenie utrudnienia ze zdjęciem'),
+        photoUrl,
+      });
+      setPlaceComments((prev) => [newComment, ...prev]);
+      setCommentText('');
+      setCommentPhoto(null);
+      setShowAddComment(false);
+      Alert.alert(
+        locale === 'pl' ? 'Dziękujemy!' : 'Thank you!',
+        locale === 'pl'
+          ? 'Twoja weryfikacja ze zdjęciem została opublikowana na serwerze i jest widoczna dla wszystkich.'
+          : 'Your photo validation has been published to the server and is visible to everyone.'
+      );
+    } catch (err: any) {
+      Alert.alert(
+        locale === 'pl' ? 'Błąd' : 'Error',
+        err.message || 'Nie udało się dodać weryfikacji.'
+      );
+    } finally {
+      setCommentSubmitting(false);
     }
   };
 
@@ -392,6 +473,286 @@ export default function PlaceScreen() {
           locale={locale}
         />
 
+        {/* Community Accessibility Validations & Photos */}
+        <GovCard variant="default">
+          <View style={styles.inlineHeaderRow}>
+            <Camera size={20} color={colors.accent} weight="bold" />
+            <Text accessibilityRole="header" style={[styles.catTitle, { color: colors.text, fontSize: fontSize(17.5) }]}>
+              {locale === 'pl' ? 'Weryfikacje dostępności i zdjęcia mieszkańców' : 'Accessibility Photos & Community Validations'}
+            </Text>
+          </View>
+          <Text style={{ color: colors.muted, fontSize: fontSize(13.5), lineHeight: fontSize(20), marginTop: 4 }}>
+            {locale === 'pl'
+              ? 'Weryfikuj stan ramp, wind, toalet PRM lub nawierzchni zdjęciem z miejsca. Wszystkie zdjęcia są natychmiast widoczne dla społeczności.'
+              : 'Validate ramps, elevators, accessible toilets, or paths with a photo. Photos are instantly visible to the community.'}
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowAddComment(!showAddComment)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 8,
+              backgroundColor: colors.accent,
+              marginTop: 10,
+            }}
+          >
+            <Plus size={16} weight="bold" color={colors.accentText} />
+            <Text style={{ color: colors.accentText, fontWeight: '700', fontSize: fontSize(13.5) }}>
+              {showAddComment
+                ? (locale === 'pl' ? 'Anuluj dodawanie' : 'Cancel')
+                : (locale === 'pl' ? 'Dodaj weryfikację ze zdjęciem' : 'Add photo validation')}
+            </Text>
+          </Pressable>
+
+          {showAddComment ? (
+            <View style={{ marginTop: 12, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, gap: 10 }}>
+              <Text style={{ color: colors.text, fontSize: fontSize(13), fontWeight: '700' }}>
+                {locale === 'pl' ? 'Stan dostępności:' : 'Accessibility status:'}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setCommentSentiment('positive')}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                    backgroundColor: commentSentiment === 'positive' ? colors.okBg : colors.surface,
+                    borderColor: commentSentiment === 'positive' ? colors.okBorder : colors.border,
+                    borderWidth: 1.5,
+                  }}
+                >
+                  <ThumbsUp size={16} weight="bold" color={commentSentiment === 'positive' ? colors.okText : colors.text} />
+                  <Text style={{ fontSize: fontSize(13), fontWeight: '700', color: commentSentiment === 'positive' ? colors.okText : colors.text }}>
+                    {locale === 'pl' ? 'Dostępne' : 'Accessible'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setCommentSentiment('negative')}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                    backgroundColor: commentSentiment === 'negative' ? colors.blockerBg : colors.surface,
+                    borderColor: commentSentiment === 'negative' ? colors.blockerBorder : colors.border,
+                    borderWidth: 1.5,
+                  }}
+                >
+                  <ThumbsDown size={16} weight="bold" color={commentSentiment === 'negative' ? colors.blockerText : colors.text} />
+                  <Text style={{ fontSize: fontSize(13), fontWeight: '700', color: commentSentiment === 'negative' ? colors.blockerText : colors.text }}>
+                    {locale === 'pl' ? 'Bariera' : 'Barrier'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text style={{ color: colors.text, fontSize: fontSize(13), fontWeight: '700' }}>
+                {locale === 'pl' ? 'Obszar:' : 'Category:'}
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {[
+                  { id: 'entrance' as const, label: locale === 'pl' ? 'Wejście' : 'Entrance' },
+                  { id: 'inside' as const, label: locale === 'pl' ? 'Wnętrze' : 'Inside' },
+                  { id: 'toilet' as const, label: locale === 'pl' ? 'Toaleta PRM' : 'Accessible Toilet' },
+                  { id: 'surroundings' as const, label: locale === 'pl' ? 'Otoczenie' : 'Surroundings' },
+                  { id: 'general' as const, label: locale === 'pl' ? 'Ogólne' : 'General' },
+                ].map((cat) => (
+                  <Pressable
+                    key={cat.id}
+                    accessibilityRole="button"
+                    onPress={() => setCommentCategory(cat.id)}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 6,
+                      backgroundColor: commentCategory === cat.id ? colors.accent : colors.surface,
+                      borderColor: commentCategory === cat.id ? colors.accent : colors.border,
+                      borderWidth: 1,
+                    }}
+                  >
+                    <Text style={{ fontSize: fontSize(12), fontWeight: '600', color: commentCategory === cat.id ? colors.accentText : colors.text }}>
+                      {cat.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              <TextInput
+                value={commentText}
+                onChangeText={setCommentText}
+                placeholder={locale === 'pl' ? 'Opis weryfikacji (np. rampa ma odpowiedni kąt nachylenia)...' : 'Verification details...'}
+                placeholderTextColor={colors.muted}
+                multiline
+                numberOfLines={3}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.surface,
+                    color: colors.text,
+                    borderColor: colors.border,
+                    fontSize: fontSize(13.5),
+                    minHeight: 60,
+                  },
+                ]}
+              />
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={async () => {
+                    const photo = await pickPhotoAsync('camera', locale);
+                    if (photo) setCommentPhoto(photo);
+                  }}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                  }}
+                >
+                  <Camera size={16} weight="bold" color={colors.accent} />
+                  <Text style={{ fontSize: fontSize(12.5), fontWeight: '700', color: colors.text }}>
+                    {locale === 'pl' ? 'Aparat' : 'Camera'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={async () => {
+                    const photo = await pickPhotoAsync('library', locale);
+                    if (photo) setCommentPhoto(photo);
+                  }}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                  }}
+                >
+                  <ImageIcon size={16} weight="bold" color={colors.accent} />
+                  <Text style={{ fontSize: fontSize(12.5), fontWeight: '700', color: colors.text }}>
+                    {locale === 'pl' ? 'Galeria' : 'Gallery'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {commentPhoto ? (
+                <View style={{ position: 'relative', height: 160, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
+                  <Image source={{ uri: commentPhoto }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Usuń zdjęcie"
+                    onPress={() => setCommentPhoto(null)}
+                    style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 16, padding: 6 }}
+                  >
+                    <Trash size={14} color="#FFF" weight="bold" />
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <GovButton
+                title={commentSubmitting ? (locale === 'pl' ? 'Wysyłanie na serwer...' : 'Uploading...') : (locale === 'pl' ? 'Opublikuj weryfikację ze zdjęciem' : 'Publish photo validation')}
+                variant="primary"
+                disabled={commentSubmitting}
+                loading={commentSubmitting}
+                onPress={handleAddPlaceComment}
+              />
+            </View>
+          ) : null}
+
+          {/* List of Place Validations & Photos */}
+          <View style={{ marginTop: 14, gap: 10 }}>
+            {placeComments.length === 0 ? (
+              <Text style={{ color: colors.muted, fontSize: fontSize(13), fontStyle: 'italic' }}>
+                {locale === 'pl'
+                  ? 'Brak opublikowanych zdjęć dla tego obiektu. Bądź pierwszym, który zweryfikuje dostępność!'
+                  : 'No photo reviews for this place yet. Be the first to validate accessibility!'}
+              </Text>
+            ) : (
+              <>
+                {(['negative', 'positive'] as const).map((sentiment) => {
+                  const group = placeComments.filter((c) => c.sentiment === sentiment);
+                  if (group.length === 0) return null;
+                  const photos = group.filter((c) => c.photoUrl).length;
+                  return (
+                    <CredibilityNote
+                      key={sentiment}
+                      locale={locale}
+                      assessment={credibilityFromReports({
+                        supportCount: Math.max(0, group.length - 1),
+                        photoCount: photos,
+                      })}
+                    />
+                  );
+                })}
+                {placeComments.map((pc) => (
+                <View
+                  key={pc.id}
+                  style={{
+                    padding: 10,
+                    borderRadius: 8,
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: pc.sentiment === 'positive' ? colors.okBorder : colors.blockerBorder,
+                    gap: 6,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: fontSize(13), fontWeight: '700', color: pc.sentiment === 'positive' ? colors.okText : colors.blockerText }}>
+                      {pc.sentiment === 'positive'
+                        ? (locale === 'pl' ? 'Dostępne' : 'Accessible')
+                        : (locale === 'pl' ? 'Bariera' : 'Barrier')}
+                      {pc.category ? ` · ${pc.category}` : ''}
+                    </Text>
+                    <Text style={{ fontSize: fontSize(11.5), color: colors.muted }}>
+                      {pc.createdAt?.slice(0, 10)}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: fontSize(13.5), color: colors.text, fontWeight: '500' }}>
+                    {pc.comment}
+                  </Text>
+                  <Text style={{ fontSize: fontSize(12), color: colors.muted }}>
+                    {locale === 'pl' ? 'Zgłoszenie mieszkańca' : 'Resident report'}
+                  </Text>
+                  {pc.photoUrl ? (
+                    <View style={{ height: 160, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, marginTop: 4 }}>
+                      <Image source={{ uri: pc.photoUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    </View>
+                  ) : null}
+                </View>
+                ))}
+              </>
+            )}
+          </View>
+        </GovCard>
+
         <GovButton
           title={t(locale, 'reportCorrection')}
           icon={<NotePencil size={18} color={colors.text} weight="bold" />}
@@ -535,5 +896,10 @@ const styles = StyleSheet.create({
   loadingText: {
     fontWeight: '700',
     textAlign: 'center',
+  },
+  input: {
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
   },
 });

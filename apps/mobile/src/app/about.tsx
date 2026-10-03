@@ -1,4 +1,5 @@
 import {
+  CREDIBILITY_LADDER,
   DEMO_SNAPSHOT,
   GEOPORTAL_BDOT10K_ATTRIBUTION,
   MAPY_ATTRIBUTION,
@@ -20,6 +21,7 @@ import {
   LockKey,
 } from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
+import { credibilityLabel } from '@/components/CredibilityNote';
 import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
@@ -212,6 +214,26 @@ export default function AboutScreen() {
                   ? 'Законом про цифрову доступність вебсайтів і мобільних додатків публічних суб’єктів.'
                   : 'Polish Act of 4 April 2019 on digital accessibility of public entities websites and mobile applications.'}
           </Text>
+        </GovCard>
+
+        <GovCard variant="default">
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+          >
+            {t(locale, 'credibilityLegendTitle')}
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14), lineHeight: fontSize(21) }]}>
+            {t(locale, 'credibilityLegendLead')}
+          </Text>
+          {CREDIBILITY_LADDER.map((row) => (
+            <Text
+              key={row.rank}
+              style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}
+            >
+              {row.score} · {credibilityLabel(locale, row.rank)}
+            </Text>
+          ))}
         </GovCard>
 
         {/* Demo snapshot info */}

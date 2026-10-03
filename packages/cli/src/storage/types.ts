@@ -1,6 +1,15 @@
 export type HazardCategory = 'hole' | 'obstacle' | 'flood' | 'surface' | 'other';
 export type HazardStatus = 'reported' | 'confirmed' | 'resolved';
 
+export interface HazardValidation {
+  id: string;
+  voterKey: string;
+  action: 'still_here' | 'fixed';
+  photoUrl?: string;
+  comment?: string;
+  createdAt: string;
+}
+
 export interface RouteHazard {
   id: string;                     // e.g. "hazard-1728000000-xyz"
   description: string;            // Text description of the obstacle
@@ -13,6 +22,8 @@ export interface RouteHazard {
     lon: number;
   };
   category?: HazardCategory;      // 'hole' | 'obstacle' | 'flood' | 'surface' | 'other'
+  photoUrl?: string;              // URL of photo evidence
+  validations?: HazardValidation[]; // List of photo-based community validations
   stillHereCount: number;         // Count of active "still_here" confirmations
   fixedCount: number;             // Count of active "fixed" confirmations
 }
@@ -23,6 +34,8 @@ export interface HazardVoteRecord {
   hazardId: string;
   voterKey: string;               // Normalized email or admin identifier
   currentVote: 'still_here' | 'fixed';
+  photoUrl?: string;
+  comment?: string;
   updatedAt: string;
 }
 
@@ -41,6 +54,7 @@ export interface PlaceComment {
   comment: string;                // User feedback text
   category?: PlaceFeatureCategory;// 'entrance' | 'inside' | 'toilet' | 'surroundings' | 'general'
   email?: string;                 // Required on /api/, optional in storage & on /admin/
+  photoUrl?: string;              // URL of photo evidence
   createdAt: string;              // ISO 8601 string
 }
 

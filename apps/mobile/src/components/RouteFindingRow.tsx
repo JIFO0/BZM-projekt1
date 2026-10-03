@@ -1,4 +1,4 @@
-import { dateLabel, type RouteFinding } from '@krakow-bez-barier/core';
+import { credibilityFromSource, dateLabel, type RouteFinding } from '@krakow-bez-barier/core';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CaretDown, CaretUp } from 'phosphor-react-native';
@@ -11,6 +11,7 @@ import {
 } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
+import { CredibilityNote, credibilityLabel, sourceWithCredit } from './CredibilityNote';
 import { StatusBadge } from './StatusBadge';
 
 interface RouteFindingRowProps {
@@ -49,13 +50,22 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
           ? t(locale, 'severityOk')
           : t(locale, 'statusUnknown');
 
+  const credibility = credibilityFromSource({
+    name: fact.source.name,
+    licence: fact.source.licence,
+    status: fact.status,
+    hasAuditDate: Boolean(fact.lastConfirmedAt),
+  });
+  const sourceLine = sourceWithCredit(fact.source.name, fact.source.licence);
+  const indexLabel = `${t(locale, 'credibilityIndex')} ${credibility.score} · ${credibilityLabel(locale, credibility.rank)}`;
+
   // Narrative for screen readers (WCAG D1 & D5)
   const accessibleNarrative =
     locale === 'pl'
-      ? `Punkt ${index + 1}. Po ${distanceFromStartMetres} metrach: ${localizedCrit}, ${localizedVal}. Status: ${localizedSeverity}. Źródło: ${fact.source.name}, ${dateText}.`
+      ? `Punkt ${index + 1}. Po ${distanceFromStartMetres} metrach: ${localizedCrit}, ${localizedVal}. Status: ${localizedSeverity}. Źródło: ${sourceLine}, ${dateText}. ${indexLabel}.`
       : locale === 'uk'
-        ? `Пункт ${index + 1}. Через ${distanceFromStartMetres} метрів: ${localizedCrit}, ${localizedVal}. Статус: ${localizedSeverity}. Джерело: ${fact.source.name}, ${dateText}.`
-        : `Point ${index + 1}. After ${distanceFromStartMetres} metres: ${localizedCrit}, ${localizedVal}. Status: ${localizedSeverity}. Source: ${fact.source.name}, ${dateText}.`;
+        ? `Пункт ${index + 1}. Через ${distanceFromStartMetres} метрів: ${localizedCrit}, ${localizedVal}. Статус: ${localizedSeverity}. Джерело: ${sourceLine}, ${dateText}. ${indexLabel}.`
+        : `Point ${index + 1}. After ${distanceFromStartMetres} metres: ${localizedCrit}, ${localizedVal}. Status: ${localizedSeverity}. Source: ${sourceLine}, ${dateText}. ${indexLabel}.`;
 
   const borderColor =
     severity === 'blocker'
@@ -108,9 +118,11 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
         {t(locale, 'criterion')}: {localizedCrit} • {localizedType}
       </Text>
 
+      <CredibilityNote assessment={credibility} locale={locale} />
+
       <View style={[styles.sourceRow, { borderTopColor: colors.border }]}>
         <Text style={[styles.sourceText, { color: colors.muted, fontSize: fontSize(12.5) }]}>
-          {t(locale, 'source')}: {fact.source.name} ({dateText})
+          {t(locale, 'source')}: {sourceLine} ({dateText})
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -150,7 +162,7 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
           ]}
         >
           <Text style={[styles.detailTitle, { color: colors.text, fontSize: fontSize(13.5) }]}>
-            {t(locale, 'osmEvidenceDetails')}
+            {t(locale, 'evidenceDetails')}
           </Text>
           <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
             • {t(locale, 'objectId')}: {fact.source.objectId ?? fact.subject.ref}
@@ -158,6 +170,11 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
           <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
             • {t(locale, 'credibilityStatus')}: {localizedStatus}
           </Text>
+          {fact.status === 'community' && !fact.lastConfirmedAt ? (
+            <Text style={[styles.detailItem, { color: colors.muted, fontSize: fontSize(13) }]}>
+              • {t(locale, 'credibilityCaveatOsmEdit')}
+            </Text>
+          ) : null}
           <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
             • {t(locale, 'dataLicense')}: {fact.source.licence}
           </Text>

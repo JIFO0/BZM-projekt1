@@ -449,4 +449,118 @@ describe('User Reports & Place Comments API', () => {
       expect(data.deletedCommentId).toBe(comment!.id);
     });
   });
+
+  describe('Photo Validation & Upload API', () => {
+    test('POST /api/upload accepts base64 image and serves via GET /uploads/:filename', async () => {
+      const sampleBase64 = 'data:image/jpeg;base64,' + Buffer.from('fake-image-bytes').toString('base64');
+      const uploadRes = await app.request('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: sampleBase64,
+          filename: 'test-curb.jpg',
+        }),
+      });
+
+      expect(uploadRes.status).toBe(201);
+      const uploadData = await uploadRes.json();
+      expect(uploadData.success).toBe(true);
+      expect(uploadData.url).toMatch(/^\/uploads\/photo-/);
+
+      // Verify that uploaded image can be fetched
+      const getRes = await app.request(uploadData.url);
+      expect(getRes.status).toBe(200);
+      const returnedBuffer = await getRes.arrayBuffer();
+      expect(Buffer.from(returnedBuffer).toString()).toBe('fake-image-bytes');
+    });
+
+    test('POST /api/hazards creates hazard with photoUrl', async () => {
+      const res = await app.request('/api/hazards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: 'Brak rampy przy schodach',
+          category: 'obstacle',
+          email: 'user@krakow.pl',
+          photoUrl: '/uploads/photo-sample.jpg',
+          position: { lat: 50.061, lon: 19.937 },
+        }),
+      });
+
+      expect(res.status).toBe(201);
+      const data = await res.json();
+      expect(data.photoUrl).toBe('/uploads/photo-sample.jpg');
+    });
+
+    test('GET /api/hazards/random returns a random hazard or 404 when empty', async () => {
+      // When empty
+      const emptyRes = await app.request('/api/hazards/random');
+      expect(emptyRes.status).toBe(404);
+
+      // Add a hazard
+      await repo.createHazard({
+        description: 'Dziura w chodniku',
+        category: 'hole',
+      });
+
+      const res = await app.request('/api/hazards/random');
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.description).toBe('Dziura w chodniku');
+    });
+
+    test('POST /api/hazards/:id/verify validates hazard with photo and records validation history', async () => {
+      const created = await repo.createHazard({
+        description: 'Uszkodzona kostka brukowa',
+        category: 'surface',
+        email: 'autor@krakow.pl',
+      });
+
+      const verifyRes = await app.request(`/api/hazards/${created.id}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'still_here',
+          email: 'weryfikator@krakow.pl',
+          photoUrl: '/uploads/photo-verified.jpg',
+          comment: 'Potwierdzam ze zdjęciem, nadal dziura.',
+        }),
+      });
+
+      expect(verifyRes.status).toBe(200);
+      const data = await verifyRes.json();
+      expect(data.stillHereCount).toBe(1);
+      expect(data.photoUrl).toBe('/uploads/photo-verified.jpg');
+      expect(data.validations).toBeDefined();
+      expect(data.validations.length).toBe(1);
+      expect(data.validations[0].photoUrl).toBe('/uploads/photo-verified.jpg');
+      expect(data.validations[0].comment).toBe('Potwierdzam ze zdjęciem, nadal dziura.');
+    });
+
+    test('POST /api/places/:placeId/comments attaches photo to accessibility validation', async () => {
+      const res = await app.request('/api/places/place-sukiennice/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sentiment: 'positive',
+          comment: 'Nowy podjazd dla wózków działa bez zarzutu!',
+          category: 'entrance',
+          email: 'tester@krakow.pl',
+          photoUrl: '/uploads/sukiennice-ramp.jpg',
+        }),
+      });
+
+      expect(res.status).toBe(201);
+      const data = await res.json();
+      expect(data.photoUrl).toBe('/uploads/sukiennice-ramp.jpg');
+      expect(data.sentiment).toBe('positive');
+      expect(data.category).toBe('entrance');
+
+      // Verify list endpoint returns photoUrl
+      const listRes = await app.request('/api/places/place-sukiennice/comments');
+      expect(listRes.status).toBe(200);
+      const listData = await listRes.json();
+      expect(listData.items.some((item: any) => item.photoUrl === '/uploads/sukiennice-ramp.jpg')).toBe(true);
+    });
+  });
 });

@@ -61,11 +61,17 @@ export function createHazardsRouter(options: HazardsRouterOptions): Hono {
       };
     }
 
+    let photoUrl: string | undefined = undefined;
+    if (body.photoUrl && typeof body.photoUrl === 'string' && body.photoUrl.trim()) {
+      photoUrl = body.photoUrl.trim();
+    }
+
     const hazard = await repo.createHazard({
       description: body.description.trim(),
       email: body.email ? String(body.email).trim() : undefined,
       category,
       position,
+      photoUrl,
     });
 
     return c.json(hazard, 201);
@@ -104,7 +110,21 @@ export function createHazardsRouter(options: HazardsRouterOptions): Hono {
     return c.json({ items, total: items.length }, 200);
   });
 
-  // 3. Get Hazard by ID
+  // 3. Get Random Hazard for Community Photo Validation
+  router.get('/random', async (c) => {
+    const hazard = await (repo.getRandomHazard ? repo.getRandomHazard() : null);
+    if (!hazard) {
+      const all = await repo.listHazards();
+      if (all.length > 0) {
+        const pick = all[Math.floor(Math.random() * all.length)];
+        return c.json(pick, 200);
+      }
+      return c.json({ error: 'No hazards available to validate.' }, 404);
+    }
+    return c.json(hazard, 200);
+  });
+
+  // 4. Get Hazard by ID
   router.get('/:id', async (c) => {
     const id = c.req.param('id');
     const hazard = await repo.getHazard(id);
@@ -114,7 +134,7 @@ export function createHazardsRouter(options: HazardsRouterOptions): Hono {
     return c.json(hazard, 200);
   });
 
-  // 4. Verify Hazard ("still_here" / "fixed" / "unset")
+  // 5. Verify Hazard ("still_here" / "fixed" / "unset") with optional Photo Evidence
   router.post('/:id/verify', async (c) => {
     const id = c.req.param('id');
 
@@ -146,8 +166,10 @@ export function createHazardsRouter(options: HazardsRouterOptions): Hono {
     }
 
     const voterKey = isAdmin ? (body.email?.trim() || 'admin') : body.email.trim();
+    const photoUrl = typeof body.photoUrl === 'string' && body.photoUrl.trim() ? body.photoUrl.trim() : undefined;
+    const comment = typeof body.comment === 'string' && body.comment.trim() ? body.comment.trim() : undefined;
 
-    const result = await repo.verifyHazard(id, action, voterKey);
+    const result = await repo.verifyHazard(id, action, voterKey, { photoUrl, comment });
 
     if (result.error === 'not_found') {
       return c.json({ error: `Hazard '${id}' not found.` }, 404);
@@ -170,6 +192,8 @@ export function createHazardsRouter(options: HazardsRouterOptions): Hono {
         stillHereCount: result.hazard.stillHereCount,
         fixedCount: result.hazard.fixedCount,
         status: result.hazard.status,
+        photoUrl: result.hazard.photoUrl,
+        validations: result.hazard.validations,
         updatedAt: result.hazard.updatedAt,
       },
       200
