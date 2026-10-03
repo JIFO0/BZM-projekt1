@@ -1,0 +1,26 @@
+You are free in how you approach it
+intelligent through AI
+physical and three-dimensional 
+improve human experience, inclusion and quality
+original ideas, unconventional
+final solution innovation that current
+platforms are missing
+using ArkTS with ArkUI or C/C++ platform APIs;
+dev setup DevEco Studio, SDK Manager, hvigor, HDC
+and application signing
+warto użyc agentów ai do tworzenia which is fucking stupid but ok
+must submit:
+1. a public source code repository;
+2. reproducible setup, build, installation and launch instructions;
+3. a working .hap package;
+4. a brief recorded demonstration;
+5. a concise architecture and implementation description;
+6. an AI_WORKFLOW.md file when AI-assisted development tools were used;
+7. additional AI integration documentation when the submission includes AI features.
+ocena
+Originality - 20%
+Demonstrated usefulness czyli chuj wie chyba może być tylko w teorii 20%
+Does it actually work 20% czyli jednak lol
+Does the solution make real use of the platform 20%
+Can we see the solution actually running, not just mockups? 10%
+Can someone else build and run it from the README and the repository alone? 10% ??????? weird
