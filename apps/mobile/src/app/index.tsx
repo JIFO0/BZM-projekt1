@@ -22,6 +22,7 @@ import {
   SlidersHorizontal,
   Warning,
   X,
+  IdentificationCard,
 } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -128,6 +129,8 @@ export default function MapHomeScreen() {
     colors,
     fontSize,
     isHighContrast,
+    krakowCardUser,
+    setKrakowCardModalVisible,
   } = useSession();
 
   // Map state
@@ -1597,6 +1600,57 @@ export default function MapHomeScreen() {
               {/* TAB 4: ZGŁOŚ (LOCAL REPORT & OSM NOTE) */}
               {activeTab === 'report' ? (
                 <View style={styles.formSection}>
+                  {/* Karta Krakowska Badge / Quick Login */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      krakowCardUser
+                        ? `${t(locale, 'krakowCardVerifiedResident')}: ${krakowCardUser.displayName}`
+                        : t(locale, 'krakowCardLoginBtn')
+                    }
+                    onPress={() => setKrakowCardModalVisible(true)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      paddingVertical: 6,
+                      paddingHorizontal: 10,
+                      borderRadius: 8,
+                      backgroundColor: krakowCardUser
+                        ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.15)')
+                        : (isHighContrast ? colors.surface : 'rgba(0, 92, 169, 0.08)'),
+                      borderWidth: 1,
+                      borderColor: krakowCardUser ? '#22C55E' : colors.border,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {krakowCardUser ? (
+                      <ShieldCheck
+                        size={16}
+                        color={isHighContrast ? colors.accentText : '#16A34A'}
+                        weight="fill"
+                      />
+                    ) : (
+                      <IdentificationCard size={16} color={colors.accent} weight="bold" />
+                    )}
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontSize: fontSize(12),
+                        fontWeight: '700',
+                        color: isHighContrast
+                          ? colors.text
+                          : krakowCardUser
+                            ? '#15803D'
+                            : colors.accent,
+                      }}
+                    >
+                      {krakowCardUser
+                        ? `Zweryfikowany: ${krakowCardUser.displayName} (Karta Krakowska)`
+                        : `Zgłaszasz anonimowo. Zaloguj Kartą Krakowską ➔`}
+                    </Text>
+                  </Pressable>
+
                   <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
                     {t(locale, 'reportObstacleHeading')}
                   </Text>

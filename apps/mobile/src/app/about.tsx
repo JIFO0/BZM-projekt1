@@ -250,10 +250,10 @@ export default function AboutScreen() {
           </View>
           <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
             • {locale === 'pl'
-                ? 'Brak kont użytkowników, brak logowania, brak baz danych w chmurze.'
+                ? 'Prywatność by default: Logowanie przez Kartę Krakowską działa lokalnie (mockup tożsamości mieszkańca Krakowa) — brak zewnętrznych baz danych w chmurze.'
                 : locale === 'uk'
-                  ? 'Без облікових записів, без авторизації, без хмарних баз даних.'
-                  : 'No user accounts, no login required, no cloud databases.'}
+                  ? 'Конфіденційність за замовчуванням: Вхід через Краківську карту працює локально (макет жителя) без хмарних баз даних.'
+                  : 'Privacy by default: Sign-in via Krakow Card works purely locally (resident identity mockup) — zero cloud tracking databases.'}
           </Text>
           <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
             • {locale === 'pl'

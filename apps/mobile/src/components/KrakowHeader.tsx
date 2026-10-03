@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Globe, PersonArmsSpread, ArrowLeft } from 'phosphor-react-native';
+import { ArrowLeft, Globe, IdentificationCard, PersonArmsSpread } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
 import { t, type Locale } from '@/i18n/strings';
@@ -48,6 +48,8 @@ export function KrakowHeader({
     setAccessibilityModalVisible,
     highlightLinks,
     increasedSpacing,
+    krakowCardUser,
+    setKrakowCardModalVisible,
   } = useSession();
 
   const handleDefaultBack = () => {
@@ -169,6 +171,56 @@ export function KrakowHeader({
           ]}
         >
           {locale.toUpperCase()}
+        </Text>
+      </Pressable>
+
+      {/* 3. Karta Krakowska / Profile Button */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          krakowCardUser
+            ? `${t(locale, 'krakowCard')}: ${krakowCardUser.displayName}`
+            : t(locale, 'krakowCardLoginTitle')
+        }
+        accessibilityHint="Otwiera panel Karty Krakowskiej i tożsamości mieszkańca"
+        onPress={() => setKrakowCardModalVisible(true)}
+        style={[
+          styles.secondaryBtn,
+          {
+            borderColor: krakowCardUser
+              ? (isHighContrast ? colors.focus : '#22C55E')
+              : colors.border,
+            backgroundColor: krakowCardUser
+              ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.22)')
+              : (isHighContrast ? colors.background : 'rgba(255,255,255,0.12)'),
+            minHeight: minTouch,
+          },
+        ]}
+      >
+        <IdentificationCard
+          size={16}
+          weight={krakowCardUser ? 'fill' : 'bold'}
+          color={
+            krakowCardUser
+              ? (isHighContrast ? colors.accentText : '#4ADE80')
+              : (isHighContrast ? colors.text : colors.headerText)
+          }
+        />
+        <Text
+          style={[
+            styles.secondaryBtnText,
+            {
+              color: isHighContrast
+                ? (krakowCardUser ? colors.accentText : colors.text)
+                : colors.headerText,
+              fontSize: fontSize(12),
+              fontWeight: krakowCardUser ? '800' : '600',
+            },
+          ]}
+        >
+          {krakowCardUser
+            ? krakowCardUser.displayName.split(' ')[0]
+            : t(locale, 'krakowCard')}
         </Text>
       </Pressable>
     </>

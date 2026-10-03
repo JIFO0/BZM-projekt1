@@ -345,6 +345,38 @@ const pl = {
   selectedCoordinates: 'Wybrane współrzędne',
   searchQueryMatches: 'Znalezione lokalizacje OSM',
   noOsmResultsFound: 'Nie znaleziono lokalizacji w OpenStreetMap.',
+
+  // Karta Krakowska (Mockup tożsamości mieszkańca)
+  krakowCard: 'Karta Krakowska',
+  krakowCardSubtitle: 'Miejski program uprawnień i tożsamości mieszkańca',
+  krakowCardLoginTitle: 'Logowanie przez Kartę Krakowską',
+  krakowCardLoginDesc:
+    'Karta Krakowska to miejski program zniżek i uprawnień dla osób rozliczających podatki w Krakowie. Zaloguj się, aby uzyskać status Zweryfikowanego Mieszkańca i wysyłać zgłoszenia barier z priorytetem miejskim.',
+  krakowCardMockupNotice:
+    'Mockup demonstracyjny: Możesz zalogować się DOWOLNYMI poświadczeniami (dowolny numer karty/e-mail i hasło) lub użyć przycisku przykładowych danych.',
+  krakowCardIdentifierLabel: 'Numer Karty Krakowskiej lub E-mail',
+  krakowCardIdentifierPlaceholder: 'np. 9210 5821 9043 1184 lub jan@krakow.pl',
+  krakowCardNameLabel: 'Imię i nazwisko (opcjonalnie)',
+  krakowCardNamePlaceholder: 'np. Jan Kowalski',
+  krakowCardPasswordLabel: 'Hasło do konta miejskiego',
+  krakowCardPasswordPlaceholder: 'Wpisz dowolne hasło (mockup)',
+  krakowCardLoginBtn: 'Zaloguj przez Kartę Krakowską',
+  krakowCardQuickDemoBtn: 'Wypełnij dane mieszkańca Krakowa',
+  krakowCardLoggedInTitle: 'Karta Krakowska — Mieszkaniec',
+  krakowCardStatusActive: 'Status: Karta Aktywna',
+  krakowCardVerifiedResident: 'Zweryfikowany Mieszkaniec Krakowa',
+  krakowCardValidUntil: 'Ważna do',
+  krakowCardLogout: 'Wyloguj się z Karty Krakowskiej',
+  krakowCardBenefitsTitle: 'Aktywne uprawnienia miejskie:',
+  krakowCardBenefit1: 'Certyfikowane audyty społeczne — zgłoszenia barier z priorytetem weryfikacji UMK',
+  krakowCardBenefit2: 'Zniżki na transport publiczny MPK i usługi asystenckie',
+  krakowCardBenefit3: 'Zapisywanie spersonalizowanych tras i profili dostępności',
+  krakowCardClose: 'Zamknij',
+  krakowCardVerifiedBadge: 'Zweryfikowany mieszkaniec',
+  krakowCardReportNoticeVerified:
+    'Zgłaszasz jako zweryfikowany mieszkaniec (Karta Krakowska). Twoje zgłoszenie ma status zaufanego audytu.',
+  krakowCardReportNoticeAnon:
+    'Zgłaszasz anonimowo. Zaloguj się Kartą Krakowską, aby nadać zgłoszeniu priorytet weryfikacji przez służby miejskie.',
 };
 
 const en: typeof pl = {
@@ -689,6 +721,38 @@ const en: typeof pl = {
   selectedCoordinates: 'Selected coordinates',
   searchQueryMatches: 'Matching OSM locations',
   noOsmResultsFound: 'No locations found in OpenStreetMap.',
+
+  // Karta Krakowska (Mockup tożsamości mieszkańca)
+  krakowCard: 'Krakow Card',
+  krakowCardSubtitle: 'Municipal resident benefit and identity program',
+  krakowCardLoginTitle: 'Sign in with Krakow Card',
+  krakowCardLoginDesc:
+    'The Krakow Card (Karta Krakowska) is a municipal program for Krakow residents. Sign in to gain Verified Resident status and submit accessibility reports with municipal priority.',
+  krakowCardMockupNotice:
+    'Demo mockup: You can sign in with ANY credentials (any card number/email and password) or click the sample data button.',
+  krakowCardIdentifierLabel: 'Krakow Card number or Email',
+  krakowCardIdentifierPlaceholder: 'e.g. 9210 5821 9043 1184 or resident@krakow.pl',
+  krakowCardNameLabel: 'Full name (optional)',
+  krakowCardNamePlaceholder: 'e.g. Jan Kowalski',
+  krakowCardPasswordLabel: 'Password',
+  krakowCardPasswordPlaceholder: 'Enter any password (mockup)',
+  krakowCardLoginBtn: 'Sign in with Krakow Card',
+  krakowCardQuickDemoBtn: 'Fill sample resident credentials',
+  krakowCardLoggedInTitle: 'Krakow Card — Resident',
+  krakowCardStatusActive: 'Status: Active Card',
+  krakowCardVerifiedResident: 'Verified Krakow Resident',
+  krakowCardValidUntil: 'Valid until',
+  krakowCardLogout: 'Sign out of Krakow Card',
+  krakowCardBenefitsTitle: 'Privileges in Krakow Without Barriers:',
+  krakowCardBenefit1: 'Certified community audits — barrier reports prioritized by City Hall',
+  krakowCardBenefit2: '100% discount on disability assistant services in municipal institutions',
+  krakowCardBenefit3: 'Mobility preferences linked with your municipal resident account',
+  krakowCardClose: 'Close',
+  krakowCardVerifiedBadge: 'Verified Resident',
+  krakowCardReportNoticeVerified:
+    'Submitting as a verified resident (Krakow Card). Your report has trusted audit status.',
+  krakowCardReportNoticeAnon:
+    'Submitting anonymously. Log in with Krakow Card to grant your report municipal verification priority.',
 };
 
 const uk: typeof pl = {
@@ -1038,6 +1102,38 @@ const uk: typeof pl = {
   selectedCoordinates: 'Вибрані координати',
   searchQueryMatches: 'Знайдені локації OSM',
   noOsmResultsFound: 'Локацій в OpenStreetMap не знайдено.',
+
+  // Karta Krakowska (Mockup tożsamości mieszkańca)
+  krakowCard: 'Краківська карта',
+  krakowCardSubtitle: 'Муніципальна програма привілеїв та посвідчення жителя',
+  krakowCardLoginTitle: 'Вхід через Краківську карту',
+  krakowCardLoginDesc:
+    'Краківська карта (Karta Krakowska) — це муніципальна програма для жителів Кракова. Увійдіть, щоб отримати статус перевіреного жителя та надсилати звіти про бар’єри з пріоритетом.',
+  krakowCardMockupNotice:
+    'Демо-макет: Ви можете увійти з БУДЬ-ЯКИМИ обліковими даними або скористатися кнопкою зразкових даних.',
+  krakowCardIdentifierLabel: 'Номер Краківської карти або Email',
+  krakowCardIdentifierPlaceholder: 'напр. 9210 5821 9043 1184 або resident@krakow.pl',
+  krakowCardNameLabel: 'Ім’я та прізвище (необов’язково)',
+  krakowCardNamePlaceholder: 'напр. Ян Ковальський',
+  krakowCardPasswordLabel: 'Пароль',
+  krakowCardPasswordPlaceholder: 'Введіть будь-який пароль (mockup)',
+  krakowCardLoginBtn: 'Увійти через Краківську карту',
+  krakowCardQuickDemoBtn: 'Заповнити зразковими даними',
+  krakowCardLoggedInTitle: 'Краківська карта — Житель',
+  krakowCardStatusActive: 'Статус: Активна карта',
+  krakowCardVerifiedResident: 'Верифікований житель Кракова',
+  krakowCardValidUntil: 'Дійсна до',
+  krakowCardLogout: 'Вийти з Краківської карти',
+  krakowCardBenefitsTitle: 'Привілеї в системі Краків без бар’єрів:',
+  krakowCardBenefit1: 'Сертифіковані аудити — пріоритетна перевірка повідомлень мерією',
+  krakowCardBenefit2: '100% знижка на асистента для людей з інвалідністю в установах',
+  krakowCardBenefit3: 'Збереження персоналізованих налаштувань доступності',
+  krakowCardClose: 'Закрити',
+  krakowCardVerifiedBadge: 'Верифікований житель',
+  krakowCardReportNoticeVerified:
+    'Ви надсилаєте як верифікований житель (Краківська карта) з пріоритетним статусом.',
+  krakowCardReportNoticeAnon:
+    'Анонімне надсилання. Увійдіть за допомогою Краківської карти для надання пріоритету перевірки.',
 };
 
 const dictionaries: Record<Locale, typeof pl> = { pl, en, uk };

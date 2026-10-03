@@ -19,6 +19,8 @@ import {
   ListChecks,
   Warning,
   CheckCircle,
+  IdentificationCard,
+  ShieldCheck,
 } from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
 import { GovButton } from '@/components/GovButton';
@@ -40,6 +42,8 @@ export default function ReportCorrectionScreen() {
     isHighContrast,
     increasedSpacing,
     dyslexicFont,
+    krakowCardUser,
+    setKrakowCardModalVisible,
   } = useSession();
 
   const [description, setDescription] = useState('');
@@ -128,6 +132,56 @@ export default function ReportCorrectionScreen() {
             {t(locale, 'reportLead')}
           </Text>
         </GovCard>
+
+        {/* Karta Krakowska Resident Verification Banner */}
+        {krakowCardUser ? (
+          <GovCard variant="ok">
+            <View style={styles.cardHeaderRow}>
+              <ShieldCheck size={20} color={colors.okText} weight="fill" />
+              <Text
+                style={{
+                  color: colors.okText,
+                  fontWeight: '800',
+                  fontSize: fontSize(14.5),
+                }}
+              >
+                {t(locale, 'krakowCardVerifiedResident')}: {krakowCardUser.displayName}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.body,
+                { color: colors.text, fontSize: fontSize(13), marginTop: 4 },
+              ]}
+            >
+              {t(locale, 'krakowCardReportNoticeVerified')} (Karta: {krakowCardUser.cardNumber})
+            </Text>
+          </GovCard>
+        ) : (
+          <GovCard variant="default">
+            <View style={styles.cardHeaderRow}>
+              <IdentificationCard size={20} color={colors.accent} weight="bold" />
+              <Text
+                style={{
+                  color: colors.text,
+                  fontWeight: '700',
+                  fontSize: fontSize(13.5),
+                  flex: 1,
+                }}
+              >
+                {t(locale, 'krakowCardReportNoticeAnon')}
+              </Text>
+            </View>
+            <View style={{ marginTop: spacing.xs }}>
+              <GovButton
+                title={t(locale, 'krakowCardLoginBtn')}
+                icon={<IdentificationCard size={16} color="#FFFFFF" weight="bold" />}
+                variant="primary"
+                onPress={() => setKrakowCardModalVisible(true)}
+              />
+            </View>
+          </GovCard>
+        )}
 
         {/* Local Submission Form */}
         <GovCard variant="default">

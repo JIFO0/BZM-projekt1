@@ -56,6 +56,17 @@ export interface DebugState {
   simulateOffline: boolean;
 }
 
+export interface KrakowCardUser {
+  cardNumber: string;
+  displayName: string;
+  email: string;
+  validUntil: string;
+  status: 'active' | 'suspended';
+  accessibilityPass: boolean;
+  verifiedResident: boolean;
+  discountTier: string;
+}
+
 interface SessionValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
@@ -93,6 +104,13 @@ interface SessionValue {
   setUserLocation: (loc: UserCoordinates | null) => void;
   isLocating: boolean;
   fetchUserLocation: () => Promise<UserLocationResult | null>;
+
+  // Karta Krakowska (Resident Identity Mockup)
+  krakowCardUser: KrakowCardUser | null;
+  krakowCardModalVisible: boolean;
+  setKrakowCardModalVisible: (val: boolean) => void;
+  loginWithKrakowCard: (credentials?: { identifier?: string; password?: string; name?: string }) => void;
+  logoutKrakowCard: () => void;
 
   // Accessibility & Design System State
   contrastMode: ContrastMode;
@@ -349,6 +367,71 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [profileId, activeThresholds]);
 
+  // Karta Krakowska (Resident Identity Mockup)
+  const [krakowCardModalVisible, setKrakowCardModalVisible] = useState<boolean>(false);
+  const [krakowCardUser, setKrakowCardUser] = useState<KrakowCardUser | null>(null);
+
+  const loginWithKrakowCard = useCallback(
+    (credentials?: { identifier?: string; password?: string; name?: string }) => {
+      const rawId = (credentials?.identifier || '').trim();
+      const rawName = (credentials?.name || '').trim();
+
+      // Clean or generate 16-digit card number with standard Krakow prefix 9210
+      let formattedCardNum = '9210 5821 9043 1184';
+      const digitsOnly = rawId.replace(/\D/g, '');
+      if (digitsOnly.length >= 8) {
+        const full = (digitsOnly.startsWith('9210') ? digitsOnly : `9210${digitsOnly}`)
+          .padEnd(16, '7')
+          .slice(0, 16);
+        formattedCardNum = `${full.slice(0, 4)} ${full.slice(4, 8)} ${full.slice(8, 12)} ${full.slice(12, 16)}`;
+      } else if (rawId && !rawId.includes('@')) {
+        const randomMid = Math.floor(1000 + Math.random() * 9000);
+        const randomEnd = Math.floor(1000 + Math.random() * 9000);
+        formattedCardNum = `9210 ${randomMid} ${randomEnd} 8912`;
+      }
+
+      let displayName = rawName;
+      if (!displayName) {
+        if (rawId.includes('@')) {
+          const userPart = rawId.split('@')[0];
+          displayName = userPart
+            .split(/[._-]/)
+            .filter(Boolean)
+            .map((s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+            .join(' ');
+        } else if (digitsOnly.length >= 8) {
+          displayName = 'Mieszkaniec Krakowa';
+        } else if (rawId) {
+          displayName = rawId;
+        } else {
+          displayName = 'Jan Kowalski';
+        }
+      }
+
+      const email = rawId.includes('@')
+        ? rawId
+        : `${displayName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@krakow.pl`;
+
+      const user: KrakowCardUser = {
+        cardNumber: formattedCardNum,
+        displayName: displayName || 'Mieszkaniec Krakowa',
+        email,
+        validUntil: '31.12.2027',
+        status: 'active',
+        accessibilityPass: true,
+        verifiedResident: true,
+        discountTier: 'Bilet Mieszkańca • Ulga 100% Asystent ON',
+      };
+
+      setKrakowCardUser(user);
+    },
+    [],
+  );
+
+  const logoutKrakowCard = useCallback(() => {
+    setKrakowCardUser(null);
+  }, []);
+
   // User GPS location state
   const [userLocation, setUserLocation] = useState<UserCoordinates | null>(null);
   const [isLocating, setIsLocating] = useState<boolean>(false);
@@ -510,6 +593,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUserLocation,
       isLocating,
       fetchUserLocation,
+      // Karta Krakowska (Resident Identity Mockup)
+      krakowCardUser,
+      krakowCardModalVisible,
+      setKrakowCardModalVisible,
+      loginWithKrakowCard,
+      logoutKrakowCard,
       // Accessibility
       contrastMode,
       setContrastMode,
@@ -573,6 +662,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       userLocation,
       isLocating,
       fetchUserLocation,
+      krakowCardUser,
+      krakowCardModalVisible,
+      loginWithKrakowCard,
+      logoutKrakowCard,
       contrastMode,
       textSize,
       lineHeightMode,
