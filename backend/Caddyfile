@@ -59,6 +59,19 @@ http://localhost, http://127.0.0.1 {
         reverse_proxy graphhopper:8989
     }
 
+    handle /api/* {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        reverse_proxy api:3000
+    }
+
+    handle /uploads/* {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, OPTIONS"
+        reverse_proxy api:3000
+    }
+
     handle {
         reverse_proxy frontend:80
     }

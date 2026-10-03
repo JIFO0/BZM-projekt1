@@ -26,17 +26,24 @@ import { suggestPlaces } from '@/services/api';
 import { useSession } from '@/state/session';
 
 
-export interface LocationPoint {
+export interface LocationInputPoint {
+  name: string;
+  position?: LonLat | null;
+}
+
+export interface SelectedLocationPoint {
   name: string;
   position: LonLat;
 }
+
+export type LocationPoint = SelectedLocationPoint;
 
 export interface LocationPickerProps {
   label: string;
   badge?: string;
   badgeColor?: string;
-  point: LocationPoint;
-  onChangePoint: (point: LocationPoint) => void;
+  point: LocationInputPoint;
+  onChangePoint: (point: SelectedLocationPoint) => void;
   placeholder?: string;
   showMyLocation?: boolean;
   onUseMyLocation?: () => void;

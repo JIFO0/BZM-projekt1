@@ -45,24 +45,12 @@ export function BarrierViewControl({
     icon: (selected: boolean) => React.ReactNode;
   }[] = [
     {
-      id: 'none',
-      label: t(locale, 'barrierModeNone'),
-      hint: t(locale, 'barrierModeNoneHint'),
-      icon: (selected) => (
-        <Prohibit
-          size={compact ? 15 : 17}
-          weight="bold"
-          color={selected ? colors.surface : colors.muted}
-        />
-      ),
-    },
-    {
       id: 'route',
       label: t(locale, 'barrierModeRoute'),
       hint: t(locale, 'barrierModeRouteHint'),
       count: hasActiveRoute ? routeBarriersCount : undefined,
       icon: (selected) => (
-        <Path
+        <Warning
           size={compact ? 15 : 17}
           weight="bold"
           color={selected ? colors.surface : colors.muted}
@@ -75,7 +63,19 @@ export function BarrierViewControl({
       hint: t(locale, 'barrierModeAllHint'),
       count: allBarriersCount > 0 ? allBarriersCount : undefined,
       icon: (selected) => (
-        <Warning
+        <Path
+          size={compact ? 15 : 17}
+          weight="bold"
+          color={selected ? colors.surface : colors.muted}
+        />
+      ),
+    },
+    {
+      id: 'none',
+      label: t(locale, 'barrierModeNone'),
+      hint: t(locale, 'barrierModeNoneHint'),
+      icon: (selected) => (
+        <Prohibit
           size={compact ? 15 : 17}
           weight="bold"
           color={selected ? colors.surface : colors.muted}

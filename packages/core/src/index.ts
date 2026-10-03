@@ -1,4 +1,5 @@
 export * from './attribution';
+export * from './credibility';
 export * from './city-config';
 export * from './conflicts';
 export * from './coverage';

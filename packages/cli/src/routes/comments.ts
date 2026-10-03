@@ -107,12 +107,18 @@ export function createCommentsRouter(options: CommentsRouterOptions): Hono {
       category = body.category;
     }
 
+    let photoUrl: string | undefined = undefined;
+    if (body.photoUrl && typeof body.photoUrl === 'string' && body.photoUrl.trim()) {
+      photoUrl = body.photoUrl.trim();
+    }
+
     const created = await repo.addPlaceComment({
       placeId,
       sentiment,
       comment: body.comment.trim(),
       category,
       email: body.email ? String(body.email).trim() : undefined,
+      photoUrl,
     });
 
     if (!created) {

@@ -144,7 +144,7 @@ export function AccessibilityModal() {
   const languageOptions: { id: Locale; label: string; code: string }[] = [
     { id: 'pl', label: t(locale, 'langPl'), code: 'PL' },
     { id: 'en', label: t(locale, 'langEn'), code: 'EN' },
-    { id: 'uk', label: t(locale, 'langUk'), code: 'UK' },
+    { id: 'uk', label: t(locale, 'langUk'), code: 'UA' },
   ];
   return (
     <Modal

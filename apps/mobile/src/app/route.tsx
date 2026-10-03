@@ -50,8 +50,8 @@ import {
   getLocalizedFindingType,
   t,
 } from '@/i18n/strings';
-import { planAndAnalyzeRoute, type RouteVariantId } from '@/services/api';
-import { getAllCityBarriers } from '@/services/barriers';
+import { fetchServerHazards, planAndAnalyzeRoute, type RouteVariantId, type ServerRouteHazard } from '@/services/api';
+import { citizenReportsAsFindings, getAllCityBarriers } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -142,9 +142,11 @@ export default function RouteScreen() {
     setBarrierViewMode,
     activeThresholds,
     debugState,
+    localReports,
   } = useSession();
 
   const [showMap, setShowMap] = useState(true);
+  const [serverHazards, setServerHazards] = useState<ServerRouteHazard[]>([]);
   const [debugVisible, setDebugVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -240,23 +242,51 @@ export default function RouteScreen() {
     selectRouteVariant,
   ]);
 
+  useEffect(() => {
+    fetchServerHazards().then(setServerHazards).catch(() => {});
+  }, []);
+
   // All city barriers computed with active thresholds
   const allCityBarriers = useMemo(() => {
     return getAllCityBarriers(activeThresholds);
   }, [activeThresholds]);
 
-  // Filter displayed findings based on barrier view mode
+  const reportFindings = useMemo(
+    () =>
+      citizenReportsAsFindings([
+        ...serverHazards.map((hazard) => ({
+          id: hazard.id,
+          description: hazard.description,
+          position: hazard.position,
+          createdAt: hazard.createdAt,
+          status: hazard.status,
+        })),
+        ...localReports.map((report) => ({
+          id: report.id,
+          description: report.description,
+          position: report.position,
+          createdAt: report.createdAt,
+          status: report.status,
+        })),
+      ]),
+    [serverHazards, localReports],
+  );
+
+  // Filter displayed findings based on barrier view mode. Reports stay on the map wherever they are.
   const displayedFindings = useMemo(() => {
-    switch (barrierViewMode) {
-      case 'none':
-        return [];
-      case 'route':
-        return activeRouteReport?.findings || [];
-      case 'all':
-      default:
-        return allCityBarriers;
-    }
-  }, [barrierViewMode, activeRouteReport?.findings, allCityBarriers]);
+    const base = (() => {
+      switch (barrierViewMode) {
+        case 'none':
+          return [];
+        case 'route':
+          return activeRouteReport?.findings || [];
+        case 'all':
+        default:
+          return allCityBarriers;
+      }
+    })();
+    return [...base, ...reportFindings];
+  }, [barrierViewMode, activeRouteReport?.findings, allCityBarriers, reportFindings]);
 
   if (loading) {
     return (
@@ -346,7 +376,7 @@ export default function RouteScreen() {
   const generateNarrative = () => {
     let narrative = '';
     if (locale === 'pl') {
-      narrative = `Raport barier dla trasy o długości ${report.lengthMetres} metrów. `;
+      narrative = `Raport barier dla trasy o długości ${(report.lengthMetres / 1000).toFixed(1)} km. `;
       narrative += `Wykryto ${blockers.length} blokad, ${warnings.length} ostrzeżeń oraz ${unknownItems.length} elementów o nieznanym stanie. `;
       narrative += `Najdłuższy odcinek bez danych wynosi ${report.longestUnknownStretchMetres} metrów. `;
       if (showNoBarriersSentence) {
@@ -359,7 +389,7 @@ export default function RouteScreen() {
         narrative += `Punkt ${idx + 1}, po ${f.distanceFromStartMetres} metrach: ${localizedCrit}, ${localizedVal}. `;
       });
     } else if (locale === 'uk') {
-      narrative = `Звіт про бар’єри для маршруту довжиною ${report.lengthMetres} метрів. `;
+      narrative = `Звіт про бар’єри для маршруту довжиною ${(report.lengthMetres / 1000).toFixed(1)} км. `;
       narrative += `Виявлено ${blockers.length} блокад, ${warnings.length} попереджень та ${unknownItems.length} елементів із невідомим станом. `;
       narrative += `Найдовша ділянка без даних становить ${report.longestUnknownStretchMetres} метрів. `;
       if (showNoBarriersSentence) {
@@ -372,7 +402,7 @@ export default function RouteScreen() {
         narrative += `Точка ${idx + 1}, через ${f.distanceFromStartMetres} метрів: ${localizedCrit}, ${localizedVal}. `;
       });
     } else {
-      narrative = `Barrier report for route of distance ${report.lengthMetres} metres. `;
+      narrative = `Barrier report for route of distance ${(report.lengthMetres / 1000).toFixed(1)} km. `;
       narrative += `Detected ${blockers.length} blockers, ${warnings.length} warnings and ${unknownItems.length} items with unknown status. `;
       narrative += `Longest stretch without data is ${report.longestUnknownStretchMetres} metres. `;
       if (showNoBarriersSentence) {
@@ -471,7 +501,7 @@ export default function RouteScreen() {
                     },
                   ]}
                 >
-                  {routeVariants.accessible.report.lengthMetres} m • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                  {(routeVariants.accessible.report.lengthMetres / 1000).toFixed(1)} km • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
                 </Text>
               </Pressable>
 
@@ -521,7 +551,7 @@ export default function RouteScreen() {
                     },
                   ]}
                 >
-                  {routeVariants.shortest.report.lengthMetres} m • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                  {(routeVariants.shortest.report.lengthMetres / 1000).toFixed(1)} km • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
                 </Text>
               </Pressable>
             </View>
@@ -594,7 +624,7 @@ export default function RouteScreen() {
               {t(locale, 'routeLength')}:
             </Text>
             <Text style={[styles.metricValue, { color: colors.text, fontSize: fontSize(15) }]}>
-              {report.lengthMetres} m
+              {(report.lengthMetres / 1000).toFixed(1)} km
             </Text>
           </View>
 

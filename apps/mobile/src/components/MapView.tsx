@@ -140,17 +140,20 @@ export function MapView({
           ? locale === 'pl' ? 'Szerokość' : locale === 'uk' ? 'Ширина' : 'Width'
           : f.type === 'wheelchair'
           ? locale === 'pl' ? 'Dostępność dla wózków' : locale === 'uk' ? 'Доступність' : 'Accessibility'
+          : f.type === 'report'
+          ? locale === 'pl' ? 'Zgłoszenie' : locale === 'uk' ? 'Повідомлення' : 'Report'
           : f.type;
 
       const localizedVal = getLocalizedFactValue(f.fact.value, locale);
       const cleanVal = localizedVal.replace(/\s*\(?wheelchair=[a-z_]+\)?/gi, '').trim();
+      const isReport = f.type === 'report';
 
       return {
         index: i + 1,
         type: f.type,
         lat: f.fact.subject.lat,
         lon: f.fact.subject.lon,
-        title: `#${i + 1}${distLabel}: ${typeLabel}`,
+        title: isReport ? typeLabel : `#${i + 1}${distLabel}: ${typeLabel}`,
         value: cleanVal || localizedVal || f.fact.value,
         severity: f.severity,
         color,
@@ -663,6 +666,12 @@ export function MapView({
           '<line x1="21" y1="4" x2="21" y2="20" stroke-width="2.6" />' +
           '<path d="M3 12h6m-2-3l3 3-3 3" />' +
           '<path d="M21 12h-6m2-3l-3 3 3 3" />' +
+          '</svg>';
+      }
+      if (type === 'report') {
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M5 21V4" />' +
+          '<path d="M5 4h12l-2.5 4L17 12H5" fill="' + color + '" fill-opacity="0.2" />' +
           '</svg>';
       }
       return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +

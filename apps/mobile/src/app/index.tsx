@@ -8,10 +8,12 @@ import {
   ArrowRight,
   ArrowsDownUp,
   Buildings,
+  Camera,
   CaretDown,
   CaretUp,
   Check,
   Crosshair,
+  Image as ImageIcon,
   Info,
   Lightning,
   MagnifyingGlass,
@@ -20,16 +22,22 @@ import {
   Prohibit,
   ShieldCheck,
   SlidersHorizontal,
+  ThumbsDown,
+  ThumbsUp,
+  Trash,
   Warning,
   Wheelchair,
   X,
-  IdentificationCard,
+  User,
 } from 'phosphor-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -55,9 +63,17 @@ import {
   inspectPlace,
   planAndAnalyzeRoute,
   reverseGeocodeLocation,
+  suggestPlaces,
   type RouteVariantId,
+  type ServerRouteHazard,
+  type ServerPlaceComment,
+  fetchServerHazards,
+  createServerHazard,
+  uploadPhotoToServer,
+  fetchPlaceServerComments,
+  addPlaceServerComment,
 } from '@/services/api';
-import { getAllCityBarriers } from '@/services/barriers';
+import { citizenReportsAsFindings, getAllCityBarriers } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -106,7 +122,15 @@ const ROAD_TYPE_OPTIONS = [
   },
 ];
 
-type PopupTab = 'route' | 'place' | 'profile' | 'report';
+type PopupTab = 'route' | 'place' | 'profile';
+
+const KERB_LEVELS = [
+  { mm: 30, labelKey: 'kerbLow' as const },
+  { mm: 70, labelKey: 'kerbMedium' as const },
+  { mm: 140, labelKey: 'kerbHigh' as const },
+];
+
+const EMPTY_POINT: LonLat = { lon: 19.9373, lat: 50.0619 };
 
 function extractRouteParams(params: Record<string, any>) {
   let fromName = params.fromName;
@@ -154,6 +178,27 @@ function extractRouteParams(params: Record<string, any>) {
   return { fromName, fromLat, fromLon, toName, toLat, toLon, demoRoute, variant };
 }
 
+function formatBlockerCount(count: number, locale: string): string {
+  if (locale === 'pl') {
+    if (count === 1) return '1 blokada';
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+      return `${count} blokady`;
+    }
+    return `${count} blokad`;
+  } else if (locale === 'uk') {
+    if (count === 1) return '1 блокада';
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+      return `${count} блокади`;
+    }
+    return `${count} блокад`;
+  }
+  return `${count} ${count === 1 ? 'blocker' : 'blockers'}`;
+}
+
 export default function MapHomeScreen() {
   const rawParams = useLocalSearchParams();
   const initialParamsHandled = useRef(false);
@@ -188,8 +233,8 @@ export default function MapHomeScreen() {
     colors,
     fontSize,
     isHighContrast,
-    krakowCardUser,
-    setKrakowCardModalVisible,
+    userAccount,
+    setUserModalVisible,
     barrierViewMode,
     setBarrierViewMode,
   } = useSession();
@@ -204,8 +249,7 @@ export default function MapHomeScreen() {
     return activeRouteReport?.findings || [];
   }, [activeRouteReport]);
 
-  // Displayed findings depending on barrier view mode: none | route | all
-  const displayedFindings = useMemo(() => {
+  const baseMapFindings = useMemo(() => {
     switch (barrierViewMode) {
       case 'none':
         return [];
@@ -251,19 +295,132 @@ export default function MapHomeScreen() {
   const [activeTab, setActiveTab] = useState<PopupTab>('route');
 
   // Search & Routing state
-  const [fromQuery, setFromQuery] = useState('Rynek Główny');
-  const [fromPos, setFromPos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
-  const [toQuery, setToQuery] = useState('Zamek Królewski na Wawelu');
-  const [toPos, setToPos] = useState<LonLat>({ lon: 19.9354, lat: 50.0544 });
+  const [fromQuery, setFromQuery] = useState('');
+  const [fromPos, setFromPos] = useState<LonLat | null>(null);
+  const [toQuery, setToQuery] = useState('');
+  const [toPos, setToPos] = useState<LonLat | null>(null);
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
 
-  // Report input state
+  // Report popup
+  const [reportPopupOpen, setReportPopupOpen] = useState(false);
   const [reportDesc, setReportDesc] = useState('');
   const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportQuery, setReportQuery] = useState('');
+  const [reportPos, setReportPos] = useState<LonLat | null>(null);
+
+  const [serverHazards, setServerHazards] = useState<ServerRouteHazard[]>([]);
+
+  // New Hazard Report with Photo state
+  const [newReportCategory, setNewReportCategory] = useState<'hole' | 'obstacle' | 'flood' | 'surface' | 'other'>('obstacle');
+  const [newReportPhoto, setNewReportPhoto] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  // Place Accessibility Validation with Photo state
+  const [showPlaceValidationForm, setShowPlaceValidationForm] = useState(false);
+  const [placeComments, setPlaceComments] = useState<ServerPlaceComment[]>([]);
+  const [placeCommentText, setPlaceCommentText] = useState('');
+  const [placeCommentSentiment, setPlaceCommentSentiment] = useState<'positive' | 'negative'>('positive');
+  const [placeCommentCategory, setPlaceCommentCategory] = useState<'entrance' | 'inside' | 'toilet' | 'surroundings' | 'general'>('entrance');
+  const [placeCommentPhoto, setPlaceCommentPhoto] = useState<string | null>(null);
+  const [placeCommentSubmitting, setPlaceCommentSubmitting] = useState(false);
+
+  const pickPhotoAsync = async (source: 'camera' | 'library'): Promise<string | null> => {
+    try {
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            locale === 'pl' ? 'Uprawnienia aparatu' : 'Camera permission',
+            locale === 'pl'
+              ? 'Wymagany jest dostęp do aparatu, aby zrobić zdjęcie barierze.'
+              : 'Camera access is required to take a photo of the barrier.'
+          );
+          return null;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          quality: 0.7,
+          base64: true,
+        });
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+          const asset = result.assets[0]!;
+          return asset.base64
+            ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
+            : asset.uri;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            locale === 'pl' ? 'Uprawnienia galerii' : 'Gallery permission',
+            locale === 'pl'
+              ? 'Wymagany jest dostęp do galerii zdjęć.'
+              : 'Gallery access is required to select a photo.'
+          );
+          return null;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+          allowsEditing: true,
+          quality: 0.7,
+          base64: true,
+        });
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+          const asset = result.assets[0]!;
+          return asset.base64
+            ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`
+            : asset.uri;
+        }
+      }
+    } catch (err: any) {
+      Alert.alert(
+        locale === 'pl' ? 'Błąd zdjęcia' : 'Photo error',
+        err.message || 'Nie udało się wybrać zdjęcia.'
+      );
+    }
+    return null;
+  };
+
+  const loadServerHazards = async () => {
+    try {
+      const list = await fetchServerHazards();
+      setServerHazards(list);
+    } catch {
+      // Non-fatal
+    }
+  };
+
+  const loadPlaceComments = async (placeId: string) => {
+    try {
+      const comments = await fetchPlaceServerComments(placeId);
+      setPlaceComments(comments);
+    } catch {
+      // Non-fatal
+    }
+  };
 
   // Interactive map picking target
-  const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | null>(null);
+  const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | 'report' | null>(null);
+
+  const displayedFindings = useMemo(() => {
+    const reports = citizenReportsAsFindings([
+      ...serverHazards.map((hazard) => ({
+        id: hazard.id,
+        description: hazard.description,
+        position: hazard.position,
+        createdAt: hazard.createdAt,
+        status: hazard.status,
+      })),
+      ...localReports.map((report) => ({
+        id: report.id,
+        description: report.description,
+        position: report.position,
+        createdAt: report.createdAt,
+        status: report.status,
+      })),
+    ]);
+    return [...baseMapFindings, ...reports];
+  }, [baseMapFindings, serverHazards, localReports]);
 
   // Clicked map location popup state
   const [clickedLocation, setClickedLocation] = useState<{
@@ -399,6 +556,13 @@ export default function MapHomeScreen() {
         setPickingTarget(null);
         setStatusMessage(`${t(locale, 'placeLabel')}: ${name}`);
         setTimeout(() => setStatusMessage(null), 3000);
+      } else if (pickingTarget === 'report') {
+        setReportPos(coords);
+        setReportQuery(name);
+        setPickingTarget(null);
+        setReportPopupOpen(true);
+        setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${name}`);
+        setTimeout(() => setStatusMessage(null), 3000);
       }
       return;
     }
@@ -439,12 +603,40 @@ export default function MapHomeScreen() {
 
   // 2. Plan & Analyze Route
   const handleAnalyzeRoute = async () => {
+    if (!fromQuery.trim() || !toQuery.trim()) {
+      Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
+      return;
+    }
     setLoadingRoute(true);
     setStatusMessage(null);
     try {
+      let resolvedStart = fromPos;
+      let resolvedEnd = toPos;
+
+      if (!resolvedStart && fromQuery.trim()) {
+        const hits = await suggestPlaces(fromQuery, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedStart = hits[0].position;
+          setFromPos(resolvedStart);
+        }
+      }
+
+      if (!resolvedEnd && toQuery.trim()) {
+        const hits = await suggestPlaces(toQuery, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedEnd = hits[0].position;
+          setToPos(resolvedEnd);
+        }
+      }
+
+      if (!resolvedStart || !resolvedEnd) {
+        Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
+        return;
+      }
+
       const result = await planAndAnalyzeRoute({
-        start: { name: fromQuery, position: fromPos },
-        end: { name: toQuery, position: toPos },
+        start: { name: fromQuery, position: resolvedStart },
+        end: { name: toQuery, position: resolvedEnd },
         profileId,
         thresholds: activeThresholds,
         debugState,
@@ -464,11 +656,11 @@ export default function MapHomeScreen() {
 
       router.setParams({
         fromName: fromQuery,
-        fromLat: String(fromPos.lat),
-        fromLon: String(fromPos.lon),
+        fromLat: String(resolvedStart.lat),
+        fromLon: String(resolvedStart.lon),
         toName: toQuery,
-        toLat: String(toPos.lat),
-        toLon: String(toPos.lon),
+        toLat: String(resolvedEnd.lat),
+        toLon: String(resolvedEnd.lon),
         profile: profileId,
         variant: result.selectedVariant || selectedRouteVariant,
       });
@@ -658,7 +850,7 @@ export default function MapHomeScreen() {
       setPopupExpanded(true);
       setMapCenter({ lat: p.position.lat, lon: p.position.lon });
     } catch (err: any) {
-      Alert.alert('Błąd sprawdzania obiektu', err.message || 'Nie udało się pobrać danych.');
+      Alert.alert('Błąd sprawdzania miejsca', err.message || 'Nie udało się pobrać danych.');
     } finally {
       setLoadingPlace(false);
       setStatusMessage(null);
@@ -679,6 +871,10 @@ export default function MapHomeScreen() {
     setActiveRouteReport(null);
     setActiveRouteFacts([]);
     setRouteVariants(null);
+    setFromQuery('');
+    setFromPos(null);
+    setToQuery('');
+    setToPos(null);
     router.setParams({
       fromName: undefined,
       fromLat: undefined,
@@ -691,17 +887,117 @@ export default function MapHomeScreen() {
     });
   };
 
-  // Submit local report
-  const handleSubmitLocalReport = () => {
+  // Submit hazard report (local + server with photo)
+  const handleSubmitLocalReport = async () => {
     if (!reportDesc.trim()) {
       Alert.alert(t(locale, 'warningTitle'), t(locale, 'reportDescRequired'));
       return;
     }
-    addLocalReport(reportDesc.trim());
+    if (!reportPos) {
+      Alert.alert(t(locale, 'warningTitle'), t(locale, 'reportLocationRequired'));
+      return;
+    }
+
+    const position = { lat: reportPos.lat, lon: reportPos.lon };
+
+    let uploadedUrl: string | undefined = undefined;
+    if (newReportPhoto) {
+      setIsUploadingPhoto(true);
+      try {
+        uploadedUrl = await uploadPhotoToServer(newReportPhoto, `hazard-${Date.now()}.jpg`);
+      } catch {
+        uploadedUrl = newReportPhoto;
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    }
+
+    try {
+      const email = userAccount?.email || 'uzytkownik@krakow.pl';
+      await createServerHazard({
+        description: reportDesc.trim(),
+        category: newReportCategory,
+        email,
+        photoUrl: uploadedUrl,
+        position,
+      });
+      loadServerHazards();
+    } catch {
+      // Local fallback still keeps the obstacle on the map.
+    }
+
+    addLocalReport(reportDesc.trim(), {
+      photoUrl: uploadedUrl,
+      category: newReportCategory,
+      position,
+    });
+
     setReportDesc('');
+    setNewReportPhoto(null);
     setReportSuccess(true);
-    setTimeout(() => setReportSuccess(false), 3500);
+    setMapCenter({ lat: position.lat, lon: position.lon });
+    setStatusMessage('Zgłoszenie zostało zapisane i oznaczone na mapie jako przeszkoda.');
+    setTimeout(() => {
+      setReportSuccess(false);
+      setStatusMessage(null);
+    }, 4000);
   };
+
+  // Add Place Accessibility Validation with Photo
+  const handleAddPlaceValidation = async (targetPlaceId: string) => {
+    if (!placeCommentText.trim()) {
+      Alert.alert('Wpisz opinię', 'Podaj opis dostępności tego miejsca.');
+      return;
+    }
+    setPlaceCommentSubmitting(true);
+    try {
+      let uploadedUrl: string | undefined = undefined;
+      if (placeCommentPhoto) {
+        setIsUploadingPhoto(true);
+        try {
+          uploadedUrl = await uploadPhotoToServer(placeCommentPhoto, `place-${targetPlaceId}.jpg`);
+        } catch {
+          uploadedUrl = placeCommentPhoto;
+        } finally {
+          setIsUploadingPhoto(false);
+        }
+      }
+
+      const email = userAccount?.email || 'uzytkownik@krakow.pl';
+      const created = await addPlaceServerComment(targetPlaceId, {
+        sentiment: placeCommentSentiment,
+        comment: placeCommentText.trim(),
+        category: placeCommentCategory,
+        email,
+        photoUrl: uploadedUrl,
+      });
+
+      setPlaceComments((prev) => [created, ...prev]);
+      setPlaceCommentText('');
+      setPlaceCommentPhoto(null);
+      setShowPlaceValidationForm(false);
+      setStatusMessage('Opinia i zdjęcie dostępności miejsca zostały opublikowane!');
+      setTimeout(() => setStatusMessage(null), 4000);
+    } catch (err: any) {
+      Alert.alert('Błąd walidacji miejsca', err.message || 'Nie udało się dodać walidacji miejsca.');
+    } finally {
+      setPlaceCommentSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    loadServerHazards();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'place') {
+      const placeId = activePlaceReport?.placeName
+        ? `place-${activePlaceReport.placeName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+        : 'place-sukiennice';
+      loadPlaceComments(placeId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   return (
     <SafeAreaView
@@ -724,28 +1020,36 @@ export default function MapHomeScreen() {
           center={mapCenter}
           userLocation={userLocation}
           clickedLocation={clickedLocation}
-          startLocation={{
-            name: fromQuery,
-            lat:
-              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-                ? activeWalkingRoute.coordinates[0]![1]
-                : fromPos.lat,
-            lon:
-              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-                ? activeWalkingRoute.coordinates[0]![0]
-                : fromPos.lon,
-          }}
-          endLocation={{
-            name: toQuery,
-            lat:
-              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-                ? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1]
-                : toPos.lat,
-            lon:
-              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-                ? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0]
-                : toPos.lon,
-          }}
+          startLocation={
+            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+              ? {
+                  name: fromQuery || 'Start',
+                  lat: activeWalkingRoute.coordinates[0]![1],
+                  lon: activeWalkingRoute.coordinates[0]![0],
+                }
+              : fromPos && fromPos.lat != null && fromPos.lon != null && fromQuery.trim().length > 0
+              ? {
+                  name: fromQuery,
+                  lat: fromPos.lat,
+                  lon: fromPos.lon,
+                }
+              : undefined
+          }
+          endLocation={
+            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+              ? {
+                  name: toQuery || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'),
+                  lat: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1],
+                  lon: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0],
+                }
+              : toPos && toPos.lat != null && toPos.lon != null && toQuery.trim().length > 0
+              ? {
+                  name: toQuery,
+                  lat: toPos.lat,
+                  lon: toPos.lon,
+                }
+              : undefined
+          }
           onMapClick={handleMapClick}
           isPickingMode={pickingTarget !== null}
         />
@@ -772,42 +1076,40 @@ export default function MapHomeScreen() {
             )}
           </Pressable>
 
+          {/* Report Event / Hazard Floating Button on the Right */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t(locale, 'btnChangeProfile')}
+            accessibilityLabel={t(locale, 'tabReport')}
             onPress={() => {
-              setActiveTab('profile');
-              setPopupExpanded(true);
+              if (!reportPos && userLocation) {
+                setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
+                setReportQuery(t(locale, 'myLocationShort'));
+              }
+              setReportPopupOpen(true);
             }}
             style={[
               styles.floatingBtn,
               {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
+                backgroundColor: reportPopupOpen
+                  ? colors.warningBg || colors.accent
+                  : colors.surface,
+                borderColor: reportPopupOpen
+                  ? colors.warningBorder || colors.accent
+                  : '#D97706',
                 borderWidth: isHighContrast ? 2.5 : 1.5,
               },
             ]}
           >
-            {getProfileIcon(profileId, 20)}
+            <Warning
+              size={22}
+              weight="bold"
+              color={
+                reportPopupOpen
+                  ? colors.warningText || colors.accentText
+                  : '#D97706'
+              }
+            />
           </Pressable>
-
-          {activeWalkingRoute ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(locale, 'btnClearRoute')}
-              onPress={handleClearRoute}
-              style={[
-                styles.floatingBtn,
-                {
-                  backgroundColor: colors.blockerBg,
-                  borderColor: colors.blockerBorder,
-                  borderWidth: isHighContrast ? 2.5 : 1.5,
-                },
-              ]}
-            >
-              <X size={20} weight="bold" color={colors.blockerText} />
-            </Pressable>
-          ) : null}
         </View>
 
         {/* Active Route Floating Pill (if route is active) */}
@@ -830,10 +1132,9 @@ export default function MapHomeScreen() {
           >
             <Path size={18} weight="bold" color={colors.accent} />
             <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
-              {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
-              {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length} {t(locale, 'severityBlocker').toLowerCase()}
+              {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
+              {formatBlockerCount(activeRouteReport.findings.filter((f) => f.severity === 'blocker').length, locale)}
             </Text>
-            <CaretUp size={16} weight="bold" color={colors.accent} />
           </Pressable>
         ) : null}
 
@@ -930,11 +1231,19 @@ export default function MapHomeScreen() {
           onPress={() => setPopupExpanded(!popupExpanded)}
           style={styles.sheetHandleRow}
         >
-          <CaretDown
-            size={22}
-            weight="bold"
-            color={isHighContrast ? colors.accent : colors.muted}
-          />
+          {popupExpanded ? (
+            <CaretDown
+              size={22}
+              weight="bold"
+              color={isHighContrast ? colors.accent : colors.muted}
+            />
+          ) : (
+            <CaretUp
+              size={22}
+              weight="bold"
+              color={isHighContrast ? colors.accent : colors.muted}
+            />
+          )}
           <View style={styles.sheetHandleHeader}>
             <View style={styles.sheetHeaderLeft}>
               {getProfileIcon(profileId, 16)}
@@ -942,14 +1251,6 @@ export default function MapHomeScreen() {
                 {getProfileLabel(profileId)}
               </Text>
             </View>
-            {!popupExpanded ? (
-              <View style={styles.sheetToggleBtn}>
-                <Text style={[styles.toggleText, { color: colors.muted, fontSize: fontSize(12) }]}>
-                  {t(locale, 'expandMenu')}
-                </Text>
-                <CaretUp size={14} weight="bold" color={colors.accent} />
-              </View>
-            ) : null}
           </View>
         </Pressable>
 
@@ -979,16 +1280,6 @@ export default function MapHomeScreen() {
 
             {/* Quick Action Destination Chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickChipsScroll}>
-              <Pressable
-                onPress={() => loadDemoRoute(0)}
-                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
-              >
-                <Path size={14} weight="bold" color={colors.accent} />
-                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  Rynek → Wawel
-                </Text>
-              </Pressable>
-
               <Pressable
                 onPress={() => loadDemoRoute(1)}
                 style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
@@ -1038,6 +1329,33 @@ export default function MapHomeScreen() {
                 },
               ]}
             >
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'profile' }}
+                onPress={() => setActiveTab('profile')}
+                style={[
+                  styles.tabItem,
+                  activeTab === 'profile' && { backgroundColor: colors.accent },
+                ]}
+              >
+                <SlidersHorizontal
+                  size={16}
+                  weight="bold"
+                  color={activeTab === 'profile' ? colors.accentText : colors.text}
+                />
+                <Text
+                  style={[
+                    styles.tabItemText,
+                    {
+                      color: activeTab === 'profile' ? colors.accentText : colors.text,
+                      fontSize: fontSize(13),
+                    },
+                  ]}
+                >
+                  {t(locale, 'tabProfile')}
+                </Text>
+              </Pressable>
+
               <Pressable
                 accessibilityRole="tab"
                 accessibilityState={{ selected: activeTab === 'route' }}
@@ -1091,60 +1409,6 @@ export default function MapHomeScreen() {
                   {t(locale, 'tabPlace')}
                 </Text>
               </Pressable>
-
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{ selected: activeTab === 'profile' }}
-                onPress={() => setActiveTab('profile')}
-                style={[
-                  styles.tabItem,
-                  activeTab === 'profile' && { backgroundColor: colors.accent },
-                ]}
-              >
-                <SlidersHorizontal
-                  size={16}
-                  weight="bold"
-                  color={activeTab === 'profile' ? colors.accentText : colors.text}
-                />
-                <Text
-                  style={[
-                    styles.tabItemText,
-                    {
-                      color: activeTab === 'profile' ? colors.accentText : colors.text,
-                      fontSize: fontSize(13),
-                    },
-                  ]}
-                >
-                  {t(locale, 'tabProfile')}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{ selected: activeTab === 'report' }}
-                onPress={() => setActiveTab('report')}
-                style={[
-                  styles.tabItem,
-                  activeTab === 'report' && { backgroundColor: colors.accent },
-                ]}
-              >
-                <Warning
-                  size={16}
-                  weight="bold"
-                  color={activeTab === 'report' ? colors.accentText : colors.text}
-                />
-                <Text
-                  style={[
-                    styles.tabItemText,
-                    {
-                      color: activeTab === 'report' ? colors.accentText : colors.text,
-                      fontSize: fontSize(13),
-                    },
-                  ]}
-                >
-                  {t(locale, 'tabReport')}
-                </Text>
-              </Pressable>
             </View>
 
             {/* TAB CONTENT SCROLLVIEW */}
@@ -1168,22 +1432,24 @@ export default function MapHomeScreen() {
                     point={{ name: fromQuery, position: fromPos }}
                     onChangePoint={(p) => {
                       setFromQuery(p.name);
-                      setFromPos(p.position);
-                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                      setFromPos(p.position ?? null);
+                      if (p.position) {
+                        setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                      }
                     }}
                     placeholder={t(locale, 'fromPlaceholder')}
                     showMyLocation
                     onUseMyLocation={handleUseMyLocation}
                   />
 
-                  {/* Swap Points Button (A ⇄ B) */}
+                  {/* Swap Points Button (Icon centered between destinations) and Red Clear Route Button */}
                   <View style={styles.swapBtnRow}>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={t(locale, 'swapPoints')}
                       onPress={handleSwapPoints}
                       style={[
-                        styles.swapBtn,
+                        styles.swapIconBtn,
                         {
                           backgroundColor: colors.background,
                           borderColor: colors.border,
@@ -1191,11 +1457,29 @@ export default function MapHomeScreen() {
                         },
                       ]}
                     >
-                      <ArrowsDownUp size={15} weight="bold" color={colors.accent} />
-                      <Text style={[styles.swapBtnText, { color: colors.accent, fontSize: fontSize(12) }]}>
-                        {t(locale, 'swapPoints')}
-                      </Text>
+                      <ArrowsDownUp size={18} weight="bold" color={colors.accent} />
                     </Pressable>
+
+                    {activeWalkingRoute || fromQuery || toQuery ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={t(locale, 'btnClearRoute')}
+                        onPress={handleClearRoute}
+                        style={[
+                          styles.clearRouteBtn,
+                          {
+                            backgroundColor: colors.blockerBg,
+                            borderColor: colors.blockerBorder,
+                            borderWidth: isHighContrast ? 2 : 1,
+                          },
+                        ]}
+                      >
+                        <X size={15} weight="bold" color={colors.blockerText} />
+                        <Text style={[styles.clearRouteBtnText, { color: colors.blockerText, fontSize: fontSize(12) }]}>
+                          {t(locale, 'btnClearRoute')}
+                        </Text>
+                      </Pressable>
+                    ) : null}
                   </View>
 
                   {/* Point B (Destination) */}
@@ -1206,8 +1490,10 @@ export default function MapHomeScreen() {
                     point={{ name: toQuery, position: toPos }}
                     onChangePoint={(p) => {
                       setToQuery(p.name);
-                      setToPos(p.position);
-                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                      setToPos(p.position ?? null);
+                      if (p.position) {
+                        setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                      }
                     }}
                     placeholder={t(locale, 'toPlaceholder')}
                   />
@@ -1274,7 +1560,7 @@ export default function MapHomeScreen() {
                                   },
                                 ]}
                               >
-                                {routeVariants.accessible.report.lengthMetres} m • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                                {(routeVariants.accessible.report.lengthMetres / 1000).toFixed(1)} km • {formatBlockerCount(routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length, locale)}
                               </Text>
                             </Pressable>
 
@@ -1321,7 +1607,7 @@ export default function MapHomeScreen() {
                                   },
                                 ]}
                               >
-                                {routeVariants.shortest.report.lengthMetres} m • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                                {(routeVariants.shortest.report.lengthMetres / 1000).toFixed(1)} km • {formatBlockerCount(routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length, locale)}
                               </Text>
                             </Pressable>
                           </View>
@@ -1346,8 +1632,8 @@ export default function MapHomeScreen() {
                                     routeVariants.accessible.report.lengthMetres - routeVariants.shortest.report.lengthMetres,
                                   )}{' '}
                                   m krótsza, ale zawiera{' '}
-                                  {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length}{' '}
-                                  blokad(y) dla Twojego profilu. Trasa bez barier omija przeszkody.
+                                  {formatBlockerCount(routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length, locale)}{' '}
+                                  dla Twojego profilu. Trasa bez barier omija przeszkody.
                                 </Text>
                               </View>
                             )}
@@ -1359,7 +1645,7 @@ export default function MapHomeScreen() {
                           {t(locale, 'summaryCardTitle')}:
                         </Text>
                         <Text style={[styles.metricVal, { color: colors.accent, fontSize: fontSize(15) }]}>
-                          {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 60) / 60)} min
+                          {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 60) / 60)} min
                         </Text>
                       </View>
 
@@ -1393,27 +1679,6 @@ export default function MapHomeScreen() {
                         </View>
                       </View>
 
-                      {/* Barrier View Mode Selection on Card */}
-                      <View style={{ marginTop: 12, marginBottom: 4 }}>
-                        <Text style={[styles.fieldLabel, { color: colors.muted, fontSize: fontSize(12), marginBottom: 6 }]}>
-                          {t(locale, 'barrierViewModeLabel')}:
-                        </Text>
-                        <BarrierViewControl
-                          compact
-                          mode={barrierViewMode}
-                          onChangeMode={(newMode) => {
-                            if (newMode === 'route' && !activeWalkingRoute) {
-                              setStatusMessage(t(locale, 'noActiveRouteForBarriers'));
-                              setTimeout(() => setStatusMessage(null), 3500);
-                            }
-                            setBarrierViewMode(newMode);
-                          }}
-                          routeBarriersCount={routeBarriers.length}
-                          allBarriersCount={allCityBarriers.length}
-                          hasActiveRoute={Boolean(activeWalkingRoute)}
-                        />
-                      </View>
-
                       <View style={styles.routeActionRow}>
                         <GovButton
                           title={t(locale, 'showFullReportAndManeuvers')}
@@ -1424,11 +1689,11 @@ export default function MapHomeScreen() {
                               pathname: '/route',
                               params: {
                                 fromName: fromQuery,
-                                fromLat: String(fromPos.lat),
-                                fromLon: String(fromPos.lon),
+                                fromLat: String(fromPos?.lat ?? activeWalkingRoute.coordinates[0]?.[1] ?? 50.0619),
+                                fromLon: String(fromPos?.lon ?? activeWalkingRoute.coordinates[0]?.[0] ?? 19.9373),
                                 toName: toQuery,
-                                toLat: String(toPos.lat),
-                                toLon: String(toPos.lon),
+                                toLat: String(toPos?.lat ?? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]?.[1] ?? 50.0619),
+                                toLon: String(toPos?.lon ?? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]?.[0] ?? 19.9373),
                                 profile: profileId,
                                 variant: selectedRouteVariant,
                                 ...(activeRouteIsSample ? { isSample: '1' } : {}),
@@ -1446,13 +1711,6 @@ export default function MapHomeScreen() {
                       {t(locale, 'fastDemoRoutes')}
                     </Text>
                     <View style={styles.demoButtonsRow}>
-                      <GovButton
-                        variant="outline"
-                        title="Rynek → Wawel"
-                        icon={<Path size={14} weight="bold" color={colors.accent} />}
-                        onPress={() => loadDemoRoute(0)}
-                        style={styles.halfBtn}
-                      />
                       <GovButton
                         variant="outline"
                         title="Dworzec → Sukiennice"
@@ -1529,103 +1787,223 @@ export default function MapHomeScreen() {
                           style={{ flex: 1 }}
                         />
                       </View>
-                    </GovCard>
-                  ) : null}
 
-                  {/* Civic Building Catalog Header */}
-                  <View style={[styles.demoSection, { marginTop: 4 }]}>
-                    <View style={styles.fieldHeader}>
-                      <Text style={[styles.demoSectionTitle, { color: colors.accent, fontSize: fontSize(13) }]}>
-                        KATALOG OBIEKTÓW PUBLICZNYCH
-                      </Text>
-                    </View>
-
-                    {/* Building Cards List */}
-                    {DEFAULT_PRESET_PLACES.map((p) => {
-                        return (
-                          <View
-                            key={p.id}
-                            style={[
-                              styles.placeCard,
-                              {
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border,
-                                borderWidth: isHighContrast ? 2 : 1,
-                              },
-                            ]}
+                      {/* Place Accessibility Community Validations with Photos */}
+                      <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={{ fontWeight: '700', fontSize: fontSize(13.5), color: colors.text }}>
+                            Walidacje dostępności miejsca ({placeComments.length})
+                          </Text>
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() => setShowPlaceValidationForm(!showPlaceValidationForm)}
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
+                              paddingVertical: 4,
+                              paddingHorizontal: 8,
+                              borderRadius: 6,
+                              backgroundColor: showPlaceValidationForm ? colors.border : colors.accent,
+                            }}
                           >
-                            <View style={styles.placeCardHeader}>
-                              <Text
-                                style={[
-                                  styles.placeCardTitle,
-                                  { color: colors.text, fontSize: fontSize(14.5) },
-                                ]}
-                              >
-                                {p.name}
-                              </Text>
-                            </View>
+                            <Camera size={13} weight="bold" color="#FFF" />
+                            <Text style={{ fontSize: fontSize(11.5), color: '#FFF', fontWeight: '700' }}>
+                              {showPlaceValidationForm ? 'Anuluj' : 'Dodaj zdjęcie'}
+                            </Text>
+                          </Pressable>
+                        </View>
 
-                            <Text
-                              style={[
-                                styles.placeCardAddress,
-                                { color: colors.muted, fontSize: fontSize(12.5) },
-                              ]}
-                            >
-                              {p.label}
+                        {showPlaceValidationForm ? (
+                          <View
+                            style={{
+                              marginTop: 8,
+                              padding: 10,
+                              borderRadius: 8,
+                              backgroundColor: colors.background,
+                              borderWidth: 1,
+                              borderColor: colors.border,
+                            }}
+                          >
+                            <Text style={{ fontSize: fontSize(12.5), fontWeight: '700', color: colors.text, marginBottom: 4 }}>
+                              Oceń dostępność i dodaj zdjęcie dla mieszkańców:
                             </Text>
 
-                            {p.tags && p.tags.length > 0 ? (
-                              <View style={styles.placeCardTagsRow}>
-                                {p.tags.map((t, idx) => (
-                                  <View
-                                    key={idx}
-                                    style={[
-                                      styles.placeCardTag,
-                                      {
-                                        backgroundColor: t.includes('⚠️') || t.includes('❌')
-                                          ? colors.blockerBg
-                                          : colors.background,
-                                      },
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.placeCardTagText,
-                                        {
-                                          color: t.includes('⚠️') || t.includes('❌')
-                                            ? colors.blockerText
-                                            : colors.text,
-                                          fontSize: fontSize(11),
-                                        },
-                                      ]}
-                                    >
-                                      {t}
-                                    </Text>
-                                  </View>
-                                ))}
+                            <View style={styles.actionChoiceRow}>
+                              <Pressable
+                                accessibilityRole="button"
+                                onPress={() => setPlaceCommentSentiment('positive')}
+                                style={[
+                                  styles.actionChoiceBtn,
+                                  {
+                                    backgroundColor: placeCommentSentiment === 'positive' ? colors.okBg : colors.surface,
+                                    borderColor: placeCommentSentiment === 'positive' ? colors.okBorder : colors.border,
+                                  },
+                                ]}
+                              >
+                                <ThumbsUp size={14} weight="bold" color={placeCommentSentiment === 'positive' ? colors.okText : colors.text} />
+                                <Text style={[styles.actionChoiceText, { color: placeCommentSentiment === 'positive' ? colors.okText : colors.text }]}>
+                                  Dostępne
+                                </Text>
+                              </Pressable>
+
+                              <Pressable
+                                accessibilityRole="button"
+                                onPress={() => setPlaceCommentSentiment('negative')}
+                                style={[
+                                  styles.actionChoiceBtn,
+                                  {
+                                    backgroundColor: placeCommentSentiment === 'negative' ? colors.blockerBg : colors.surface,
+                                    borderColor: placeCommentSentiment === 'negative' ? colors.blockerBorder : colors.border,
+                                  },
+                                ]}
+                              >
+                                <ThumbsDown size={14} weight="bold" color={placeCommentSentiment === 'negative' ? colors.blockerText : colors.text} />
+                                <Text style={[styles.actionChoiceText, { color: placeCommentSentiment === 'negative' ? colors.blockerText : colors.text }]}>
+                                  Bariera
+                                </Text>
+                              </Pressable>
+                            </View>
+
+                            {/* Category selector */}
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginVertical: 6 }}>
+                              {[
+                                { id: 'entrance' as const, label: 'Wejście / rampa' },
+                                { id: 'inside' as const, label: 'Wnętrze / winda' },
+                                { id: 'toilet' as const, label: 'Toaleta PRM' },
+                                { id: 'surroundings' as const, label: 'Otoczenie' },
+                                { id: 'general' as const, label: 'Ogólne' },
+                              ].map((c) => (
+                                <Pressable
+                                  key={c.id}
+                                  accessibilityRole="button"
+                                  onPress={() => setPlaceCommentCategory(c.id)}
+                                  style={{
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 4,
+                                    borderRadius: 6,
+                                    backgroundColor: placeCommentCategory === c.id ? colors.accent : colors.surface,
+                                    borderWidth: 1,
+                                    borderColor: placeCommentCategory === c.id ? colors.accent : colors.border,
+                                  }}
+                                >
+                                  <Text style={{ fontSize: fontSize(11.5), color: placeCommentCategory === c.id ? colors.accentText : colors.text, fontWeight: '600' }}>
+                                    {c.label}
+                                  </Text>
+                                </Pressable>
+                              ))}
+                            </ScrollView>
+
+                            <TextInput
+                              value={placeCommentText}
+                              onChangeText={setPlaceCommentText}
+                              placeholder="Opisz stan podjazdu, rampy, toalety PRM..."
+                              placeholderTextColor={colors.muted}
+                              multiline
+                              numberOfLines={2}
+                              style={[
+                                styles.input,
+                                {
+                                  backgroundColor: colors.surface,
+                                  color: colors.text,
+                                  borderColor: colors.border,
+                                  borderWidth: 1,
+                                  fontSize: fontSize(13),
+                                  minHeight: 50,
+                                },
+                              ]}
+                            />
+
+                            {/* Photo Picker */}
+                            <View style={styles.photoBtnRow}>
+                              <Pressable
+                                accessibilityRole="button"
+                                onPress={async () => {
+                                  const photo = await pickPhotoAsync('camera');
+                                  if (photo) setPlaceCommentPhoto(photo);
+                                }}
+                                style={[styles.photoBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                              >
+                                <Camera size={14} weight="bold" color={colors.accent} />
+                                <Text style={[styles.photoBtnText, { color: colors.text }]}>Aparat</Text>
+                              </Pressable>
+
+                              <Pressable
+                                accessibilityRole="button"
+                                onPress={async () => {
+                                  const photo = await pickPhotoAsync('library');
+                                  if (photo) setPlaceCommentPhoto(photo);
+                                }}
+                                style={[styles.photoBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                              >
+                                <ImageIcon size={14} weight="bold" color={colors.accent} />
+                                <Text style={[styles.photoBtnText, { color: colors.text }]}>Galeria</Text>
+                              </Pressable>
+                            </View>
+
+                            {placeCommentPhoto ? (
+                              <View style={[styles.photoPreviewContainer, { borderColor: colors.border }]}>
+                                <Image source={{ uri: placeCommentPhoto }} style={styles.photoPreviewImage} resizeMode="cover" />
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Usuń zdjęcie"
+                                  onPress={() => setPlaceCommentPhoto(null)}
+                                  style={styles.photoRemoveBtn}
+                                >
+                                  <Trash size={14} color="#FFF" weight="bold" />
+                                </Pressable>
                               </View>
                             ) : null}
 
-                            <View style={styles.placeCardActions}>
-                              <GovButton
-                                title="Sprawdź"
-                                variant="outline"
-                                icon={<Buildings size={13} weight="bold" color={colors.accent} />}
-                                onPress={() => handleSelectPresetPlace(p)}
-                                style={{ flex: 1 }}
-                              />
-                              <GovButton
-                                title="Cel trasy"
-                                variant="outline"
-                                icon={<NavigationArrow size={13} weight="bold" color={colors.text} />}
-                                onPress={() => handleSetPlaceAsDestination(p)}
-                                style={{ flex: 1 }}
-                              />
-                            </View>
+                            <GovButton
+                              title={placeCommentSubmitting ? 'Wysyłanie na serwer...' : 'Opublikuj walidację ze zdjęciem'}
+                              variant="primary"
+                              loading={placeCommentSubmitting}
+                              onPress={() => {
+                                const targetPlaceId = activePlaceReport.placeName
+                                  ? `place-${activePlaceReport.placeName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+                                  : 'place-sukiennice';
+                                handleAddPlaceValidation(targetPlaceId);
+                              }}
+                              style={{ marginTop: 8 }}
+                            />
                           </View>
-                        );
-                      })}
-                    </View>
+                        ) : null}
+
+                        {/* List of comments and photos */}
+                        {placeComments.length > 0 ? (
+                          <View style={{ marginTop: 8, gap: 6 }}>
+                            {placeComments.map((pc) => (
+                              <View
+                                key={pc.id}
+                                style={[
+                                  styles.validationItem,
+                                  {
+                                    backgroundColor: colors.surface,
+                                    borderColor: pc.sentiment === 'positive' ? colors.okBorder : colors.blockerBorder,
+                                  },
+                                ]}
+                              >
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <Text style={{ fontSize: fontSize(12), fontWeight: '700', color: pc.sentiment === 'positive' ? colors.okText : colors.blockerText }}>
+                                    {pc.sentiment === 'positive' ? '✓ Dostępne' : '✗ Bariera'}{pc.category ? ` • ${pc.category}` : ''}
+                                  </Text>
+                                  <Text style={{ fontSize: fontSize(11), color: colors.muted }}>
+                                    {pc.createdAt.slice(0, 10)}
+                                  </Text>
+                                </View>
+                                <Text style={{ fontSize: fontSize(13), color: colors.text }}>{pc.comment}</Text>
+                                {pc.photoUrl ? (
+                                  <Image source={{ uri: pc.photoUrl }} style={styles.validationThumb} resizeMode="cover" />
+                                ) : null}
+                              </View>
+                            ))}
+                          </View>
+                        ) : null}
+                      </View>
+                    </GovCard>
+                  ) : null}
+
                   </View>
                 ) : null}
 
@@ -1729,50 +2107,39 @@ export default function MapHomeScreen() {
                       <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
                         {t(locale, 'maxKerb')}
                       </Text>
-                      <View style={styles.stepBtnRow}>
-                        <GovButton
-                          variant="outline"
-                          title="-10 mm"
-                          accessibilityLabel={`${t(locale, 'maxKerb')} -10 mm`}
-                          onPress={() =>
-                            updateActiveThresholds({
-                              maxKerbMillimetres: Math.max(10, activeThresholds.maxKerbMillimetres - 10),
-                            })
-                          }
-                          style={styles.smallStepBtn}
-                        />
-                        <View
-                          accessibilityLiveRegion="polite"
-                          accessibilityLabel={`${t(locale, 'maxKerb')} ${activeThresholds.maxKerbMillimetres} mm`}
-                          style={[
-                            styles.kerbValue,
-                            {
-                              borderColor: colors.border,
-                              backgroundColor: colors.background,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              color: colors.text,
-                              fontSize: fontSize(14),
-                              fontWeight: '800',
-                            }}
-                          >
-                            {activeThresholds.maxKerbMillimetres} mm
-                          </Text>
-                        </View>
-                        <GovButton
-                          variant="outline"
-                          title="+10 mm"
-                          accessibilityLabel={`${t(locale, 'maxKerb')} +10 mm`}
-                          onPress={() =>
-                            updateActiveThresholds({
-                              maxKerbMillimetres: activeThresholds.maxKerbMillimetres + 10,
-                            })
-                          }
-                          style={styles.smallStepBtn}
-                        />
+                      <View style={styles.presetChipsRow}>
+                        {KERB_LEVELS.map((level) => {
+                          const selected = activeThresholds.maxKerbMillimetres === level.mm;
+                          return (
+                            <Pressable
+                              key={level.mm}
+                              accessibilityRole="radio"
+                              accessibilityState={{ selected }}
+                              onPress={() => {
+                                if (profileId === 'wheelchair' && level.mm === 30) return;
+                                updateActiveThresholds({ maxKerbMillimetres: level.mm });
+                              }}
+                              style={[
+                                styles.roadChip,
+                                {
+                                  backgroundColor: selected ? colors.accent : colors.background,
+                                  borderColor: selected ? colors.accent : colors.border,
+                                  borderWidth: selected ? 2 : 1,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: selected ? colors.accentText : colors.text,
+                                  fontSize: fontSize(12.5),
+                                  fontWeight: '700',
+                                }}
+                              >
+                                {t(locale, level.labelKey)}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
                       </View>
                     </View>
 
@@ -1873,130 +2240,248 @@ export default function MapHomeScreen() {
                 </View>
               ) : null}
 
-              {/* TAB 4: ZGŁOŚ (LOCAL REPORT & OSM NOTE) */}
-              {activeTab === 'report' ? (
-                <View style={styles.formSection}>
-                  {/* Karta Krakowska Badge / Quick Login */}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      krakowCardUser
-                        ? `${t(locale, 'krakowCardVerifiedResident')}: ${krakowCardUser.displayName}`
-                        : t(locale, 'krakowCardLoginBtn')
-                    }
-                    onPress={() => setKrakowCardModalVisible(true)}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      paddingVertical: 6,
-                      paddingHorizontal: 10,
-                      borderRadius: 8,
-                      backgroundColor: krakowCardUser
-                        ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.15)')
-                        : (isHighContrast ? colors.surface : 'rgba(0, 92, 169, 0.08)'),
-                      borderWidth: 1,
-                      borderColor: krakowCardUser ? '#22C55E' : colors.border,
-                      marginBottom: 8,
-                    }}
-                  >
-                    {krakowCardUser ? (
-                      <ShieldCheck
-                        size={16}
-                        color={isHighContrast ? colors.accentText : '#16A34A'}
-                        weight="fill"
-                      />
-                    ) : (
-                      <IdentificationCard size={16} color={colors.accent} weight="bold" />
-                    )}
-                    <Text
-                      style={{
-                        flex: 1,
-                        fontSize: fontSize(12),
-                        fontWeight: '700',
-                        color: isHighContrast
-                          ? colors.text
-                          : krakowCardUser
-                            ? '#15803D'
-                            : colors.accent,
-                      }}
-                    >
-                      {krakowCardUser
-                        ? `Zweryfikowany: ${krakowCardUser.displayName} (Karta Krakowska)`
-                        : `Zgłaszasz anonimowo. Zaloguj Kartą Krakowską ➔`}
-                    </Text>
-                  </Pressable>
-
-                  <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
-                    {t(locale, 'reportObstacleHeading')}
-                  </Text>
-
-                  <TextInput
-                    value={reportDesc}
-                    onChangeText={setReportDesc}
-                    placeholder={t(locale, 'reportObstaclePlaceholder')}
-                    placeholderTextColor={colors.muted}
-                    multiline
-                    numberOfLines={3}
-                    style={[
-                      styles.input,
-                      styles.textArea,
-                      {
-                        color: colors.text,
-                        borderColor: colors.border,
-                        backgroundColor: colors.background,
-                        fontSize: fontSize(14),
-                        borderWidth: isHighContrast ? 2 : 1,
-                      },
-                    ]}
-                  />
-
-                  {reportSuccess ? (
-                    <GovCard variant="ok">
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Check size={16} weight="bold" color={colors.okText} />
-                        <Text style={{ color: colors.okText, fontWeight: '700', fontSize: fontSize(13) }}>
-                          {t(locale, 'reportSavedSuccess')}
-                        </Text>
-                      </View>
-                    </GovCard>
-                  ) : null}
-
-                  <GovButton
-                    title={t(locale, 'reportSubmit')}
-                    icon={<Check size={16} weight="bold" color={colors.accentText} />}
-                    variant="primary"
-                    onPress={handleSubmitLocalReport}
-                  />
-
-                  <GovButton
-                    title={t(locale, 'openFullOsmForm')}
-                    icon={<ArrowRight size={16} weight="bold" color={colors.text} />}
-                    variant="outline"
-                    onPress={() => router.push('/report-correction')}
-                  />
-
-                  {localReports && localReports.length > 0 ? (
-                    <View style={{ marginTop: 12 }}>
-                      <Text style={[styles.sectionSubtitle, { color: colors.muted, fontSize: fontSize(12) }]}>
-                        {t(locale, 'localReportsQueue')} ({localReports.length})
-                      </Text>
-                      {localReports.map((r) => (
-                        <GovCard key={r.id} style={{ marginTop: 6 }}>
-                          <Text style={{ color: colors.text, fontSize: fontSize(13) }}>{r.description}</Text>
-                          <Text style={{ color: colors.muted, fontSize: fontSize(11), marginTop: 4 }}>
-                            {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </Text>
-                        </GovCard>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
             </ScrollView>
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={reportPopupOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setReportPopupOpen(false)}
+      >
+        <View style={styles.reportModalBackdrop}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(locale, 'cancel')}
+            onPress={() => setReportPopupOpen(false)}
+            style={styles.reportModalDismiss}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={[
+              styles.reportModalSheet,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.reportModalHeader}>
+              <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(17) }]}>
+                {t(locale, 'reportPopupTitle')}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(locale, 'cancel')}
+                onPress={() => setReportPopupOpen(false)}
+                style={[styles.reportCloseBtn, { borderColor: colors.border }]}
+              >
+                <X size={18} weight="bold" color={colors.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 28, gap: 10 }}
+            >
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  userAccount
+                    ? `${t(locale, 'userAccountVerifiedResident')}: ${userAccount.displayName}`
+                    : t(locale, 'userAccountLoginBtn')
+                }
+                onPress={() => setUserModalVisible(true)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 8,
+                  backgroundColor: userAccount
+                    ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.15)')
+                    : (isHighContrast ? colors.surface : 'rgba(0, 92, 169, 0.08)'),
+                  borderWidth: 1,
+                  borderColor: userAccount ? '#22C55E' : colors.border,
+                }}
+              >
+                {userAccount ? (
+                  <ShieldCheck
+                    size={16}
+                    color={isHighContrast ? colors.accentText : '#16A34A'}
+                    weight="fill"
+                  />
+                ) : (
+                  <User size={16} color={colors.accent} weight="bold" />
+                )}
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: fontSize(12),
+                    fontWeight: '700',
+                    color: isHighContrast
+                      ? colors.text
+                      : userAccount
+                        ? '#15803D'
+                        : colors.accent,
+                  }}
+                >
+                  {userAccount
+                    ? `Zalogowany: ${userAccount.displayName} (${userAccount.email})`
+                    : 'Zgłaszasz anonimowo. Zaloguj się adresem e-mail'}
+                </Text>
+              </Pressable>
+
+              <LocationPicker
+                label={t(locale, 'reportLocationLabel')}
+                point={{ name: reportQuery, position: reportPos ?? EMPTY_POINT }}
+                onChangePoint={(p) => {
+                  setReportQuery(p.name);
+                  setReportPos(p.position ?? null);
+                  if (p.position) {
+                    setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                  }
+                }}
+                placeholder={t(locale, 'searchPromptOsm')}
+                showMyLocation
+                onUseMyLocation={() => {
+                  if (!userLocation) {
+                    fetchUserLocation().then((loc) => {
+                      if (!loc) return;
+                      setReportPos({ lat: loc.lat, lon: loc.lon });
+                      setReportQuery(t(locale, 'myLocationShort'));
+                    });
+                    return;
+                  }
+                  setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
+                  setReportQuery(t(locale, 'myLocationShort'));
+                }}
+                onPickOnMap={() => {
+                  setPickingTarget('report');
+                  setReportPopupOpen(false);
+                  setPopupExpanded(false);
+                }}
+                isPickingOnMap={pickingTarget === 'report'}
+              />
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {[
+                  { id: 'obstacle' as const, label: 'Krawężnik / schody' },
+                  { id: 'hole' as const, label: 'Wyrwa / dziura' },
+                  { id: 'surface' as const, label: 'Bruk / nawierzchnia' },
+                  { id: 'flood' as const, label: 'Zalanie / kałuża' },
+                  { id: 'other' as const, label: 'Inna przeszkoda' },
+                ].map((cat) => (
+                  <Pressable
+                    key={cat.id}
+                    accessibilityRole="button"
+                    onPress={() => setNewReportCategory(cat.id)}
+                    style={{
+                      paddingHorizontal: 9,
+                      paddingVertical: 5,
+                      borderRadius: 6,
+                      backgroundColor: newReportCategory === cat.id ? colors.accent : colors.background,
+                      borderWidth: 1,
+                      borderColor: newReportCategory === cat.id ? colors.accent : colors.border,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: fontSize(11.5),
+                        color: newReportCategory === cat.id ? colors.accentText : colors.text,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {cat.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              <TextInput
+                value={reportDesc}
+                onChangeText={setReportDesc}
+                placeholder={t(locale, 'reportObstaclePlaceholder')}
+                placeholderTextColor={colors.muted}
+                multiline
+                numberOfLines={3}
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  {
+                    color: colors.text,
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                    fontSize: fontSize(14),
+                    borderWidth: isHighContrast ? 2 : 1,
+                  },
+                ]}
+              />
+
+              <View style={styles.photoBtnRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={async () => {
+                    const photo = await pickPhotoAsync('camera');
+                    if (photo) setNewReportPhoto(photo);
+                  }}
+                  style={[styles.photoBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+                >
+                  <Camera size={14} weight="bold" color={colors.accent} />
+                  <Text style={[styles.photoBtnText, { color: colors.text }]}>Zrób zdjęcie</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={async () => {
+                    const photo = await pickPhotoAsync('library');
+                    if (photo) setNewReportPhoto(photo);
+                  }}
+                  style={[styles.photoBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+                >
+                  <ImageIcon size={14} weight="bold" color={colors.accent} />
+                  <Text style={[styles.photoBtnText, { color: colors.text }]}>Wybierz z galerii</Text>
+                </Pressable>
+              </View>
+
+              {newReportPhoto ? (
+                <View style={[styles.photoPreviewContainer, { borderColor: colors.border }]}>
+                  <Image source={{ uri: newReportPhoto }} style={styles.photoPreviewImage} resizeMode="cover" />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Usuń wybrane zdjęcie"
+                    onPress={() => setNewReportPhoto(null)}
+                    style={styles.photoRemoveBtn}
+                  >
+                    <Trash size={14} color="#FFF" weight="bold" />
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {reportSuccess ? (
+                <GovCard variant="ok">
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Check size={16} weight="bold" color={colors.okText} />
+                    <Text style={{ color: colors.okText, fontWeight: '700', fontSize: fontSize(13) }}>
+                      {t(locale, 'reportSavedSuccess')}
+                    </Text>
+                  </View>
+                </GovCard>
+              ) : null}
+
+              <GovButton
+                title={isUploadingPhoto ? 'Przesyłanie zdjęcia...' : t(locale, 'reportSubmit')}
+                icon={<Check size={16} weight="bold" color={colors.accentText} />}
+                variant="primary"
+                loading={isUploadingPhoto}
+                onPress={handleSubmitLocalReport}
+              />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
     </SafeAreaView>
@@ -2466,18 +2951,135 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   swapBtnRow: {
+    position: 'relative',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 2,
+    justifyContent: 'center',
+    marginVertical: 4,
+    minHeight: 38,
   },
-  swapBtn: {
+  swapIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearRouteBtn: {
+    position: 'absolute',
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 8,
   },
-  swapBtnText: {
+  clearRouteBtnText: {
     fontWeight: '700',
+  },
+  photoPreviewContainer: {
+    position: 'relative',
+    marginTop: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  photoPreviewImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 8,
+  },
+  photoRemoveBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 14,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reportModalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  },
+  reportModalDismiss: {
+    flex: 1,
+  },
+  reportModalSheet: {
+    maxHeight: '78%',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  reportCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  photoBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  photoBtnText: {
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  actionChoiceRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+  },
+  actionChoiceBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1.5,
+  },
+  actionChoiceText: {
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  validationItem: {
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 6,
+    gap: 4,
+  },
+  validationThumb: {
+    width: '100%',
+    height: 120,
+    borderRadius: 6,
+    marginTop: 4,
   },
 });

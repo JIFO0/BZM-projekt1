@@ -211,6 +211,258 @@ export const ADDITIONAL_KRAKOW_BARRIERS: Fact[] = [
     },
     retrievedAt: '2026-10-03T12:00:00Z',
   },
+  {
+    id: 'krakow-barrier-grodzka-senacka-kerb',
+    subject: { type: 'crossing', ref: 'node/grodzka-senacka', lat: 50.0575, lon: 19.938 },
+    criterion: 'kerb',
+    value: '100 mm',
+    unit: 'mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap / Audyt Społeczny', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-wislna-golebia-surface',
+    subject: { type: 'segment', ref: 'way/wislna-golebia', lat: 50.061, lon: 19.9352 },
+    criterion: 'surface',
+    value: 'cobblestone',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-bracka-franciszkanska-kerb',
+    subject: { type: 'crossing', ref: 'node/bracka-franciszkanska', lat: 50.0592, lon: 19.9365 },
+    criterion: 'kerb',
+    value: '95 mm',
+    unit: 'mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-stolarska-width',
+    subject: { type: 'segment', ref: 'way/stolarska-chodnik', lat: 50.0598, lon: 19.9392 },
+    criterion: 'width',
+    value: '0.65 m',
+    status: 'verified',
+    source: { name: 'Audyt Dostępności UMK', url: 'https://krakow.pl', licence: 'Informacja Publiczna' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-maly-rynek-steps',
+    subject: { type: 'segment', ref: 'way/maly-rynek-pasaz', lat: 50.062, lon: 19.9405 },
+    criterion: 'steps',
+    value: '8 stopni kamiennych wejścia do pasażu handlowego bez rampy',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-sw-krzyza-cobblestone',
+    subject: { type: 'segment', ref: 'way/sw-krzyza-bruk', lat: 50.063, lon: 19.9418 },
+    criterion: 'surface',
+    value: 'cobblestone',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-szpitalna-tomasza-kerb',
+    subject: { type: 'crossing', ref: 'node/szpitalna-tomasza', lat: 50.0639, lon: 19.9412 },
+    criterion: 'kerb',
+    value: '110 mm',
+    unit: 'mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-sw-jana-surface',
+    subject: { type: 'segment', ref: 'way/sw-jana-kostka', lat: 50.0635, lon: 19.939 },
+    criterion: 'surface',
+    value: 'cobblestone',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-szczepanski-steps',
+    subject: { type: 'segment', ref: 'way/szczepanski-palac-sztuki', lat: 50.0638, lon: 19.9355 },
+    criterion: 'steps',
+    value: '12 stopni wejściowych do Pałacu Sztuki, brak podjazdu dla wózków',
+    status: 'verified',
+    source: { name: 'Audyt Dostępności UMK', url: 'https://krakow.pl', licence: 'Informacja Publiczna' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-karmelicka-garbarska-kerb',
+    subject: { type: 'crossing', ref: 'node/karmelicka-garbarska', lat: 50.0652, lon: 19.932 },
+    criterion: 'kerb',
+    value: '90 mm',
+    unit: 'mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-krupnicza-loretanska-width',
+    subject: { type: 'segment', ref: 'way/krupnicza-loretanska', lat: 50.0631, lon: 19.9295 },
+    criterion: 'width',
+    value: '0.70 m',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-dluga-przejscie-steps',
+    subject: { type: 'segment', ref: 'way/dluga-schody', lat: 50.0712, lon: 19.936 },
+    criterion: 'steps',
+    value: '16 stopni w zejściu podziemnym przy Nowym Kleparzu, stroma szyna',
+    status: 'verified',
+    source: { name: 'ZDMK Kraków', url: 'https://zdmk.krakow.pl', licence: 'Informacja Publiczna' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-rynek-kleparski-surface',
+    subject: { type: 'segment', ref: 'way/rynek-kleparski-targ', lat: 50.0675, lon: 19.9398 },
+    criterion: 'surface',
+    value: 'unpaved',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-basztowa-matejki-kerb',
+    subject: { type: 'crossing', ref: 'node/basztowa-matejki', lat: 50.066, lon: 19.9415 },
+    criterion: 'kerb',
+    value: '130 mm',
+    unit: 'mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-szeroka-cobblestone',
+    subject: { type: 'segment', ref: 'way/szeroka-plac', lat: 50.0528, lon: 19.9482 },
+    criterion: 'surface',
+    value: 'cobblestone',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-miodowa-bozego-ciala-kerb',
+    subject: { type: 'crossing', ref: 'node/miodowa-bozego-ciala', lat: 50.052, lon: 19.9455 },
+    criterion: 'kerb',
+    value: '105 mm',
+    unit: 'mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-krakowska-dietla-steps',
+    subject: { type: 'segment', ref: 'way/krakowska-dietla-schody', lat: 50.0535, lon: 19.9428 },
+    criterion: 'steps',
+    value: '15 stromych stopni przy skrzyżowaniu Krakowska / Dietla',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-starowislna-berka-width',
+    subject: { type: 'segment', ref: 'way/starowislna-berka', lat: 50.0539, lon: 19.947 },
+    criterion: 'width',
+    value: '0.60 m',
+    status: 'verified',
+    source: { name: 'Audyt Dostępności UMK', url: 'https://krakow.pl', licence: 'Informacja Publiczna' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-skwer-judah-surface',
+    subject: { type: 'segment', ref: 'way/skwer-judah-plac', lat: 50.0515, lon: 19.9475 },
+    criterion: 'surface',
+    value: 'gravel',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-park-bednarskiego-stairs',
+    subject: { type: 'segment', ref: 'way/bednarski-zamoyskiego-stairs', lat: 50.0435, lon: 19.9465 },
+    criterion: 'steps',
+    value: '68 stromych schodów kamiennych do Parku Bednarskiego, brak pochylni',
+    status: 'verified',
+    source: { name: 'ZZM Kraków', url: 'https://zzm.krakow.pl', licence: 'Informacja Publiczna' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-rekawka-incline',
+    subject: { type: 'segment', ref: 'way/rekawka-podejscie', lat: 50.0428, lon: 19.951 },
+    criterion: 'incline',
+    value: '14%',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-kalwaryjska-dlugosza-kerb',
+    subject: { type: 'crossing', ref: 'node/kalwaryjska-dlugosza', lat: 50.042, lon: 19.945 },
+    criterion: 'kerb',
+    value: '115 mm',
+    unit: 'mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-plac-bohaterow-getta-kerb',
+    subject: { type: 'crossing', ref: 'node/plac-bohaterow-kacik', lat: 50.0475, lon: 19.954 },
+    criterion: 'kerb',
+    value: '90 mm',
+    unit: 'mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-kopernika-strzelecka-steps',
+    subject: { type: 'segment', ref: 'way/kopernika-strzelecka', lat: 50.0615, lon: 19.949 },
+    criterion: 'steps',
+    value: '14 stopni wejściowych na posesję szpitalną bez rampy',
+    status: 'verified',
+    source: { name: 'Audyt Dostępności UMK', url: 'https://krakow.pl', licence: 'Informacja Publiczna' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-zwierzyniecka-filharmonia-kerb',
+    subject: { type: 'crossing', ref: 'node/zwierzyniecka-filharmonia', lat: 50.0592, lon: 19.9325 },
+    criterion: 'kerb',
+    value: '85 mm',
+    unit: 'mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-bulwary-debnicki-stairs',
+    subject: { type: 'segment', ref: 'way/bulwary-debnicki-schody', lat: 50.0545, lon: 19.9285 },
+    criterion: 'steps',
+    value: '24 stopnie bez rampy w zejściu z Mostu Dębnickiego na Bulwary Wiślane',
+    status: 'verified',
+    source: { name: 'ZDMK Kraków', url: 'https://zdmk.krakow.pl', licence: 'Informacja Publiczna' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
+  {
+    id: 'krakow-barrier-stradomska-agnieszki-width',
+    subject: { type: 'segment', ref: 'way/stradomska-chodnik', lat: 50.055, lon: 19.9395 },
+    criterion: 'width',
+    value: '0.70 m',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-03T12:00:00Z',
+  },
 ];
 
 /**
@@ -276,4 +528,55 @@ export function getAllCityBarriers(thresholds: BarrierThresholds): RouteFinding[
   }
 
   return barriers;
+}
+
+export interface CitizenReportPoint {
+  id: string;
+  description: string;
+  position?: { lat: number; lon: number };
+  createdAt: string;
+  status?: string;
+}
+
+/** Resident reports are their own obstacle type and only appear where a location is known. */
+export function citizenReportsAsFindings(reports: CitizenReportPoint[]): RouteFinding[] {
+  const seen = new Set<string>();
+  const findings: RouteFinding[] = [];
+
+  for (const report of reports) {
+    if (!report.position) continue;
+    if (report.status === 'resolved') continue;
+    const key = `${report.position.lat.toFixed(4)}|${report.position.lon.toFixed(4)}|${report.description.trim().toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const fact: Fact = {
+      id: `citizen-report-${report.id}`,
+      subject: {
+        type: 'place',
+        ref: `report/${report.id}`,
+        lat: report.position.lat,
+        lon: report.position.lon,
+      },
+      criterion: 'report',
+      value: report.description,
+      status: 'reported',
+      source: {
+        name: 'Zgłoszenie mieszkańca',
+        url: 'https://www.krakow.pl',
+        licence: 'Zgłoszenie użytkownika',
+      },
+      retrievedAt: report.createdAt,
+    };
+
+    findings.push({
+      id: fact.id,
+      distanceFromStartMetres: 0,
+      type: 'report',
+      severity: 'warning',
+      fact,
+    });
+  }
+
+  return findings;
 }
