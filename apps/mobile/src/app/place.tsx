@@ -1,7 +1,14 @@
-import { findConflicts, isStale } from '@krakow-bez-barier/core';
-import { router, Stack } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { DEMO_SNAPSHOT, findConflicts, isStale } from '@krakow-bez-barier/core';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -25,14 +32,51 @@ import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { t } from '@/i18n/strings';
+import { inspectPlace } from '@/services/api';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
+
+function extractPlaceParams(params: Record<string, any>) {
+  let placeName = params.placeName;
+  let placeLat = params.placeLat ? parseFloat(params.placeLat) : undefined;
+  let placeLon = params.placeLon ? parseFloat(params.placeLon) : undefined;
+  let demoPlace = params.demoPlace !== undefined ? parseInt(params.demoPlace, 10) : undefined;
+
+  if (params.u) {
+    try {
+      const decoded = JSON.parse(decodeURIComponent(params.u));
+      if (decoded.placeName) placeName = decoded.placeName;
+      if (decoded.placeLat !== undefined) placeLat = parseFloat(decoded.placeLat);
+      if (decoded.placeLon !== undefined) placeLon = parseFloat(decoded.placeLon);
+      if (decoded.demoPlace !== undefined) demoPlace = parseInt(decoded.demoPlace, 10);
+    } catch {}
+  }
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hash = window.location.hash;
+      const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+
+      const getVal = (k: string) => urlParams.get(k) || hashParams.get(k);
+
+      if (placeLat === undefined && getVal('placeLat')) placeLat = parseFloat(getVal('placeLat')!);
+      if (placeLon === undefined && getVal('placeLon')) placeLon = parseFloat(getVal('placeLon')!);
+      if (!placeName && getVal('placeName')) placeName = getVal('placeName')!;
+      if (demoPlace === undefined && getVal('demoPlace')) demoPlace = parseInt(getVal('demoPlace')!, 10);
+    } catch {}
+  }
+
+  return { placeName, placeLat, placeLon, demoPlace };
+}
 
 export default function PlaceScreen() {
   const {
     locale,
     activePlaceReport,
+    setActivePlaceReport,
     setPendingDestination,
+    debugState,
     colors,
     fontSize,
     isHighContrast,
@@ -41,12 +85,80 @@ export default function PlaceScreen() {
   } = useSession();
 
   const [debugVisible, setDebugVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const rawParams = useLocalSearchParams();
+  const placeParams = useMemo(() => extractPlaceParams(rawParams), [rawParams]);
+
+  useEffect(() => {
+    if (activePlaceReport) return;
+
+    if (placeParams.demoPlace !== undefined && DEMO_SNAPSHOT.places[placeParams.demoPlace]) {
+      const dp = DEMO_SNAPSHOT.places[placeParams.demoPlace]!;
+      setLoading(true);
+      inspectPlace(dp.name, dp.position, debugState)
+        .then((result) => {
+          setActivePlaceReport(result.report);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    if (
+      placeParams.placeLat !== undefined &&
+      !isNaN(placeParams.placeLat) &&
+      placeParams.placeLon !== undefined &&
+      !isNaN(placeParams.placeLon)
+    ) {
+      setLoading(true);
+      inspectPlace(
+        placeParams.placeName || 'Obiekt',
+        { lat: placeParams.placeLat, lon: placeParams.placeLon },
+        debugState,
+      )
+        .then((result) => {
+          setActivePlaceReport(result.report);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  }, [activePlaceReport, placeParams, debugState, setActivePlaceReport]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+        <Stack.Screen options={{ headerShown: false, title: t(locale, 'placeDetailTitle') }} />
+        <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.loadingText, { color: colors.text, fontSize: fontSize(15) }]}>
+            {locale === 'pl' ? 'Pobieranie danych obiektu...' : locale === 'uk' ? 'Завантаження даних про об’єкт...' : 'Loading place details...'}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!activePlaceReport) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false, title: t(locale, 'placeDetailTitle') }} />
-        <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
+        <KrakowHeader
+          showBack
+          backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'}
+          onBack={() => {
+            try {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            } catch {
+              router.replace('/');
+            }
+          }}
+        />
         <View style={styles.emptyContainer}>
           <GovCard variant="warning">
             <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
@@ -57,9 +169,13 @@ export default function PlaceScreen() {
               icon={<ArrowLeft size={18} color="#fff" weight="bold" />}
               variant="primary"
               onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
+                try {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace('/');
+                  }
+                } catch {
                   router.replace('/');
                 }
               }}
@@ -86,9 +202,13 @@ export default function PlaceScreen() {
       name: report.placeName,
       position: report.position,
     });
-    if (router.canGoBack()) {
-      router.back();
-    } else {
+    try {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/');
+      }
+    } catch {
       router.replace('/');
     }
   };
@@ -404,5 +524,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    gap: 16,
+  },
+  loadingText: {
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

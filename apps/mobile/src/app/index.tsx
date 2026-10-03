@@ -3,7 +3,7 @@ import {
   type LonLat,
   type ProfileId,
 } from '@krakow-bez-barier/core';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
   ArrowRight,
   ArrowsDownUp,
@@ -21,10 +21,11 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Warning,
+  Wheelchair,
   X,
   IdentificationCard,
 } from 'phosphor-react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -49,7 +50,13 @@ import { LocationPicker } from '@/components/LocationPicker';
 import { MapLocationPopup } from '@/components/MapLocationPopup';
 import { MapView } from '@/components/MapView';
 import { t } from '@/i18n/strings';
-import { DEFAULT_PRESET_PLACES, inspectPlace, planAndAnalyzeRoute, reverseGeocodeLocation } from '@/services/api';
+import {
+  DEFAULT_PRESET_PLACES,
+  inspectPlace,
+  planAndAnalyzeRoute,
+  reverseGeocodeLocation,
+  type RouteVariantId,
+} from '@/services/api';
 import { getAllCityBarriers } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
@@ -101,7 +108,55 @@ const ROAD_TYPE_OPTIONS = [
 
 type PopupTab = 'route' | 'place' | 'profile' | 'report';
 
+function extractRouteParams(params: Record<string, any>) {
+  let fromName = params.fromName;
+  let fromLat = params.fromLat ? parseFloat(params.fromLat) : undefined;
+  let fromLon = params.fromLon ? parseFloat(params.fromLon) : undefined;
+  let toName = params.toName;
+  let toLat = params.toLat ? parseFloat(params.toLat) : undefined;
+  let toLon = params.toLon ? parseFloat(params.toLon) : undefined;
+  let demoRoute = params.demoRoute !== undefined ? parseInt(params.demoRoute, 10) : undefined;
+  let variant = params.variant as RouteVariantId | undefined;
+
+  if (params.u) {
+    try {
+      const decoded = JSON.parse(decodeURIComponent(params.u));
+      if (decoded.fromName) fromName = decoded.fromName;
+      if (decoded.fromLat !== undefined) fromLat = parseFloat(decoded.fromLat);
+      if (decoded.fromLon !== undefined) fromLon = parseFloat(decoded.fromLon);
+      if (decoded.toName) toName = decoded.toName;
+      if (decoded.toLat !== undefined) toLat = parseFloat(decoded.toLat);
+      if (decoded.toLon !== undefined) toLon = parseFloat(decoded.toLon);
+      if (decoded.demoRoute !== undefined) demoRoute = parseInt(decoded.demoRoute, 10);
+      if (decoded.variant) variant = decoded.variant;
+    } catch {}
+  }
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hash = window.location.hash;
+      const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+
+      const getVal = (k: string) => urlParams.get(k) || hashParams.get(k);
+
+      if (fromLat === undefined && getVal('fromLat')) fromLat = parseFloat(getVal('fromLat')!);
+      if (fromLon === undefined && getVal('fromLon')) fromLon = parseFloat(getVal('fromLon')!);
+      if (toLat === undefined && getVal('toLat')) toLat = parseFloat(getVal('toLat')!);
+      if (toLon === undefined && getVal('toLon')) toLon = parseFloat(getVal('toLon')!);
+      if (!fromName && getVal('fromName')) fromName = getVal('fromName')!;
+      if (!toName && getVal('toName')) toName = getVal('toName')!;
+      if (demoRoute === undefined && getVal('demoRoute')) demoRoute = parseInt(getVal('demoRoute')!, 10);
+      if (!variant && getVal('variant')) variant = getVal('variant') as RouteVariantId;
+    } catch {}
+  }
+
+  return { fromName, fromLat, fromLon, toName, toLat, toLon, demoRoute, variant };
+}
+
 export default function MapHomeScreen() {
+  const rawParams = useLocalSearchParams();
+  const initialParamsHandled = useRef(false);
   const {
     locale,
     profileId,
@@ -117,6 +172,7 @@ export default function MapHomeScreen() {
     activeWalkingRoute,
     setActiveWalkingRoute,
     setActiveRouteFacts,
+    activeRouteIsSample,
     setActiveRouteIsSample,
     routeVariants,
     setRouteVariants,
@@ -201,7 +257,6 @@ export default function MapHomeScreen() {
   const [toPos, setToPos] = useState<LonLat>({ lon: 19.9354, lat: 50.0544 });
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
-  const [placeCategoryFilter, setPlaceCategoryFilter] = useState<string>('all');
   const [placeCatalogSearch, setPlaceCatalogSearch] = useState<string>('');
 
   // Report input state
@@ -231,8 +286,7 @@ export default function MapHomeScreen() {
   const getProfileIcon = (id: ProfileId, size = 18) => {
     switch (id) {
       case 'wheelchair':
-        // Less intimidating modern navigation arrow icon
-        return <NavigationArrow size={size} weight="bold" color={colors.accent} />;
+        return <Wheelchair size={size} weight="bold" color={colors.accent} />;
       case 'custom':
       default:
         return <SlidersHorizontal size={size} weight="bold" color={colors.accent} />;
@@ -409,6 +463,17 @@ export default function MapHomeScreen() {
       setPopupExpanded(true);
       setActiveTab('route');
 
+      router.setParams({
+        fromName: fromQuery,
+        fromLat: String(fromPos.lat),
+        fromLon: String(fromPos.lon),
+        toName: toQuery,
+        toLat: String(toPos.lat),
+        toLon: String(toPos.lon),
+        profile: profileId,
+        variant: result.selectedVariant || selectedRouteVariant,
+      });
+
       // Center map on route start
       if (result.walkingRoute.coordinates.length > 0) {
         setMapCenter({
@@ -438,7 +503,14 @@ export default function MapHomeScreen() {
       setActivePlaceReport(result.report);
       setMapCenter({ lat: pos.lat, lon: pos.lon });
       if (navigateToScreen) {
-        router.push('/place');
+        router.push({
+          pathname: '/place',
+          params: {
+            placeName: q,
+            placeLat: String(pos.lat),
+            placeLon: String(pos.lon),
+          },
+        });
       } else {
         setPopupExpanded(true);
         setActiveTab('place');
@@ -478,6 +550,19 @@ export default function MapHomeScreen() {
         selectRouteVariant(result.selectedVariant);
       }
       setBarrierViewMode('route');
+
+      router.setParams({
+        demoRoute: String(index),
+        fromName: routeData.start.name,
+        fromLat: String(routeData.start.position.lat),
+        fromLon: String(routeData.start.position.lon),
+        toName: routeData.end.name,
+        toLat: String(routeData.end.position.lat),
+        toLon: String(routeData.end.position.lon),
+        profile: profileId,
+        variant: result.selectedVariant || selectedRouteVariant,
+      });
+
       if (result.walkingRoute.coordinates.length > 0) {
         setMapCenter({
           lat: result.walkingRoute.coordinates[0]![1],
@@ -490,6 +575,58 @@ export default function MapHomeScreen() {
       setLoadingRoute(false);
     }
   };
+
+  // Restore route on initial mount if query parameters are present
+  useEffect(() => {
+    if (initialParamsHandled.current || activeWalkingRoute) return;
+    initialParamsHandled.current = true;
+    const rp = extractRouteParams(rawParams);
+    if (rp.demoRoute !== undefined && DEMO_SNAPSHOT.routes[rp.demoRoute]) {
+      loadDemoRoute(rp.demoRoute);
+    } else if (
+      rp.fromLat !== undefined &&
+      !isNaN(rp.fromLat) &&
+      rp.fromLon !== undefined &&
+      !isNaN(rp.fromLon) &&
+      rp.toLat !== undefined &&
+      !isNaN(rp.toLat) &&
+      rp.toLon !== undefined &&
+      !isNaN(rp.toLon)
+    ) {
+      if (rp.fromName) setFromQuery(rp.fromName);
+      setFromPos({ lat: rp.fromLat, lon: rp.fromLon });
+      if (rp.toName) setToQuery(rp.toName);
+      setToPos({ lat: rp.toLat, lon: rp.toLon });
+      setActiveTab('route');
+      setPopupExpanded(true);
+      setLoadingRoute(true);
+      planAndAnalyzeRoute({
+        start: { name: rp.fromName || 'Start', position: { lat: rp.fromLat, lon: rp.fromLon } },
+        end: { name: rp.toName || 'Cel', position: { lat: rp.toLat, lon: rp.toLon } },
+        profileId,
+        thresholds: activeThresholds,
+        debugState,
+      })
+        .then((result) => {
+          setActiveWalkingRoute(result.walkingRoute);
+          setActiveRouteReport(result.report);
+          setActiveRouteFacts(result.facts);
+          setActiveRouteIsSample(result.isSample);
+          setRouteVariants(result.variants ?? null);
+          if (result.selectedVariant) selectRouteVariant(result.selectedVariant);
+          setBarrierViewMode('route');
+          if (result.walkingRoute.coordinates.length > 0) {
+            setMapCenter({
+              lat: result.walkingRoute.coordinates[0]![1],
+              lon: result.walkingRoute.coordinates[0]![0],
+            });
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingRoute(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Quick Demo Place Loader
   const loadDemoPlace = async (index: number) => {
@@ -511,29 +648,17 @@ export default function MapHomeScreen() {
     }
   };
 
-  const PLACE_CATEGORIES = [
-    { id: 'all', label: 'Wszystkie' },
-    { id: 'culture', label: '🏛️ Kultura i KSDK' },
-    { id: 'office', label: '🏢 Urzędy UMK' },
-    { id: 'transit', label: '🚆 Dworce i Węzły' },
-    { id: 'health', label: '🏥 Szpitale' },
-    { id: 'education', label: '🎓 Uczelnie' },
-    { id: 'sport', label: '🏟️ Sport' },
-  ];
-
-  const filteredPlaces = DEFAULT_PRESET_PLACES.filter((p) => {
-    if (placeCategoryFilter !== 'all' && p.category !== placeCategoryFilter) {
-      return false;
-    }
-    if (!placeCatalogSearch.trim()) {
-      return true;
-    }
-    const q = placeCatalogSearch.toLowerCase().trim();
-    const matchName = p.name.toLowerCase().includes(q);
-    const matchLabel = p.label.toLowerCase().includes(q);
-    const matchTag = p.tags && p.tags.some((t) => t.toLowerCase().includes(q));
-    return matchName || matchLabel || matchTag;
-  });
+  const catalogQuery = placeCatalogSearch.trim();
+  const filteredPlaces =
+    catalogQuery.length < 3
+      ? []
+      : DEFAULT_PRESET_PLACES.filter((p) => {
+          const q = catalogQuery.toLowerCase();
+          const matchName = p.name.toLowerCase().includes(q);
+          const matchLabel = p.label.toLowerCase().includes(q);
+          const matchTag = p.tags && p.tags.some((tag) => tag.toLowerCase().includes(q));
+          return matchName || matchLabel || matchTag;
+        });
 
   const handleSelectPresetPlace = async (p: (typeof DEFAULT_PRESET_PLACES)[number]) => {
     setPlaceQuery(p.name);
@@ -567,6 +692,16 @@ export default function MapHomeScreen() {
     setActiveRouteReport(null);
     setActiveRouteFacts([]);
     setRouteVariants(null);
+    router.setParams({
+      fromName: undefined,
+      fromLat: undefined,
+      fromLon: undefined,
+      toName: undefined,
+      toLat: undefined,
+      toLon: undefined,
+      demoRoute: undefined,
+      variant: undefined,
+    });
   };
 
   // Submit local report
@@ -808,11 +943,10 @@ export default function MapHomeScreen() {
           onPress={() => setPopupExpanded(!popupExpanded)}
           style={styles.sheetHandleRow}
         >
-          <View
-            style={[
-              styles.sheetHandleBar,
-              { backgroundColor: isHighContrast ? colors.accent : colors.muted },
-            ]}
+          <CaretDown
+            size={22}
+            weight="bold"
+            color={isHighContrast ? colors.accent : colors.muted}
           />
           <View style={styles.sheetHandleHeader}>
             <View style={styles.sheetHeaderLeft}>
@@ -821,16 +955,14 @@ export default function MapHomeScreen() {
                 {getProfileLabel(profileId)}
               </Text>
             </View>
-            <View style={styles.sheetToggleBtn}>
-              <Text style={[styles.toggleText, { color: colors.muted, fontSize: fontSize(12) }]}>
-                {popupExpanded ? t(locale, 'hideMenu') : t(locale, 'expandMenu')}
-              </Text>
-              {popupExpanded ? (
-                <CaretDown size={14} weight="bold" color={colors.accent} />
-              ) : (
+            {!popupExpanded ? (
+              <View style={styles.sheetToggleBtn}>
+                <Text style={[styles.toggleText, { color: colors.muted, fontSize: fontSize(12) }]}>
+                  {t(locale, 'expandMenu')}
+                </Text>
                 <CaretUp size={14} weight="bold" color={colors.accent} />
-              )}
-            </View>
+              </View>
+            ) : null}
           </View>
         </Pressable>
 
@@ -1055,8 +1187,6 @@ export default function MapHomeScreen() {
                     placeholder={t(locale, 'fromPlaceholder')}
                     showMyLocation
                     onUseMyLocation={handleUseMyLocation}
-                    onPickOnMap={() => setPickingTarget(pickingTarget === 'start' ? null : 'start')}
-                    isPickingOnMap={pickingTarget === 'start'}
                   />
 
                   {/* Swap Points Button (A ⇄ B) */}
@@ -1093,8 +1223,6 @@ export default function MapHomeScreen() {
                       setMapCenter({ lat: p.position.lat, lon: p.position.lon });
                     }}
                     placeholder={t(locale, 'toPlaceholder')}
-                    onPickOnMap={() => setPickingTarget(pickingTarget === 'end' ? null : 'end')}
-                    isPickingOnMap={pickingTarget === 'end'}
                   />
 
                   {/* Plan Route Action */}
@@ -1304,7 +1432,22 @@ export default function MapHomeScreen() {
                           title={t(locale, 'showFullReportAndManeuvers')}
                           icon={<ArrowRight size={16} weight="bold" color={colors.accent} />}
                           variant="outline"
-                          onPress={() => router.push('/route')}
+                          onPress={() => {
+                            router.push({
+                              pathname: '/route',
+                              params: {
+                                fromName: fromQuery,
+                                fromLat: String(fromPos.lat),
+                                fromLon: String(fromPos.lon),
+                                toName: toQuery,
+                                toLat: String(toPos.lat),
+                                toLon: String(toPos.lon),
+                                profile: profileId,
+                                variant: selectedRouteVariant,
+                                ...(activeRouteIsSample ? { isSample: '1' } : {}),
+                              },
+                            });
+                          }}
                         />
                       </View>
                     </GovCard>
@@ -1347,8 +1490,6 @@ export default function MapHomeScreen() {
                       setMapCenter({ lat: p.position.lat, lon: p.position.lon });
                     }}
                     placeholder={t(locale, 'placePlaceholder')}
-                    onPickOnMap={() => setPickingTarget(pickingTarget === 'place' ? null : 'place')}
-                    isPickingOnMap={pickingTarget === 'place'}
                   />
 
                   <GovButton
@@ -1372,14 +1513,23 @@ export default function MapHomeScreen() {
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                         <GovButton
-                          title="Pełna karta"
+                          title="Opis"
                           icon={<ArrowRight size={14} weight="bold" color={colors.accent} />}
                           variant="outline"
-                          onPress={() => router.push('/place')}
+                          onPress={() => {
+                            router.push({
+                              pathname: '/place',
+                              params: {
+                                placeName: activePlaceReport.placeName,
+                                placeLat: String(placePos.lat),
+                                placeLon: String(placePos.lon),
+                              },
+                            });
+                          }}
                           style={{ flex: 1 }}
                         />
                         <GovButton
-                          title="Trasa tutaj"
+                          title="Nawiguj"
                           icon={<NavigationArrow size={14} weight="bold" color={colors.accentText} />}
                           variant="primary"
                           onPress={() => {
@@ -1399,45 +1549,10 @@ export default function MapHomeScreen() {
                   <View style={[styles.demoSection, { marginTop: 4 }]}>
                     <View style={styles.fieldHeader}>
                       <Text style={[styles.demoSectionTitle, { color: colors.accent, fontSize: fontSize(13) }]}>
-                        KATALOG OBIEKTÓW PUBLICZNYCH ({filteredPlaces.length})
+                        KATALOG OBIEKTÓW PUBLICZNYCH
+                        {catalogQuery.length >= 3 ? ` (${filteredPlaces.length})` : ''}
                       </Text>
                     </View>
-
-                    {/* Category Filter Chips Horizontal Scroll */}
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.placeCategoryScroll}
-                    >
-                      {PLACE_CATEGORIES.map((cat) => {
-                        const active = placeCategoryFilter === cat.id;
-                        return (
-                          <Pressable
-                            key={cat.id}
-                            onPress={() => setPlaceCategoryFilter(cat.id)}
-                            style={[
-                              styles.placeCatChip,
-                              {
-                                backgroundColor: active ? colors.accent : colors.background,
-                                borderColor: active ? colors.accent : colors.border,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.placeCatChipText,
-                                {
-                                  color: active ? colors.accentText : colors.text,
-                                  fontSize: fontSize(12),
-                                },
-                              ]}
-                            >
-                              {cat.label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </ScrollView>
 
                     {/* Catalog Search & Filter Input */}
                     <View
@@ -1472,7 +1587,13 @@ export default function MapHomeScreen() {
                     </View>
 
                     {/* Filtered Building Cards List */}
-                    {filteredPlaces.length === 0 ? (
+                    {catalogQuery.length < 3 ? (
+                      <GovCard variant="default">
+                        <Text style={{ color: colors.muted, fontSize: fontSize(13) }}>
+                          Wpisz co najmniej 3 litery, aby zobaczyć obiekty.
+                        </Text>
+                      </GovCard>
+                    ) : filteredPlaces.length === 0 ? (
                       <GovCard variant="default">
                         <Text style={{ color: colors.muted, fontSize: fontSize(13) }}>
                           Brak obiektów spełniających filtr „{placeCatalogSearch}”. Wpisz adres u góry, by zbadać go na żywo z OSM.
@@ -1501,23 +1622,6 @@ export default function MapHomeScreen() {
                               >
                                 {p.name}
                               </Text>
-                              {p.category ? (
-                                <View
-                                  style={[
-                                    styles.placeCardBadge,
-                                    { backgroundColor: colors.background },
-                                  ]}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.placeCardBadgeText,
-                                      { color: colors.accent, fontSize: fontSize(11) },
-                                    ]}
-                                  >
-                                    {p.category.toUpperCase()}
-                                  </Text>
-                                </View>
-                              ) : null}
                             </View>
 
                             <Text
@@ -1683,12 +1787,13 @@ export default function MapHomeScreen() {
 
                     <View style={styles.thresholdRow}>
                       <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                        {t(locale, 'maxKerb')} <Text style={{ fontWeight: '800' }}>{activeThresholds.maxKerbMillimetres} mm</Text>
+                        {t(locale, 'maxKerb')}
                       </Text>
                       <View style={styles.stepBtnRow}>
                         <GovButton
                           variant="outline"
                           title="-10 mm"
+                          accessibilityLabel={`${t(locale, 'maxKerb')} -10 mm`}
                           onPress={() =>
                             updateActiveThresholds({
                               maxKerbMillimetres: Math.max(10, activeThresholds.maxKerbMillimetres - 10),
@@ -1696,9 +1801,31 @@ export default function MapHomeScreen() {
                           }
                           style={styles.smallStepBtn}
                         />
+                        <View
+                          accessibilityLiveRegion="polite"
+                          accessibilityLabel={`${t(locale, 'maxKerb')} ${activeThresholds.maxKerbMillimetres} mm`}
+                          style={[
+                            styles.kerbValue,
+                            {
+                              borderColor: colors.border,
+                              backgroundColor: colors.background,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              color: colors.text,
+                              fontSize: fontSize(14),
+                              fontWeight: '800',
+                            }}
+                          >
+                            {activeThresholds.maxKerbMillimetres} mm
+                          </Text>
+                        </View>
                         <GovButton
                           variant="outline"
                           title="+10 mm"
+                          accessibilityLabel={`${t(locale, 'maxKerb')} +10 mm`}
                           onPress={() =>
                             updateActiveThresholds({
                               maxKerbMillimetres: activeThresholds.maxKerbMillimetres + 10,
@@ -1706,43 +1833,6 @@ export default function MapHomeScreen() {
                           }
                           style={styles.smallStepBtn}
                         />
-                      </View>
-                      <View style={styles.presetChipsRow}>
-                        {[20, 30, 50, 80, 140].map((kVal) => {
-                          const isSelected = activeThresholds.maxKerbMillimetres === kVal;
-                          return (
-                            <Pressable
-                              key={kVal}
-                              accessibilityRole="button"
-                              onPress={() =>
-                                updateActiveThresholds({
-                                  maxKerbMillimetres: kVal,
-                                })
-                              }
-                              style={[
-                                styles.presetChip,
-                                {
-                                  backgroundColor: isSelected ? colors.accent : colors.background,
-                                  borderColor: isSelected ? colors.accent : colors.border,
-                                  borderWidth: isSelected ? 2 : 1,
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.presetChipText,
-                                  {
-                                    color: isSelected ? colors.accentText : colors.text,
-                                    fontSize: fontSize(12),
-                                    fontWeight: isSelected ? '800' : '600',
-                                  },
-                                ]}
-                              >
-                                {kVal} mm
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
                       </View>
                     </View>
 
@@ -2303,10 +2393,20 @@ const styles = StyleSheet.create({
   },
   stepBtnRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   smallStepBtn: {
     flex: 1,
+  },
+  kerbValue: {
+    minWidth: 76,
+    minHeight: 44,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   variantSection: {
     gap: 8,

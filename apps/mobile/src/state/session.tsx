@@ -267,10 +267,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(loadInitialLocale);
   const [profileId, setProfileIdState] = useState<ProfileId>(loadInitialProfileId);
   const [customThresholds, setCustomThresholdsState] = useState<BarrierThresholds>(loadInitialCustomThresholds);
-  const [profileThresholds, setProfileThresholds] = useState<Record<ProfileId, BarrierThresholds>>(() => ({
-    wheelchair: { ...city.profiles.wheelchair },
-    custom: loadInitialCustomThresholds(),
-  }));
 
   const setLocale = useCallback((loc: Locale) => {
     setLocaleState(loc);
@@ -282,90 +278,72 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setCookie(COOKIE_PROFILE_ID, id);
   }, []);
 
+  // Default wheelchair profile is immutable; custom profile holds all customisations
   const activeThresholds = useMemo(() => {
     if (profileId === 'custom') return customThresholds;
-    return profileThresholds[profileId] || city.profiles[profileId];
-  }, [profileId, customThresholds, profileThresholds]);
+    return city.profiles.wheelchair;
+  }, [profileId, customThresholds]);
 
   const setCustomThresholds = useCallback((thresholds: BarrierThresholds) => {
     setCustomThresholdsState(thresholds);
-    setProfileThresholds((prev) => ({ ...prev, custom: thresholds }));
     setCookie(COOKIE_CUSTOM_THRESHOLDS, JSON.stringify(thresholds));
   }, []);
 
   const toggleBlockedRoadType = useCallback(
     (roadType: string) => {
       const norm = roadType.trim().toLowerCase();
+      // If altering while on default wheelchair profile, base the custom profile on the default and switch to custom
+      const base = profileId === 'custom' ? customThresholds : { ...city.profiles.wheelchair };
       const currentBlocked = (
-        activeThresholds.blockedRoadTypes ??
-        activeThresholds.blockedSurfaces ??
+        base.blockedRoadTypes ??
+        base.blockedSurfaces ??
         []
       ).map((s) => s.trim().toLowerCase());
       const newBlocked = currentBlocked.includes(norm)
         ? currentBlocked.filter((s) => s !== norm)
         : [...currentBlocked, norm];
 
-      if (profileId === 'custom') {
-        const updated: BarrierThresholds = {
-          ...customThresholds,
-          blockedRoadTypes: newBlocked,
-          blockedSurfaces: newBlocked,
-        };
-        setCustomThresholds(updated);
-      } else {
-        setProfileThresholds((prev) => ({
-          ...prev,
-          [profileId]: {
-            ...prev[profileId],
-            blockedRoadTypes: newBlocked,
-            blockedSurfaces: newBlocked,
-          },
-        }));
+      const updated: BarrierThresholds = {
+        ...base,
+        blockedRoadTypes: newBlocked,
+        blockedSurfaces: newBlocked,
+      };
+
+      setCustomThresholds(updated);
+      if (profileId !== 'custom') {
+        setProfileId('custom');
       }
     },
-    [activeThresholds, profileId, customThresholds, setCustomThresholds],
+    [profileId, customThresholds, setCustomThresholds, setProfileId],
   );
 
   const setBlockedRoadTypes = useCallback(
     (roadTypes: string[]) => {
+      const base = profileId === 'custom' ? customThresholds : { ...city.profiles.wheelchair };
       const newBlocked = roadTypes.map((s) => s.trim().toLowerCase());
-      if (profileId === 'custom') {
-        const updated: BarrierThresholds = {
-          ...customThresholds,
-          blockedRoadTypes: newBlocked,
-          blockedSurfaces: newBlocked,
-        };
-        setCustomThresholds(updated);
-      } else {
-        setProfileThresholds((prev) => ({
-          ...prev,
-          [profileId]: {
-            ...prev[profileId],
-            blockedRoadTypes: newBlocked,
-            blockedSurfaces: newBlocked,
-          },
-        }));
+      const updated: BarrierThresholds = {
+        ...base,
+        blockedRoadTypes: newBlocked,
+        blockedSurfaces: newBlocked,
+      };
+      setCustomThresholds(updated);
+      if (profileId !== 'custom') {
+        setProfileId('custom');
       }
     },
-    [profileId, customThresholds, setCustomThresholds],
+    [profileId, customThresholds, setCustomThresholds, setProfileId],
   );
 
   const updateActiveThresholds = useCallback(
     (partial: Partial<BarrierThresholds>) => {
-      if (profileId === 'custom') {
-        const updated: BarrierThresholds = { ...customThresholds, ...partial };
-        setCustomThresholds(updated);
-      } else {
-        setProfileThresholds((prev) => ({
-          ...prev,
-          [profileId]: {
-            ...prev[profileId],
-            ...partial,
-          },
-        }));
+      const base = profileId === 'custom' ? customThresholds : { ...city.profiles.wheelchair };
+      const updated: BarrierThresholds = { ...base, ...partial };
+      setCustomThresholds(updated);
+      if (profileId !== 'custom') {
+        setProfileId('custom');
       }
     },
-    [profileId, customThresholds, setCustomThresholds],
+    [profileId, customThresholds, setCustomThresholds, setProfileId],
   );
 
   const [pendingDestination, setPendingDestination] = useState<{

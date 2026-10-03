@@ -53,9 +53,13 @@ export function KrakowHeader({
   } = useSession();
 
   const handleDefaultBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
+    try {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/');
+      }
+    } catch {
       router.replace('/');
     }
   };

@@ -1,12 +1,9 @@
 import {
-  formatCoordinates,
-  isValidCoordinate,
   parseCoordinates,
   type LonLat,
   type PlaceHit,
 } from '@krakow-bez-barier/core';
 import {
-  Check,
   Compass,
   Crosshair,
   MagnifyingGlass,
@@ -25,7 +22,7 @@ import {
 } from 'react-native';
 
 import { t } from '@/i18n/strings';
-import { reverseGeocodeLocation, suggestPlaces } from '@/services/api';
+import { suggestPlaces } from '@/services/api';
 import { useSession } from '@/state/session';
 
 
@@ -63,10 +60,6 @@ export function LocationPicker({
 
   const [queryText, setQueryText] = useState(point.name || '');
   const [isFocused, setIsFocused] = useState(false);
-  const [showCoordInputs, setShowCoordInputs] = useState(false);
-  const [latInput, setLatInput] = useState(point.position.lat.toFixed(5));
-  const [lonInput, setLonInput] = useState(point.position.lon.toFixed(5));
-  const [coordError, setCoordError] = useState<string | null>(null);
 
   // Suggestions state
   const [suggestions, setSuggestions] = useState<PlaceHit[]>([]);
@@ -76,9 +69,7 @@ export function LocationPicker({
   // Sync internal text when external point changes
   useEffect(() => {
     setQueryText(point.name);
-    setLatInput(point.position.lat.toFixed(5));
-    setLonInput(point.position.lon.toFixed(5));
-  }, [point.name, point.position.lat, point.position.lon]);
+  }, [point.name]);
 
   // Debounced OSM search
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -107,9 +98,10 @@ export function LocationPicker({
       clearTimeout(debounceRef.current);
     }
 
-    if (!text.trim()) {
+    if (text.trim().length < 3) {
       setSuggestions([]);
       setShowDropdown(false);
+      setLoadingSuggestions(false);
       return;
     }
 
@@ -130,41 +122,11 @@ export function LocationPicker({
 
   const handleSelectSuggestion = (item: PlaceHit) => {
     setQueryText(item.name);
-    setLatInput(item.position.lat.toFixed(5));
-    setLonInput(item.position.lon.toFixed(5));
     onChangePoint({
       name: item.name,
       position: item.position,
     });
     setShowDropdown(false);
-  };
-
-  const handleApplyCoordinates = async () => {
-    const lat = parseFloat(latInput.replace(',', '.'));
-    const lon = parseFloat(lonInput.replace(',', '.'));
-
-    if (!isValidCoordinate(lat, lon)) {
-      setCoordError(t(locale, 'invalidCoordinates'));
-      return;
-    }
-
-    setCoordError(null);
-    setShowCoordInputs(false);
-
-    // Try reverse geocoding to get human friendly street/name
-    let resolvedName = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-    try {
-      const rev = await reverseGeocodeLocation(lat, lon, locale);
-      if (rev?.name) {
-        resolvedName = rev.name;
-      }
-    } catch {}
-
-    setQueryText(resolvedName);
-    onChangePoint({
-      name: resolvedName,
-      position: { lat, lon },
-    });
   };
 
   const handleClear = () => {
@@ -216,69 +178,6 @@ export function LocationPicker({
             </Pressable>
           ) : null}
 
-          {onPickOnMap ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isPickingOnMap ? t(locale, 'cancelMapPick') : t(locale, 'pickOnMap')}
-              onPress={onPickOnMap}
-              style={[
-                styles.smallActionBtn,
-                {
-                  backgroundColor: isPickingOnMap ? colors.accent : colors.background,
-                  borderColor: isPickingOnMap ? colors.accent : colors.border,
-                },
-              ]}
-            >
-              <Crosshair
-                size={12}
-                weight="bold"
-                color={isPickingOnMap ? colors.accentText : colors.accent}
-              />
-              <Text
-                style={[
-                  styles.smallActionText,
-                  {
-                    color: isPickingOnMap ? colors.accentText : colors.accent,
-                    fontSize: fontSize(11.5),
-                  },
-                ]}
-              >
-                {t(locale, 'pickOnMap')}
-              </Text>
-            </Pressable>
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              showCoordInputs ? t(locale, 'hideCoordinates') : t(locale, 'enterCoordinates')
-            }
-            onPress={() => setShowCoordInputs(!showCoordInputs)}
-            style={[
-              styles.smallActionBtn,
-              {
-                backgroundColor: showCoordInputs ? colors.accent : colors.background,
-                borderColor: showCoordInputs ? colors.accent : colors.border,
-              },
-            ]}
-          >
-            <Compass
-              size={12}
-              weight="bold"
-              color={showCoordInputs ? colors.accentText : colors.text}
-            />
-            <Text
-              style={[
-                styles.smallActionText,
-                {
-                  color: showCoordInputs ? colors.accentText : colors.text,
-                  fontSize: fontSize(11.5),
-                },
-              ]}
-            >
-              {t(locale, 'coordinatesBadge')}
-            </Text>
-          </Pressable>
         </View>
       </View>
 
@@ -299,83 +198,6 @@ export function LocationPicker({
               <X size={14} weight="bold" color={colors.warningText} />
             </Pressable>
           ) : null}
-        </View>
-      ) : null}
-
-      {/* Coordinate Input Mode */}
-      {showCoordInputs ? (
-        <View
-          style={[
-            styles.coordInputsBox,
-            {
-              backgroundColor: colors.background,
-              borderColor: colors.border,
-              borderWidth: isHighContrast ? 2 : 1.5,
-            },
-          ]}
-        >
-          <View style={styles.coordInputsRow}>
-            <View style={styles.coordField}>
-              <Text style={[styles.coordFieldLabel, { color: colors.muted, fontSize: fontSize(11.5) }]}>
-                {t(locale, 'latitude')}
-              </Text>
-              <TextInput
-                value={latInput}
-                onChangeText={setLatInput}
-                placeholder={t(locale, 'latitudePlaceholder')}
-                placeholderTextColor={colors.muted}
-                keyboardType="numeric"
-                style={[
-                  styles.coordInput,
-                  {
-                    color: colors.text,
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    fontSize: fontSize(13.5),
-                  },
-                ]}
-              />
-            </View>
-
-            <View style={styles.coordField}>
-              <Text style={[styles.coordFieldLabel, { color: colors.muted, fontSize: fontSize(11.5) }]}>
-                {t(locale, 'longitude')}
-              </Text>
-              <TextInput
-                value={lonInput}
-                onChangeText={setLonInput}
-                placeholder={t(locale, 'longitudePlaceholder')}
-                placeholderTextColor={colors.muted}
-                keyboardType="numeric"
-                style={[
-                  styles.coordInput,
-                  {
-                    color: colors.text,
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    fontSize: fontSize(13.5),
-                  },
-                ]}
-              />
-            </View>
-          </View>
-
-          {coordError ? (
-            <Text style={[styles.coordErrorText, { color: colors.blockerText, fontSize: fontSize(12) }]}>
-              {coordError}
-            </Text>
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleApplyCoordinates}
-            style={[styles.applyCoordsBtn, { backgroundColor: colors.accent }]}
-          >
-            <Check size={14} weight="bold" color={colors.accentText} />
-            <Text style={[styles.applyCoordsText, { color: colors.accentText, fontSize: fontSize(12.5) }]}>
-              {t(locale, 'applyCoordinates')}
-            </Text>
-          </Pressable>
         </View>
       ) : null}
 
@@ -432,21 +254,6 @@ export function LocationPicker({
           </Pressable>
         ) : null}
       </View>
-
-      {/* Active Position Info Chip */}
-      {point.position && point.position.lat && point.position.lon ? (
-        <View style={styles.activePositionRow}>
-          <MapPin size={12} weight="bold" color={colors.accent} />
-          <Text style={[styles.activePositionText, { color: colors.muted, fontSize: fontSize(11.5) }]}>
-            {formatCoordinates(point.position, 5)}
-          </Text>
-          <View style={[styles.osmTag, { borderColor: colors.border }]}>
-            <Text style={[styles.osmTagText, { color: colors.muted, fontSize: fontSize(10) }]}>
-              OSM
-            </Text>
-          </View>
-        </View>
-      ) : null}
 
       {/* Address and place suggestions */}
       {showDropdown && (suggestions.length > 0 || (queryText.trim().length >= 3 && !loadingSuggestions)) ? (
@@ -513,9 +320,6 @@ export function LocationPicker({
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.suggestionCoord, { color: colors.muted, fontSize: fontSize(11) }]}>
-                {item.position.lat.toFixed(4)}, {item.position.lon.toFixed(4)}
-              </Text>
             </Pressable>
           ))}
         </View>

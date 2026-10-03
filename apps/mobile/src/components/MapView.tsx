@@ -11,7 +11,7 @@ import { WebView } from 'react-native-webview';
 
 import { useSession } from '@/state/session';
 import { city } from '@/config/city';
-import { getLocalizedFactValue } from '@/i18n/strings';
+import { getLocalizedFactValue, t } from '@/i18n/strings';
 
 export interface MapViewProps {
   route?: WalkingRoute | null;
@@ -597,8 +597,10 @@ export function MapView({
         iconSize: [32, 32],
         iconAnchor: [16, 16]
       });
+      var startPopupLabel = ${JSON.stringify(t(locale, 'from') || 'Start')};
+      var startFallback = ${JSON.stringify(locale === 'pl' ? 'Początek trasy' : locale === 'uk' ? 'Початок маршруту' : 'Start')};
       L.marker([startPin.lat, startPin.lon], { icon: startIcon }).addTo(map)
-        .bindPopup('<b>Start:</b> ' + (startPin.name || 'Początek trasy'));
+        .bindPopup('<b>' + startPopupLabel + ':</b> ' + (startPin.name || startFallback));
     }
 
     var endPin = ${JSON.stringify(endPin)};
@@ -609,8 +611,10 @@ export function MapView({
         iconSize: [32, 32],
         iconAnchor: [16, 16]
       });
+      var endPopupLabel = ${JSON.stringify(t(locale, 'to') || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'))};
+      var endFallback = ${JSON.stringify(locale === 'pl' ? 'Koniec trasy' : locale === 'uk' ? 'Кінець маршруту' : 'Destination')};
       L.marker([endPin.lat, endPin.lon], { icon: endIcon }).addTo(map)
-        .bindPopup('<b>Cel:</b> ' + (endPin.name || 'Koniec trasy'));
+        .bindPopup('<b>' + endPopupLabel + ':</b> ' + (endPin.name || endFallback));
     }
 
     function getObstacleSvgIcon(type, color) {
@@ -680,7 +684,7 @@ export function MapView({
           iconAnchor: [15, 15]
         });
 
-        var statusText = m.severity === 'blocker' ? 'Blokada' : m.severity === 'warning' ? 'Ostrzeżenie' : m.severity === 'ok' ? 'Dostępne' : m.severity;
+        var statusText = m.severity === 'blocker' ? '${t(locale, 'severityBlocker')}' : m.severity === 'warning' ? '${t(locale, 'severityWarning')}' : m.severity === 'ok' ? '${t(locale, 'severityOk')}' : m.severity;
         var statusBg = m.severity === 'blocker' ? '#fee2e2' : m.severity === 'warning' ? '#ffedd5' : m.severity === 'ok' ? '#dcfce7' : '#f1f5f9';
         var statusColor = m.severity === 'blocker' ? '#b91c1c' : m.severity === 'warning' ? '#c2410c' : m.severity === 'ok' ? '#15803d' : '#475569';
 
@@ -711,10 +715,11 @@ export function MapView({
           iconSize: [26, 26],
           iconAnchor: [13, 13]
         });
+        var userPopupLabel = ${JSON.stringify(locale === 'pl' ? 'Twoja lokalizacja' : locale === 'uk' ? 'Ваше розташування' : 'Your location')};
         userMarker = L.marker([lat, lon], {
           icon: userIcon,
           zIndexOffset: 1000
-        }).addTo(map).bindPopup('<b>Twoja lokalizacja</b>');
+        }).addTo(map).bindPopup('<b>' + userPopupLabel + '</b>');
       }
     };
 

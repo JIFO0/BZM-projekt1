@@ -1,11 +1,14 @@
 import {
+  DEMO_SNAPSHOT,
   noBarrierSentenceAllowed,
   type RouteFinding,
 } from '@krakow-bez-barier/core';
-import { router, Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -42,17 +45,91 @@ import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { MapView } from '@/components/MapView';
 import { RouteFindingRow } from '@/components/RouteFindingRow';
-import { t } from '@/i18n/strings';
+import {
+  getLocalizedFactValue,
+  getLocalizedFindingType,
+  t,
+} from '@/i18n/strings';
+import { planAndAnalyzeRoute, type RouteVariantId } from '@/services/api';
 import { getAllCityBarriers } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
+function extractRouteParams(params: Record<string, any>) {
+  let fromName = params.fromName;
+  let fromLat = params.fromLat ? parseFloat(params.fromLat) : undefined;
+  let fromLon = params.fromLon ? parseFloat(params.fromLon) : undefined;
+  let toName = params.toName;
+  let toLat = params.toLat ? parseFloat(params.toLat) : undefined;
+  let toLon = params.toLon ? parseFloat(params.toLon) : undefined;
+  let demoRoute = params.demoRoute !== undefined ? parseInt(params.demoRoute, 10) : undefined;
+  let variant = params.variant as RouteVariantId | undefined;
+
+  // Support #u or ?u= encoded payload if provided
+  if (params.u) {
+    try {
+      const decoded = JSON.parse(decodeURIComponent(params.u));
+      if (decoded.fromName) fromName = decoded.fromName;
+      if (decoded.fromLat !== undefined) fromLat = parseFloat(decoded.fromLat);
+      if (decoded.fromLon !== undefined) fromLon = parseFloat(decoded.fromLon);
+      if (decoded.toName) toName = decoded.toName;
+      if (decoded.toLat !== undefined) toLat = parseFloat(decoded.toLat);
+      if (decoded.toLon !== undefined) toLon = parseFloat(decoded.toLon);
+      if (decoded.demoRoute !== undefined) demoRoute = parseInt(decoded.demoRoute, 10);
+      if (decoded.variant) variant = decoded.variant;
+    } catch {}
+  }
+
+  // Web fallback: check window.location.search and window.location.hash
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hash = window.location.hash;
+      const hashParams = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+
+      const getVal = (k: string) => urlParams.get(k) || hashParams.get(k);
+
+      if (fromLat === undefined && getVal('fromLat')) fromLat = parseFloat(getVal('fromLat')!);
+      if (fromLon === undefined && getVal('fromLon')) fromLon = parseFloat(getVal('fromLon')!);
+      if (toLat === undefined && getVal('toLat')) toLat = parseFloat(getVal('toLat')!);
+      if (toLon === undefined && getVal('toLon')) toLon = parseFloat(getVal('toLon')!);
+      if (!fromName && getVal('fromName')) fromName = getVal('fromName')!;
+      if (!toName && getVal('toName')) toName = getVal('toName')!;
+      if (demoRoute === undefined && getVal('demoRoute')) demoRoute = parseInt(getVal('demoRoute')!, 10);
+      if (!variant && getVal('variant')) variant = getVal('variant') as RouteVariantId;
+
+      const uVal = getVal('u');
+      if (uVal) {
+        try {
+          const decoded = JSON.parse(decodeURIComponent(uVal));
+          if (decoded.fromName && !fromName) fromName = decoded.fromName;
+          if (decoded.fromLat !== undefined && fromLat === undefined) fromLat = parseFloat(decoded.fromLat);
+          if (decoded.fromLon !== undefined && fromLon === undefined) fromLon = parseFloat(decoded.fromLon);
+          if (decoded.toName && !toName) toName = decoded.toName;
+          if (decoded.toLat !== undefined && toLat === undefined) toLat = parseFloat(decoded.toLat);
+          if (decoded.toLon !== undefined && toLon === undefined) toLon = parseFloat(decoded.toLon);
+          if (decoded.demoRoute !== undefined && demoRoute === undefined) demoRoute = parseInt(decoded.demoRoute, 10);
+          if (decoded.variant && !variant) variant = decoded.variant;
+        } catch {}
+      }
+    } catch {}
+  }
+
+  return { fromName, fromLat, fromLon, toName, toLat, toLon, demoRoute, variant };
+}
+
 export default function RouteScreen() {
   const {
     locale,
+    profileId,
     activeRouteReport,
+    setActiveRouteReport,
     activeWalkingRoute,
+    setActiveWalkingRoute,
+    setActiveRouteFacts,
+    setActiveRouteIsSample,
     routeVariants,
+    setRouteVariants,
     selectedRouteVariant,
     selectRouteVariant,
     colors,
@@ -64,10 +141,104 @@ export default function RouteScreen() {
     barrierViewMode,
     setBarrierViewMode,
     activeThresholds,
+    debugState,
   } = useSession();
 
   const [showMap, setShowMap] = useState(true);
   const [debugVisible, setDebugVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const rawParams = useLocalSearchParams();
+  const routeParams = useMemo(() => extractRouteParams(rawParams), [rawParams]);
+
+  // Restore route on page refresh or direct navigation if query parameters exist
+  useEffect(() => {
+    if (activeRouteReport) return;
+
+    if (routeParams.demoRoute !== undefined && DEMO_SNAPSHOT.routes[routeParams.demoRoute]) {
+      const demo = DEMO_SNAPSHOT.routes[routeParams.demoRoute]!;
+      setLoading(true);
+      setLoadError(null);
+      planAndAnalyzeRoute({
+        start: { name: demo.start.name, position: demo.start.position },
+        end: { name: demo.end.name, position: demo.end.position },
+        profileId,
+        thresholds: activeThresholds,
+        debugState,
+      })
+        .then((result) => {
+          setActiveWalkingRoute(result.walkingRoute);
+          setActiveRouteReport(result.report);
+          setActiveRouteFacts(result.facts);
+          setActiveRouteIsSample(result.isSample);
+          setRouteVariants(result.variants ?? null);
+          const v = routeParams.variant || result.selectedVariant || 'accessible';
+          selectRouteVariant(v);
+        })
+        .catch((err) => {
+          setLoadError(err.message || 'Error loading route');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+      return;
+    }
+
+    if (
+      routeParams.fromLat !== undefined &&
+      !isNaN(routeParams.fromLat) &&
+      routeParams.fromLon !== undefined &&
+      !isNaN(routeParams.fromLon) &&
+      routeParams.toLat !== undefined &&
+      !isNaN(routeParams.toLat) &&
+      routeParams.toLon !== undefined &&
+      !isNaN(routeParams.toLon)
+    ) {
+      setLoading(true);
+      setLoadError(null);
+      planAndAnalyzeRoute({
+        start: {
+          name: routeParams.fromName || 'Start',
+          position: { lat: routeParams.fromLat, lon: routeParams.fromLon },
+        },
+        end: {
+          name: routeParams.toName || 'Cel',
+          position: { lat: routeParams.toLat, lon: routeParams.toLon },
+        },
+        profileId,
+        thresholds: activeThresholds,
+        debugState,
+      })
+        .then((result) => {
+          setActiveWalkingRoute(result.walkingRoute);
+          setActiveRouteReport(result.report);
+          setActiveRouteFacts(result.facts);
+          setActiveRouteIsSample(result.isSample);
+          setRouteVariants(result.variants ?? null);
+          const v = routeParams.variant || result.selectedVariant || 'accessible';
+          selectRouteVariant(v);
+        })
+        .catch((err) => {
+          setLoadError(err.message || 'Error loading route');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [
+    activeRouteReport,
+    routeParams,
+    profileId,
+    activeThresholds,
+    debugState,
+    setActiveWalkingRoute,
+    setActiveRouteReport,
+    setActiveRouteFacts,
+    setActiveRouteIsSample,
+    setRouteVariants,
+    selectRouteVariant,
+  ]);
 
   // All city barriers computed with active thresholds
   const allCityBarriers = useMemo(() => {
@@ -87,24 +258,62 @@ export default function RouteScreen() {
     }
   }, [barrierViewMode, activeRouteReport?.findings, allCityBarriers]);
 
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+        <Stack.Screen options={{ headerShown: false, title: t(locale, 'routeReportTitle') }} />
+        <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.loadingText, { color: colors.text, fontSize: fontSize(15) }]}>
+            {locale === 'pl' ? 'Pobieranie i analizowanie trasy...' : locale === 'uk' ? 'Завантаження та аналіз маршруту...' : 'Loading and analyzing route...'}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!activeRouteReport) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
         <Stack.Screen options={{ headerShown: false, title: t(locale, 'routeReportTitle') }} />
-        <KrakowHeader />
+        <KrakowHeader
+          showBack
+          backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'}
+          onBack={() => {
+            try {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/');
+              }
+            } catch {
+              router.replace('/');
+            }
+          }}
+        />
         <View style={styles.emptyContainer}>
           <GovCard variant="warning">
             <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
               {t(locale, 'noActiveRouteReport')}
             </Text>
+            {loadError ? (
+              <Text style={{ color: colors.blockerText, fontSize: fontSize(13), marginVertical: 6 }}>
+                {loadError}
+              </Text>
+            ) : null}
             <GovButton
               title={t(locale, 'backToSearch')}
               icon={<ArrowLeft size={18} color="#fff" weight="bold" />}
               variant="primary"
               onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
+                try {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    router.replace('/');
+                  }
+                } catch {
                   router.replace('/');
                 }
               }}
@@ -145,7 +354,9 @@ export default function RouteScreen() {
       }
       narrative += 'Główne punkty na trasie: ';
       report.findings.forEach((f, idx) => {
-        narrative += `Punkt ${idx + 1}, po ${f.distanceFromStartMetres} metrach: ${f.type}, ${f.fact.value}. `;
+        const localizedCrit = getLocalizedFindingType(f.type, 'pl');
+        const localizedVal = getLocalizedFactValue(f.fact.value, 'pl');
+        narrative += `Punkt ${idx + 1}, po ${f.distanceFromStartMetres} metrach: ${localizedCrit}, ${localizedVal}. `;
       });
     } else if (locale === 'uk') {
       narrative = `Звіт про бар’єри для маршруту довжиною ${report.lengthMetres} метрів. `;
@@ -156,7 +367,9 @@ export default function RouteScreen() {
       }
       narrative += 'Основні точки на маршруті: ';
       report.findings.forEach((f, idx) => {
-        narrative += `Точка ${idx + 1}, через ${f.distanceFromStartMetres} метрів: ${f.type}, ${f.fact.value}. `;
+        const localizedCrit = getLocalizedFindingType(f.type, 'uk');
+        const localizedVal = getLocalizedFactValue(f.fact.value, 'uk');
+        narrative += `Точка ${idx + 1}, через ${f.distanceFromStartMetres} метрів: ${localizedCrit}, ${localizedVal}. `;
       });
     } else {
       narrative = `Barrier report for route of distance ${report.lengthMetres} metres. `;
@@ -167,7 +380,9 @@ export default function RouteScreen() {
       }
       narrative += 'Key waypoints along route: ';
       report.findings.forEach((f, idx) => {
-        narrative += `Point ${idx + 1}, after ${f.distanceFromStartMetres} metres: ${f.type}, ${f.fact.value}. `;
+        const localizedCrit = getLocalizedFindingType(f.type, 'en');
+        const localizedVal = getLocalizedFactValue(f.fact.value, 'en');
+        narrative += `Point ${idx + 1}, after ${f.distanceFromStartMetres} metres: ${localizedCrit}, ${localizedVal}. `;
       });
     }
     return narrative;
@@ -213,7 +428,10 @@ export default function RouteScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ selected: selectedRouteVariant === 'accessible' }}
-                onPress={() => selectRouteVariant('accessible')}
+                onPress={() => {
+                  selectRouteVariant('accessible');
+                  router.setParams({ variant: 'accessible' });
+                }}
                 style={[
                   styles.variantButton,
                   {
@@ -260,7 +478,10 @@ export default function RouteScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ selected: selectedRouteVariant === 'shortest' }}
-                onPress={() => selectRouteVariant('shortest')}
+                onPress={() => {
+                  selectRouteVariant('shortest');
+                  router.setParams({ variant: 'shortest' });
+                }}
                 style={[
                   styles.variantButton,
                   {
@@ -769,5 +990,16 @@ const styles = StyleSheet.create({
   variantWarningText: {
     flex: 1,
     lineHeight: 18,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    gap: 16,
+  },
+  loadingText: {
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
