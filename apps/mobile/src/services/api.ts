@@ -4,7 +4,6 @@ import {
   analyzePlace,
   analyzeRoute,
   DEMO_SNAPSHOT,
-  SourceFailure,
   type AccessibilityBundle,
   type BarrierThresholds,
   type Fact,
@@ -22,18 +21,24 @@ import {
   OsmOverpassProvider,
 } from '@krakow-bez-barier/sources';
 
-const MAPY_API_KEY = process.env.EXPO_PUBLIC_MAPY_API_KEY || '';
+function getMapyApiKey(): string {
+  return process.env.EXPO_PUBLIC_MAPY_API_KEY || '';
+}
+
+function hasValidMapyKey(): boolean {
+  const key = getMapyApiKey();
+  return Boolean(key && !key.includes('replace-with') && key.trim().length > 5);
+}
 
 // Initialize providers
 const graphhopperRouting = new GraphHopperRoutingProvider({
   apiBase: process.env.EXPO_PUBLIC_GRAPHHOPPER_URL || 'http://localhost:8989',
 });
-const mapyRouting = new MapyRoutingProvider({ apiKey: MAPY_API_KEY });
-const mapyGeocode = new MapyGeocodingProvider({ apiKey: MAPY_API_KEY });
 const osmOverpass = new OsmOverpassProvider({
   endpoint: city.overpass.endpoint,
   userAgent: city.overpass.userAgent,
   stalenessMonths: city.stalenessMonths,
+  timeoutMs: 4000,
 });
 
 export interface PlanRouteParams {
@@ -52,26 +57,18 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
 }> {
   const { start, end, profileId, debugState } = params;
 
-  // Check for simulation of Mapy or offline
-  const mustUseFallbackRoute =
-    debugState.simulateMapyDown ||
-    debugState.simulateOffline ||
-    !MAPY_API_KEY ||
-    MAPY_API_KEY.includes('replace-with');
-
-  let walkingRoute: WalkingRoute;
+  let walkingRoute: WalkingRoute = DEMO_SNAPSHOT.routes[0]!.walkingRoute;
   let isSample = false;
   let fallbackNotice: string | undefined;
 
-  if (mustUseFallbackRoute) {
-    // Use snapshot sample route
+  if (debugState.simulateOffline) {
     const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
     walkingRoute = sampleRoute.walkingRoute;
     isSample = true;
-    fallbackNotice = debugState.simulateMapyDown
-      ? 'Symulacja awarii Mapy.com API (HTTP 429). Załadowano trasę z lokalnego snapshotu demo.'
-      : 'Użyto trasy demonstracyjnej ze snapshotu (brak klucza API lub tryb offline).';
+    fallbackNotice = 'Tryb symulacji offline: załadowano trasę ze snapshotu.';
   } else {
+    let routed = false;
+
     // 1. Try self-hosted GraphHopper first (applies dynamic barrier weights)
     try {
       walkingRoute = await graphhopperRouting.route({
@@ -80,25 +77,35 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
         profileId,
         thresholds: params.thresholds,
       });
+      routed = true;
       fallbackNotice = 'Trasa zoptymalizowana przez silnik GraphHopper (dynamiczne wagi barier).';
     } catch {
-      // 2. Fall back to Mapy.com if GraphHopper is offline
+      // GraphHopper unavailable or point out of sample bounds
+    }
+
+    // 2. Fall back to Mapy.com if GraphHopper couldn't route this area
+    if (!routed && hasValidMapyKey() && !debugState.simulateMapyDown) {
       try {
+        const mapyRouting = new MapyRoutingProvider({ apiKey: getMapyApiKey() });
         walkingRoute = await mapyRouting.route({
           start: start.position,
           end: end.position,
           profileId,
         });
-      } catch (err) {
-        // 3. Graceful fallback on API error (R12)
-        const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
-        walkingRoute = sampleRoute.walkingRoute;
-        isSample = true;
-        fallbackNotice =
-          err instanceof SourceFailure
-            ? `Błąd Mapy.com (${err.kind}). Załadowano trasę zapasową z pamięci urządzenia.`
-            : 'Błąd połączenia z silnikiem routingu. Załadowano trasę zapasową.';
+        routed = true;
+      } catch {
+        // Fall back to sample below
       }
+    }
+
+    // 3. Graceful fallback on API error (R12)
+    if (!routed) {
+      const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
+      walkingRoute = sampleRoute.walkingRoute;
+      isSample = true;
+      fallbackNotice = debugState.simulateMapyDown
+        ? 'Symulacja awarii Mapy.com API (HTTP 429). Załadowano trasę z lokalnego snapshotu demo.'
+        : 'Zewnętrzny routing niedostępny. Załadowano trasę zapasową z pamięci urządzenia.';
     }
   }
 
@@ -218,7 +225,7 @@ export async function inspectPlace(
 }
 
 export async function suggestPlaces(query: string, lang: 'pl' | 'en'): Promise<PlaceHit[]> {
-  if (!query.trim() || !MAPY_API_KEY || MAPY_API_KEY.includes('replace-with')) {
+  if (!query.trim() || !hasValidMapyKey()) {
     // Default demo locations
     return [
       {
@@ -260,6 +267,7 @@ export async function suggestPlaces(query: string, lang: 'pl' | 'en'): Promise<P
   }
 
   try {
+    const mapyGeocode = new MapyGeocodingProvider({ apiKey: getMapyApiKey() });
     return await mapyGeocode.suggest(query, lang);
   } catch {
     return [];

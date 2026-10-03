@@ -82,6 +82,13 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
 
   // Generate 3x3 tile grid around center
   const tiles = useMemo(() => {
+    const mapyApiKey = process.env.EXPO_PUBLIC_MAPY_API_KEY;
+    const hasMapyKey = Boolean(
+      mapyApiKey &&
+      mapyApiKey !== 'replace-with-mapy-api-key' &&
+      mapyApiKey.trim().length > 5
+    );
+
     const result: { url: string; left: number; top: number; key: string }[] = [];
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
@@ -89,8 +96,11 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
         const ty = centerTileY + dy;
         const left = mapWidth / 2 - centerPixelX + dx * 256;
         const top = mapHeight / 2 - centerPixelY + dy * 256;
+        const url = hasMapyKey
+          ? `https://api.mapy.com/v1/maptiles/basic/256/${zoom}/${tx}/${ty}?apikey=${mapyApiKey}`
+          : `https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
         result.push({
-          url: `https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`,
+          url,
           left,
           top,
           key: `${zoom}-${tx}-${ty}`,
