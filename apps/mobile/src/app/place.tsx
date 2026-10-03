@@ -146,7 +146,7 @@ export default function PlaceScreen() {
     ) {
       setLoading(true);
       inspectPlace(
-        placeParams.placeName || 'Obiekt',
+        placeParams.placeName || 'Miejsce',
         { lat: placeParams.placeLat, lon: placeParams.placeLon },
         debugState,
       )
@@ -166,7 +166,7 @@ export default function PlaceScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={[styles.loadingText, { color: colors.text, fontSize: fontSize(15) }]}>
-            {locale === 'pl' ? 'Pobieranie danych obiektu...' : locale === 'uk' ? 'Завантаження даних про об’єкт...' : 'Loading place details...'}
+            {locale === 'pl' ? 'Pobieranie danych miejsca...' : locale === 'uk' ? 'Завантаження даних про місце...' : 'Loading place details...'}
           </Text>
         </View>
       </SafeAreaView>
@@ -381,7 +381,7 @@ export default function PlaceScreen() {
           </View>
 
           <GovButton
-            title="Wyznacz trasę do tego obiektu"
+            title="Wyznacz trasę do tego miejsca"
             icon={<NavigationArrow size={18} color={colors.accentText} weight="bold" />}
             variant="primary"
             onPress={handleRouteHere}
@@ -692,7 +692,7 @@ export default function PlaceScreen() {
             {placeComments.length === 0 ? (
               <Text style={{ color: colors.muted, fontSize: fontSize(13), fontStyle: 'italic' }}>
                 {locale === 'pl'
-                  ? 'Brak opublikowanych zdjęć dla tego obiektu. Bądź pierwszym, który zweryfikuje dostępność!'
+                  ? 'Brak opublikowanych zdjęć dla tego miejsca. Bądź pierwszym, który zweryfikuje dostępność!'
                   : 'No photo reviews for this place yet. Be the first to validate accessibility!'}
               </Text>
             ) : (

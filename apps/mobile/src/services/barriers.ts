@@ -277,3 +277,54 @@ export function getAllCityBarriers(thresholds: BarrierThresholds): RouteFinding[
 
   return barriers;
 }
+
+export interface CitizenReportPoint {
+  id: string;
+  description: string;
+  position?: { lat: number; lon: number };
+  createdAt: string;
+  status?: string;
+}
+
+/** Resident reports are their own obstacle type and only appear where a location is known. */
+export function citizenReportsAsFindings(reports: CitizenReportPoint[]): RouteFinding[] {
+  const seen = new Set<string>();
+  const findings: RouteFinding[] = [];
+
+  for (const report of reports) {
+    if (!report.position) continue;
+    if (report.status === 'resolved') continue;
+    const key = `${report.position.lat.toFixed(4)}|${report.position.lon.toFixed(4)}|${report.description.trim().toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const fact: Fact = {
+      id: `citizen-report-${report.id}`,
+      subject: {
+        type: 'place',
+        ref: `report/${report.id}`,
+        lat: report.position.lat,
+        lon: report.position.lon,
+      },
+      criterion: 'report',
+      value: report.description,
+      status: 'reported',
+      source: {
+        name: 'Zgłoszenie mieszkańca',
+        url: 'https://www.krakow.pl',
+        licence: 'Zgłoszenie użytkownika',
+      },
+      retrievedAt: report.createdAt,
+    };
+
+    findings.push({
+      id: fact.id,
+      distanceFromStartMetres: 0,
+      type: 'report',
+      severity: 'warning',
+      fact,
+    });
+  }
+
+  return findings;
+}

@@ -26,8 +26,8 @@ function RootNavigatorInner() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false, title: 'Kraków bez barier' }} />
-        <Stack.Screen name="search" options={{ headerShown: false, title: 'Wyszukiwarka tras i obiektów' }} />
-        <Stack.Screen name="place" options={{ headerShown: false, title: 'Szczegóły obiektu' }} />
+        <Stack.Screen name="search" options={{ headerShown: false, title: 'Wyszukiwarka tras i miejsc' }} />
+        <Stack.Screen name="place" options={{ headerShown: false, title: 'Szczegóły miejsca' }} />
         <Stack.Screen name="route" options={{ headerShown: false, title: 'Raport trasy' }} />
         <Stack.Screen name="report-correction" options={{ headerShown: false, title: 'Zgłoś uwagę' }} />
         <Stack.Screen name="about" options={{ headerShown: false, title: 'O aplikacji' }} />

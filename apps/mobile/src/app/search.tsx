@@ -57,11 +57,11 @@ export default function SearchScreen() {
   } = useSession();
 
   const [activeTab, setActiveTab] = useState<'route' | 'place'>('route');
-  const [fromQuery, setFromQuery] = useState('Rynek Główny');
+  const [fromQuery, setFromQuery] = useState('');
   const [fromPos, setFromPos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
 
-  const [toQuery, setToQuery] = useState('Zamek Królewski na Wawelu');
-  const [toPos, setToPos] = useState<LonLat>({ lon: 19.9354, lat: 50.0544 });
+  const [toQuery, setToQuery] = useState('');
+  const [toPos, setToPos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
 
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
@@ -94,6 +94,10 @@ export default function SearchScreen() {
   };
 
   const handleAnalyzeRoute = async () => {
+    if (!fromQuery.trim() || !toQuery.trim()) {
+      setErrorMsg(t(locale, 'routeEndpointsRequired'));
+      return;
+    }
     setLoading(true);
     setErrorMsg(null);
     try {
@@ -419,12 +423,6 @@ export default function SearchScreen() {
           </Text>
 
           <View style={styles.scenariosList}>
-            <GovButton
-              variant="outline"
-              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute1')}`}
-              icon={<Footprints size={18} color={colors.text} weight="bold" />}
-              onPress={() => loadDemoRoute(0)}
-            />
             <GovButton
               variant="outline"
               title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute2')}`}

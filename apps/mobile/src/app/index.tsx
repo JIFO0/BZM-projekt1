@@ -1,5 +1,4 @@
 import {
-  credibilityFromReports,
   DEMO_SNAPSHOT,
   type LonLat,
   type ProfileId,
@@ -22,7 +21,6 @@ import {
   PathIcon as Path,
   Prohibit,
   ShieldCheck,
-  Shuffle,
   SlidersHorizontal,
   ThumbsDown,
   ThumbsUp,
@@ -39,6 +37,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -50,7 +49,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BarrierViewControl } from '@/components/BarrierViewControl';
-import { CredibilityNote } from '@/components/CredibilityNote';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
@@ -69,14 +67,12 @@ import {
   type ServerRouteHazard,
   type ServerPlaceComment,
   fetchServerHazards,
-  fetchRandomServerHazard,
   createServerHazard,
-  verifyServerHazard,
   uploadPhotoToServer,
   fetchPlaceServerComments,
   addPlaceServerComment,
 } from '@/services/api';
-import { getAllCityBarriers } from '@/services/barriers';
+import { citizenReportsAsFindings, getAllCityBarriers } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -125,7 +121,15 @@ const ROAD_TYPE_OPTIONS = [
   },
 ];
 
-type PopupTab = 'route' | 'place' | 'profile' | 'report';
+type PopupTab = 'route' | 'place' | 'profile';
+
+const KERB_LEVELS = [
+  { mm: 30, labelKey: 'kerbLow' as const },
+  { mm: 70, labelKey: 'kerbMedium' as const },
+  { mm: 140, labelKey: 'kerbHigh' as const },
+];
+
+const EMPTY_POINT: LonLat = { lon: 19.9373, lat: 50.0619 };
 
 function extractRouteParams(params: Record<string, any>) {
   let fromName = params.fromName;
@@ -223,8 +227,7 @@ export default function MapHomeScreen() {
     return activeRouteReport?.findings || [];
   }, [activeRouteReport]);
 
-  // Displayed findings depending on barrier view mode: none | route | all
-  const displayedFindings = useMemo(() => {
+  const baseMapFindings = useMemo(() => {
     switch (barrierViewMode) {
       case 'none':
         return [];
@@ -270,25 +273,21 @@ export default function MapHomeScreen() {
   const [activeTab, setActiveTab] = useState<PopupTab>('route');
 
   // Search & Routing state
-  const [fromQuery, setFromQuery] = useState('Rynek Główny');
-  const [fromPos, setFromPos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
-  const [toQuery, setToQuery] = useState('Zamek Królewski na Wawelu');
-  const [toPos, setToPos] = useState<LonLat>({ lon: 19.9354, lat: 50.0544 });
+  const [fromQuery, setFromQuery] = useState('');
+  const [fromPos, setFromPos] = useState<LonLat>(EMPTY_POINT);
+  const [toQuery, setToQuery] = useState('');
+  const [toPos, setToPos] = useState<LonLat>(EMPTY_POINT);
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
 
-  // Report input state
+  // Report popup
+  const [reportPopupOpen, setReportPopupOpen] = useState(false);
   const [reportDesc, setReportDesc] = useState('');
   const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportQuery, setReportQuery] = useState('');
+  const [reportPos, setReportPos] = useState<LonLat | null>(null);
 
-  // Server Hazards and Photo Validation state
   const [serverHazards, setServerHazards] = useState<ServerRouteHazard[]>([]);
-  const [randomHazard, setRandomHazard] = useState<ServerRouteHazard | null>(null);
-  const [randomHazardLoading, setRandomHazardLoading] = useState(false);
-  const [randomHazardVoteAction, setRandomHazardVoteAction] = useState<'still_here' | 'fixed'>('still_here');
-  const [randomHazardPhoto, setRandomHazardPhoto] = useState<string | null>(null);
-  const [randomHazardComment, setRandomHazardComment] = useState('');
-  const [randomHazardSubmitting, setRandomHazardSubmitting] = useState(false);
 
   // New Hazard Report with Photo state
   const [newReportCategory, setNewReportCategory] = useState<'hole' | 'obstacle' | 'flood' | 'surface' | 'other'>('obstacle');
@@ -360,39 +359,6 @@ export default function MapHomeScreen() {
     return null;
   };
 
-  const loadRandomHazard = async () => {
-    setRandomHazardLoading(true);
-    try {
-      const hazard = await fetchRandomServerHazard();
-      if (hazard) {
-        setRandomHazard(hazard);
-      } else {
-        const list = await fetchServerHazards();
-        if (list.length > 0) {
-          const pick = list[Math.floor(Math.random() * list.length)];
-          setRandomHazard(pick || null);
-        } else {
-          setRandomHazard({
-            id: 'hazard-sample-rynek',
-            description: 'Wysoki krawężnik (14 cm) bez zjazdu na przejściu dla pieszych przy Rynku Głównym',
-            category: 'obstacle',
-            status: 'reported',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            stillHereCount: 4,
-            fixedCount: 0,
-            photoUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&auto=format&fit=crop&q=60',
-            validations: [],
-          });
-        }
-      }
-    } catch {
-      // Non-fatal
-    } finally {
-      setRandomHazardLoading(false);
-    }
-  };
-
   const loadServerHazards = async () => {
     try {
       const list = await fetchServerHazards();
@@ -412,7 +378,27 @@ export default function MapHomeScreen() {
   };
 
   // Interactive map picking target
-  const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | null>(null);
+  const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | 'report' | null>(null);
+
+  const displayedFindings = useMemo(() => {
+    const reports = citizenReportsAsFindings([
+      ...serverHazards.map((hazard) => ({
+        id: hazard.id,
+        description: hazard.description,
+        position: hazard.position,
+        createdAt: hazard.createdAt,
+        status: hazard.status,
+      })),
+      ...localReports.map((report) => ({
+        id: report.id,
+        description: report.description,
+        position: report.position,
+        createdAt: report.createdAt,
+        status: report.status,
+      })),
+    ]);
+    return [...baseMapFindings, ...reports];
+  }, [baseMapFindings, serverHazards, localReports]);
 
   // Clicked map location popup state
   const [clickedLocation, setClickedLocation] = useState<{
@@ -548,6 +534,13 @@ export default function MapHomeScreen() {
         setPickingTarget(null);
         setStatusMessage(`${t(locale, 'placeLabel')}: ${name}`);
         setTimeout(() => setStatusMessage(null), 3000);
+      } else if (pickingTarget === 'report') {
+        setReportPos(coords);
+        setReportQuery(name);
+        setPickingTarget(null);
+        setReportPopupOpen(true);
+        setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${name}`);
+        setTimeout(() => setStatusMessage(null), 3000);
       }
       return;
     }
@@ -588,6 +581,10 @@ export default function MapHomeScreen() {
 
   // 2. Plan & Analyze Route
   const handleAnalyzeRoute = async () => {
+    if (!fromQuery.trim() || !toQuery.trim()) {
+      Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
+      return;
+    }
     setLoadingRoute(true);
     setStatusMessage(null);
     try {
@@ -807,7 +804,7 @@ export default function MapHomeScreen() {
       setPopupExpanded(true);
       setMapCenter({ lat: p.position.lat, lon: p.position.lon });
     } catch (err: any) {
-      Alert.alert('Błąd sprawdzania obiektu', err.message || 'Nie udało się pobrać danych.');
+      Alert.alert('Błąd sprawdzania miejsca', err.message || 'Nie udało się pobrać danych.');
     } finally {
       setLoadingPlace(false);
       setStatusMessage(null);
@@ -846,6 +843,12 @@ export default function MapHomeScreen() {
       Alert.alert(t(locale, 'warningTitle'), t(locale, 'reportDescRequired'));
       return;
     }
+    if (!reportPos) {
+      Alert.alert(t(locale, 'warningTitle'), t(locale, 'reportLocationRequired'));
+      return;
+    }
+
+    const position = { lat: reportPos.lat, lon: reportPos.lon };
 
     let uploadedUrl: string | undefined = undefined;
     if (newReportPhoto) {
@@ -866,92 +869,34 @@ export default function MapHomeScreen() {
         category: newReportCategory,
         email,
         photoUrl: uploadedUrl,
-        position: userLocation ? { lat: userLocation.lat, lon: userLocation.lon } : { lat: 50.0619, lon: 19.9373 },
+        position,
       });
       loadServerHazards();
     } catch {
-      // Local fallback
+      // Local fallback still keeps the obstacle on the map.
     }
 
     addLocalReport(reportDesc.trim(), {
       photoUrl: uploadedUrl,
       category: newReportCategory,
-      position: userLocation ? { lat: userLocation.lat, lon: userLocation.lon } : undefined,
+      position,
     });
 
     setReportDesc('');
     setNewReportPhoto(null);
     setReportSuccess(true);
-    setStatusMessage('Zgłoszenie ze zdjęciem zostało zapisane i jest widoczne dla wszystkich!');
+    setMapCenter({ lat: position.lat, lon: position.lon });
+    setStatusMessage('Zgłoszenie zostało zapisane i oznaczone na mapie jako przeszkoda.');
     setTimeout(() => {
       setReportSuccess(false);
       setStatusMessage(null);
     }, 4000);
   };
 
-  // Submit Random Hazard Validation with Photo
-  const handleValidateRandomHazard = async () => {
-    if (!randomHazard) return;
-    setRandomHazardSubmitting(true);
-    try {
-      let uploadedUrl: string | undefined = undefined;
-      if (randomHazardPhoto) {
-        setIsUploadingPhoto(true);
-        try {
-          uploadedUrl = await uploadPhotoToServer(randomHazardPhoto, `val-${randomHazard.id}.jpg`);
-        } catch {
-          uploadedUrl = randomHazardPhoto;
-        } finally {
-          setIsUploadingPhoto(false);
-        }
-      }
-
-      const email = krakowCardUser?.email || 'mieszkaniec@krakow.pl';
-      const updated = await verifyServerHazard(randomHazard.id, {
-        action: randomHazardVoteAction,
-        email,
-        photoUrl: uploadedUrl,
-        comment: randomHazardComment.trim() || undefined,
-      });
-
-      setRandomHazard((prev) =>
-        prev
-          ? {
-              ...prev,
-              stillHereCount: updated.stillHereCount ?? prev.stillHereCount,
-              fixedCount: updated.fixedCount ?? prev.fixedCount,
-              photoUrl: updated.photoUrl || uploadedUrl || prev.photoUrl,
-              validations: updated.validations || [
-                ...(prev.validations || []),
-                {
-                  id: `val-${Date.now()}`,
-                  voterKey: email,
-                  action: randomHazardVoteAction,
-                  photoUrl: uploadedUrl,
-                  comment: randomHazardComment.trim() || undefined,
-                  createdAt: new Date().toISOString(),
-                },
-              ],
-            }
-          : null
-      );
-
-      setRandomHazardPhoto(null);
-      setRandomHazardComment('');
-      setStatusMessage('Walidacja ze zdjęciem została wysłana na serwer i jest widoczna dla wszystkich!');
-      setTimeout(() => setStatusMessage(null), 4000);
-      loadServerHazards();
-    } catch (err: any) {
-      Alert.alert('Błąd walidacji', err.message || 'Nie udało się zapisać walidacji.');
-    } finally {
-      setRandomHazardSubmitting(false);
-    }
-  };
-
   // Add Place Accessibility Validation with Photo
   const handleAddPlaceValidation = async (targetPlaceId: string) => {
     if (!placeCommentText.trim()) {
-      Alert.alert('Wpisz opinię', 'Podaj opis dostępności tego obiektu.');
+      Alert.alert('Wpisz opinię', 'Podaj opis dostępności tego miejsca.');
       return;
     }
     setPlaceCommentSubmitting(true);
@@ -981,7 +926,7 @@ export default function MapHomeScreen() {
       setPlaceCommentText('');
       setPlaceCommentPhoto(null);
       setShowPlaceValidationForm(false);
-      setStatusMessage('Opinia i zdjęcie dostępności obiektu zostały opublikowane!');
+      setStatusMessage('Opinia i zdjęcie dostępności miejsca zostały opublikowane!');
       setTimeout(() => setStatusMessage(null), 4000);
     } catch (err: any) {
       Alert.alert('Błąd walidacji miejsca', err.message || 'Nie udało się dodać walidacji miejsca.');
@@ -995,12 +940,7 @@ export default function MapHomeScreen() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'report') {
-      loadServerHazards();
-      if (!randomHazard) {
-        loadRandomHazard();
-      }
-    } else if (activeTab === 'place') {
+    if (activeTab === 'place') {
       const placeId = activePlaceReport?.placeName
         ? `place-${activePlaceReport.placeName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
         : 'place-sukiennice';
@@ -1102,20 +1042,21 @@ export default function MapHomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={t(locale, 'tabReport')}
             onPress={() => {
-              setActiveTab('report');
-              setPopupExpanded(true);
+              if (!reportPos && userLocation) {
+                setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
+                setReportQuery(t(locale, 'myLocationShort'));
+              }
+              setReportPopupOpen(true);
             }}
             style={[
               styles.floatingBtn,
               {
-                backgroundColor:
-                  activeTab === 'report' && popupExpanded
-                    ? colors.warningBg || colors.accent
-                    : colors.surface,
-                borderColor:
-                  activeTab === 'report' && popupExpanded
-                    ? colors.warningBorder || colors.accent
-                    : '#D97706',
+                backgroundColor: reportPopupOpen
+                  ? colors.warningBg || colors.accent
+                  : colors.surface,
+                borderColor: reportPopupOpen
+                  ? colors.warningBorder || colors.accent
+                  : '#D97706',
                 borderWidth: isHighContrast ? 2.5 : 1.5,
               },
             ]}
@@ -1124,7 +1065,7 @@ export default function MapHomeScreen() {
               size={22}
               weight="bold"
               color={
-                activeTab === 'report' && popupExpanded
+                reportPopupOpen
                   ? colors.warningText || colors.accentText
                   : '#D97706'
               }
@@ -1320,16 +1261,6 @@ export default function MapHomeScreen() {
             {/* Quick Action Destination Chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickChipsScroll}>
               <Pressable
-                onPress={() => loadDemoRoute(0)}
-                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
-              >
-                <Path size={14} weight="bold" color={colors.accent} />
-                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  Rynek → Wawel
-                </Text>
-              </Pressable>
-
-              <Pressable
                 onPress={() => loadDemoRoute(1)}
                 style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
               >
@@ -1378,6 +1309,33 @@ export default function MapHomeScreen() {
                 },
               ]}
             >
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'profile' }}
+                onPress={() => setActiveTab('profile')}
+                style={[
+                  styles.tabItem,
+                  activeTab === 'profile' && { backgroundColor: colors.accent },
+                ]}
+              >
+                <SlidersHorizontal
+                  size={16}
+                  weight="bold"
+                  color={activeTab === 'profile' ? colors.accentText : colors.text}
+                />
+                <Text
+                  style={[
+                    styles.tabItemText,
+                    {
+                      color: activeTab === 'profile' ? colors.accentText : colors.text,
+                      fontSize: fontSize(13),
+                    },
+                  ]}
+                >
+                  {t(locale, 'tabProfile')}
+                </Text>
+              </Pressable>
+
               <Pressable
                 accessibilityRole="tab"
                 accessibilityState={{ selected: activeTab === 'route' }}
@@ -1429,60 +1387,6 @@ export default function MapHomeScreen() {
                   ]}
                 >
                   {t(locale, 'tabPlace')}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{ selected: activeTab === 'profile' }}
-                onPress={() => setActiveTab('profile')}
-                style={[
-                  styles.tabItem,
-                  activeTab === 'profile' && { backgroundColor: colors.accent },
-                ]}
-              >
-                <SlidersHorizontal
-                  size={16}
-                  weight="bold"
-                  color={activeTab === 'profile' ? colors.accentText : colors.text}
-                />
-                <Text
-                  style={[
-                    styles.tabItemText,
-                    {
-                      color: activeTab === 'profile' ? colors.accentText : colors.text,
-                      fontSize: fontSize(13),
-                    },
-                  ]}
-                >
-                  {t(locale, 'tabProfile')}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="tab"
-                accessibilityState={{ selected: activeTab === 'report' }}
-                onPress={() => setActiveTab('report')}
-                style={[
-                  styles.tabItem,
-                  activeTab === 'report' && { backgroundColor: colors.accent },
-                ]}
-              >
-                <Warning
-                  size={16}
-                  weight="bold"
-                  color={activeTab === 'report' ? colors.accentText : colors.text}
-                />
-                <Text
-                  style={[
-                    styles.tabItemText,
-                    {
-                      color: activeTab === 'report' ? colors.accentText : colors.text,
-                      fontSize: fontSize(13),
-                    },
-                  ]}
-                >
-                  {t(locale, 'tabReport')}
                 </Text>
               </Pressable>
             </View>
@@ -1788,13 +1692,6 @@ export default function MapHomeScreen() {
                     <View style={styles.demoButtonsRow}>
                       <GovButton
                         variant="outline"
-                        title="Rynek → Wawel"
-                        icon={<Path size={14} weight="bold" color={colors.accent} />}
-                        onPress={() => loadDemoRoute(0)}
-                        style={styles.halfBtn}
-                      />
-                      <GovButton
-                        variant="outline"
                         title="Dworzec → Sukiennice"
                         icon={<Path size={14} weight="bold" color={colors.accent} />}
                         onPress={() => loadDemoRoute(1)}
@@ -1874,7 +1771,7 @@ export default function MapHomeScreen() {
                       <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                           <Text style={{ fontWeight: '700', fontSize: fontSize(13.5), color: colors.text }}>
-                            📸 Walidacje dostępności obiektu ({placeComments.length})
+                            Walidacje dostępności miejsca ({placeComments.length})
                           </Text>
                           <Pressable
                             accessibilityRole="button"
@@ -2283,50 +2180,39 @@ export default function MapHomeScreen() {
                       <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
                         {t(locale, 'maxKerb')}
                       </Text>
-                      <View style={styles.stepBtnRow}>
-                        <GovButton
-                          variant="outline"
-                          title="-10 mm"
-                          accessibilityLabel={`${t(locale, 'maxKerb')} -10 mm`}
-                          onPress={() =>
-                            updateActiveThresholds({
-                              maxKerbMillimetres: Math.max(10, activeThresholds.maxKerbMillimetres - 10),
-                            })
-                          }
-                          style={styles.smallStepBtn}
-                        />
-                        <View
-                          accessibilityLiveRegion="polite"
-                          accessibilityLabel={`${t(locale, 'maxKerb')} ${activeThresholds.maxKerbMillimetres} mm`}
-                          style={[
-                            styles.kerbValue,
-                            {
-                              borderColor: colors.border,
-                              backgroundColor: colors.background,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              color: colors.text,
-                              fontSize: fontSize(14),
-                              fontWeight: '800',
-                            }}
-                          >
-                            {activeThresholds.maxKerbMillimetres} mm
-                          </Text>
-                        </View>
-                        <GovButton
-                          variant="outline"
-                          title="+10 mm"
-                          accessibilityLabel={`${t(locale, 'maxKerb')} +10 mm`}
-                          onPress={() =>
-                            updateActiveThresholds({
-                              maxKerbMillimetres: activeThresholds.maxKerbMillimetres + 10,
-                            })
-                          }
-                          style={styles.smallStepBtn}
-                        />
+                      <View style={styles.presetChipsRow}>
+                        {KERB_LEVELS.map((level) => {
+                          const selected = activeThresholds.maxKerbMillimetres === level.mm;
+                          return (
+                            <Pressable
+                              key={level.mm}
+                              accessibilityRole="radio"
+                              accessibilityState={{ selected }}
+                              onPress={() => {
+                                if (profileId === 'wheelchair' && level.mm === 30) return;
+                                updateActiveThresholds({ maxKerbMillimetres: level.mm });
+                              }}
+                              style={[
+                                styles.roadChip,
+                                {
+                                  backgroundColor: selected ? colors.accent : colors.background,
+                                  borderColor: selected ? colors.accent : colors.border,
+                                  borderWidth: selected ? 2 : 1,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={{
+                                  color: selected ? colors.accentText : colors.text,
+                                  fontSize: fontSize(12.5),
+                                  fontWeight: '700',
+                                }}
+                              >
+                                {t(locale, level.labelKey)}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
                       </View>
                     </View>
 
@@ -2427,539 +2313,246 @@ export default function MapHomeScreen() {
                 </View>
               ) : null}
 
-              {/* TAB 4: ZGŁOŚ (LOCAL REPORT & OSM NOTE) */}
-              {activeTab === 'report' ? (
-                <View style={styles.formSection}>
-                  {/* Karta Krakowska Badge / Quick Login */}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      krakowCardUser
-                        ? `${t(locale, 'krakowCardVerifiedResident')}: ${krakowCardUser.displayName}`
-                        : t(locale, 'krakowCardLoginBtn')
-                    }
-                    onPress={() => setKrakowCardModalVisible(true)}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      paddingVertical: 6,
-                      paddingHorizontal: 10,
-                      borderRadius: 8,
-                      backgroundColor: krakowCardUser
-                        ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.15)')
-                        : (isHighContrast ? colors.surface : 'rgba(0, 92, 169, 0.08)'),
-                      borderWidth: 1,
-                      borderColor: krakowCardUser ? '#22C55E' : colors.border,
-                      marginBottom: 8,
-                    }}
-                  >
-                    {krakowCardUser ? (
-                      <ShieldCheck
-                        size={16}
-                        color={isHighContrast ? colors.accentText : '#16A34A'}
-                        weight="fill"
-                      />
-                    ) : (
-                      <IdentificationCard size={16} color={colors.accent} weight="bold" />
-                    )}
-                    <Text
-                      style={{
-                        flex: 1,
-                        fontSize: fontSize(12),
-                        fontWeight: '700',
-                        color: isHighContrast
-                          ? colors.text
-                          : krakowCardUser
-                            ? '#15803D'
-                            : colors.accent,
-                      }}
-                    >
-                      {krakowCardUser
-                        ? `Zweryfikowany: ${krakowCardUser.displayName} (Karta Krakowska)`
-                        : `Zgłaszasz anonimowo. Zaloguj Kartą Krakowską ➔`}
-                    </Text>
-                  </Pressable>
-
-                  {/* 1. WALIDACJA LOSOWEGO ZGŁOSZENIA HAZARDU ZE ZDJĘCIEM */}
-                  <GovCard variant="accent">
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
-                        🎲 Waliduj losowe zgłoszenie
-                      </Text>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Wylosuj inne zgłoszenie"
-                        onPress={loadRandomHazard}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 4,
-                          paddingVertical: 4,
-                          paddingHorizontal: 8,
-                          borderRadius: 6,
-                          backgroundColor: colors.surface,
-                          borderWidth: 1,
-                          borderColor: colors.border,
-                        }}
-                      >
-                        <Shuffle size={13} weight="bold" color={colors.accent} />
-                        <Text style={{ fontSize: fontSize(11.5), color: colors.accent, fontWeight: '700' }}>
-                          Wylosuj inne
-                        </Text>
-                      </Pressable>
-                    </View>
-
-                    {randomHazardLoading ? (
-                      <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 12 }} />
-                    ) : randomHazard ? (
-                      <View style={{ gap: 6, marginTop: 4 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                          <View
-                            style={{
-                              paddingHorizontal: 8,
-                              paddingVertical: 3,
-                              borderRadius: 5,
-                              backgroundColor: colors.warningBg,
-                              borderWidth: 1,
-                              borderColor: colors.warningBorder,
-                            }}
-                          >
-                            <Text style={{ fontSize: fontSize(11.5), fontWeight: '700', color: colors.warningText }}>
-                              {randomHazard.category ? `Kategoria: ${randomHazard.category}` : 'Bariera / Hazard'}
-                            </Text>
-                          </View>
-                          <Text style={{ fontSize: fontSize(11), color: colors.muted }}>
-                            Nadal tu: {randomHazard.stillHereCount} · Naprawione: {randomHazard.fixedCount}
-                          </Text>
-                        </View>
-
-                        <Text style={{ fontSize: fontSize(14), fontWeight: '700', color: colors.text, marginTop: 2 }}>
-                          {randomHazard.description}
-                        </Text>
-                        <CredibilityNote
-                          locale={locale}
-                          assessment={credibilityFromReports({
-                            supportCount: randomHazard.stillHereCount,
-                            photoCount:
-                              (randomHazard.photoUrl ? 1 : 0) +
-                              (randomHazard.validations?.filter((v) => v.photoUrl).length ?? 0),
-                          })}
-                        />
-
-                        {/* Existing Photo on Server */}
-                        {randomHazard.photoUrl ? (
-                          <View style={{ marginTop: 4 }}>
-                            <Text style={{ fontSize: fontSize(11.5), color: colors.muted, marginBottom: 2 }}>
-                              📷 Zdjęcie przeszkody (widoczne dla wszystkich):
-                            </Text>
-                            <Image
-                              source={{ uri: randomHazard.photoUrl }}
-                              style={{ width: '100%', height: 160, borderRadius: 8 }}
-                              resizeMode="cover"
-                            />
-                          </View>
-                        ) : null}
-
-                        {/* Community photo validations */}
-                        {randomHazard.validations && randomHazard.validations.length > 0 ? (
-                          <View style={{ marginTop: 6, gap: 4 }}>
-                            <Text style={{ fontSize: fontSize(12), fontWeight: '700', color: colors.text }}>
-                              Potwierdzenia mieszkańców ({randomHazard.validations.length}):
-                            </Text>
-                            {randomHazard.validations.slice(0, 3).map((v) => (
-                              <View
-                                key={v.id}
-                                style={{
-                                  padding: 6,
-                                  borderRadius: 6,
-                                  backgroundColor: colors.background,
-                                  borderWidth: 1,
-                                  borderColor: colors.border,
-                                }}
-                              >
-                                <Text style={{ fontSize: fontSize(11), color: colors.muted }}>
-                                  {v.action === 'still_here' ? '⚠️ Nadal występuje' : '✅ Naprawione'} • {v.createdAt.slice(0, 10)}
-                                </Text>
-                                {v.comment ? (
-                                  <Text style={{ fontSize: fontSize(12), color: colors.text }}>{v.comment}</Text>
-                                ) : null}
-                                {v.photoUrl ? (
-                                  <Image
-                                    source={{ uri: v.photoUrl }}
-                                    style={{ width: '100%', height: 100, borderRadius: 6, marginTop: 4 }}
-                                    resizeMode="cover"
-                                  />
-                                ) : null}
-                              </View>
-                            ))}
-                          </View>
-                        ) : null}
-
-                        {/* Validation form for this hazard */}
-                        <View style={{ marginTop: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
-                          <Text style={{ fontSize: fontSize(12.5), fontWeight: '700', color: colors.text }}>
-                            Twoja weryfikacja tego zgłoszenia:
-                          </Text>
-
-                          <View style={styles.actionChoiceRow}>
-                            <Pressable
-                              accessibilityRole="button"
-                              onPress={() => setRandomHazardVoteAction('still_here')}
-                              style={[
-                                styles.actionChoiceBtn,
-                                {
-                                  backgroundColor: randomHazardVoteAction === 'still_here' ? colors.warningBg : colors.surface,
-                                  borderColor: randomHazardVoteAction === 'still_here' ? colors.warningBorder : colors.border,
-                                },
-                              ]}
-                            >
-                              <Warning size={14} weight="bold" color={randomHazardVoteAction === 'still_here' ? colors.warningText : colors.text} />
-                              <Text style={[styles.actionChoiceText, { color: randomHazardVoteAction === 'still_here' ? colors.warningText : colors.text }]}>
-                                Nadal występuje
-                              </Text>
-                            </Pressable>
-
-                            <Pressable
-                              accessibilityRole="button"
-                              onPress={() => setRandomHazardVoteAction('fixed')}
-                              style={[
-                                styles.actionChoiceBtn,
-                                {
-                                  backgroundColor: randomHazardVoteAction === 'fixed' ? colors.okBg : colors.surface,
-                                  borderColor: randomHazardVoteAction === 'fixed' ? colors.okBorder : colors.border,
-                                },
-                              ]}
-                            >
-                              <Check size={14} weight="bold" color={randomHazardVoteAction === 'fixed' ? colors.okText : colors.text} />
-                              <Text style={[styles.actionChoiceText, { color: randomHazardVoteAction === 'fixed' ? colors.okText : colors.text }]}>
-                                Naprawione / brak
-                              </Text>
-                            </Pressable>
-                          </View>
-
-                          {/* Photo Pickers */}
-                          <View style={styles.photoBtnRow}>
-                            <Pressable
-                              accessibilityRole="button"
-                              onPress={async () => {
-                                const photo = await pickPhotoAsync('camera');
-                                if (photo) setRandomHazardPhoto(photo);
-                              }}
-                              style={[styles.photoBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                            >
-                              <Camera size={14} weight="bold" color={colors.accent} />
-                              <Text style={[styles.photoBtnText, { color: colors.text }]}>Zrób zdjęcie</Text>
-                            </Pressable>
-
-                            <Pressable
-                              accessibilityRole="button"
-                              onPress={async () => {
-                                const photo = await pickPhotoAsync('library');
-                                if (photo) setRandomHazardPhoto(photo);
-                              }}
-                              style={[styles.photoBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                            >
-                              <ImageIcon size={14} weight="bold" color={colors.accent} />
-                              <Text style={[styles.photoBtnText, { color: colors.text }]}>Z galerii</Text>
-                            </Pressable>
-                          </View>
-
-                          {randomHazardPhoto ? (
-                            <View style={[styles.photoPreviewContainer, { borderColor: colors.border }]}>
-                              <Image source={{ uri: randomHazardPhoto }} style={styles.photoPreviewImage} resizeMode="cover" />
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel="Usuń wybrane zdjęcie"
-                                onPress={() => setRandomHazardPhoto(null)}
-                                style={styles.photoRemoveBtn}
-                              >
-                                <Trash size={14} color="#FFF" weight="bold" />
-                              </Pressable>
-                            </View>
-                          ) : null}
-
-                          <TextInput
-                            value={randomHazardComment}
-                            onChangeText={setRandomHazardComment}
-                            placeholder="Krótki komentarz do weryfikacji (opcjonalnie)..."
-                            placeholderTextColor={colors.muted}
-                            style={[
-                              styles.input,
-                              {
-                                backgroundColor: colors.surface,
-                                color: colors.text,
-                                borderColor: colors.border,
-                                borderWidth: 1,
-                                fontSize: fontSize(13),
-                                marginTop: 6,
-                                minHeight: 40,
-                              },
-                            ]}
-                          />
-
-                          <GovButton
-                            title={randomHazardSubmitting ? 'Wysyłanie na serwer...' : 'Wyślij walidację ze zdjęciem'}
-                            icon={<Check size={16} weight="bold" color={colors.accentText} />}
-                            variant="primary"
-                            loading={randomHazardSubmitting}
-                            onPress={handleValidateRandomHazard}
-                            style={{ marginTop: 8 }}
-                          />
-                        </View>
-                      </View>
-                    ) : null}
-                  </GovCard>
-
-                  {/* 2. FORMULARZ NOWEGO ZGŁOSZENIA BARIERY ZE ZDJĘCIEM */}
-                  <GovCard variant="default">
-                    <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
-                      {t(locale, 'reportObstacleHeading')}
-                    </Text>
-
-                    {/* Category Selector */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginVertical: 6 }}>
-                      {[
-                        { id: 'obstacle' as const, label: 'Krawężnik / schody' },
-                        { id: 'hole' as const, label: 'Wyrwa / dziura' },
-                        { id: 'surface' as const, label: 'Bruk / nawierzchnia' },
-                        { id: 'flood' as const, label: 'Zalanie / kałuża' },
-                        { id: 'other' as const, label: 'Inna przeszkoda' },
-                      ].map((cat) => (
-                        <Pressable
-                          key={cat.id}
-                          accessibilityRole="button"
-                          onPress={() => setNewReportCategory(cat.id)}
-                          style={{
-                            paddingHorizontal: 9,
-                            paddingVertical: 5,
-                            borderRadius: 6,
-                            backgroundColor: newReportCategory === cat.id ? colors.accent : colors.background,
-                            borderWidth: 1,
-                            borderColor: newReportCategory === cat.id ? colors.accent : colors.border,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontSize: fontSize(11.5),
-                              color: newReportCategory === cat.id ? colors.accentText : colors.text,
-                              fontWeight: '700',
-                            }}
-                          >
-                            {cat.label}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-
-                    <TextInput
-                      value={reportDesc}
-                      onChangeText={setReportDesc}
-                      placeholder={t(locale, 'reportObstaclePlaceholder')}
-                      placeholderTextColor={colors.muted}
-                      multiline
-                      numberOfLines={3}
-                      style={[
-                        styles.input,
-                        styles.textArea,
-                        {
-                          color: colors.text,
-                          borderColor: colors.border,
-                          backgroundColor: colors.background,
-                          fontSize: fontSize(14),
-                          borderWidth: isHighContrast ? 2 : 1,
-                        },
-                      ]}
-                    />
-
-                    {/* Photo selection buttons for new report */}
-                    <View style={styles.photoBtnRow}>
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={async () => {
-                          const photo = await pickPhotoAsync('camera');
-                          if (photo) setNewReportPhoto(photo);
-                        }}
-                        style={[styles.photoBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
-                      >
-                        <Camera size={14} weight="bold" color={colors.accent} />
-                        <Text style={[styles.photoBtnText, { color: colors.text }]}>Zrób zdjęcie</Text>
-                      </Pressable>
-
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={async () => {
-                          const photo = await pickPhotoAsync('library');
-                          if (photo) setNewReportPhoto(photo);
-                        }}
-                        style={[styles.photoBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
-                      >
-                        <ImageIcon size={14} weight="bold" color={colors.accent} />
-                        <Text style={[styles.photoBtnText, { color: colors.text }]}>Wybierz z galerii</Text>
-                      </Pressable>
-                    </View>
-
-                    {newReportPhoto ? (
-                      <View style={[styles.photoPreviewContainer, { borderColor: colors.border }]}>
-                        <Image source={{ uri: newReportPhoto }} style={styles.photoPreviewImage} resizeMode="cover" />
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Usuń wybrane zdjęcie"
-                          onPress={() => setNewReportPhoto(null)}
-                          style={styles.photoRemoveBtn}
-                        >
-                          <Trash size={14} color="#FFF" weight="bold" />
-                        </Pressable>
-                      </View>
-                    ) : null}
-
-                    {reportSuccess ? (
-                      <GovCard variant="ok" style={{ marginTop: 8 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Check size={16} weight="bold" color={colors.okText} />
-                          <Text style={{ color: colors.okText, fontWeight: '700', fontSize: fontSize(13) }}>
-                            {t(locale, 'reportSavedSuccess')}
-                          </Text>
-                        </View>
-                      </GovCard>
-                    ) : null}
-
-                    <GovButton
-                      title={isUploadingPhoto ? 'Przesyłanie zdjęcia...' : t(locale, 'reportSubmit')}
-                      icon={<Check size={16} weight="bold" color={colors.accentText} />}
-                      variant="primary"
-                      loading={isUploadingPhoto}
-                      onPress={handleSubmitLocalReport}
-                      style={{ marginTop: 8 }}
-                    />
-
-                    <GovButton
-                      title={t(locale, 'openFullOsmForm')}
-                      icon={<ArrowRight size={16} weight="bold" color={colors.text} />}
-                      variant="outline"
-                      onPress={() => router.push('/report-correction')}
-                      style={{ marginTop: 6 }}
-                    />
-                  </GovCard>
-
-                  {/* 3. ZGŁOSZENIA W KRAKOWIE ZE ZDJĘCIAMI (WIDOCZNE DLA WSZYSTKICH) */}
-                  <View style={{ marginTop: 6 }}>
-                    <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(14.5), marginBottom: 6 }]}>
-                      Zgłoszenia mieszkańców ze zdjęciami ({serverHazards.length + localReports.length})
-                    </Text>
-
-                    {serverHazards.map((h) => (
-                      <GovCard key={h.id} style={{ marginTop: 6 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <View
-                            style={{
-                              paddingHorizontal: 7,
-                              paddingVertical: 2,
-                              borderRadius: 4,
-                              backgroundColor: h.status === 'confirmed' ? colors.okBg : colors.warningBg,
-                              borderWidth: 1,
-                              borderColor: h.status === 'confirmed' ? colors.okBorder : colors.warningBorder,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                fontSize: fontSize(11),
-                                fontWeight: '700',
-                                color: h.status === 'confirmed' ? colors.okText : colors.warningText,
-                              }}
-                            >
-                              {h.category ? `${h.category.toUpperCase()}` : 'ZGŁOSZENIE'}
-                            </Text>
-                          </View>
-                          <Text style={{ color: colors.muted, fontSize: fontSize(11) }}>
-                            {h.createdAt.slice(0, 10)}
-                          </Text>
-                        </View>
-
-                        <Text style={{ color: colors.text, fontSize: fontSize(13.5), fontWeight: '700', marginTop: 4 }}>
-                          {h.description}
-                        </Text>
-                        <CredibilityNote
-                          locale={locale}
-                          assessment={credibilityFromReports({
-                            supportCount: h.stillHereCount,
-                            photoCount:
-                              (h.photoUrl ? 1 : 0) +
-                              (h.validations?.filter((v) => v.photoUrl).length ?? 0),
-                          })}
-                        />
-
-                        {/* Photo visible to everyone */}
-                        {h.photoUrl ? (
-                          <View style={{ marginTop: 6 }}>
-                            <Image
-                              source={{ uri: h.photoUrl }}
-                              style={{ width: '100%', height: 140, borderRadius: 8 }}
-                              resizeMode="cover"
-                            />
-                          </View>
-                        ) : null}
-
-                        <View style={{ marginTop: 8 }}>
-                          <Text style={{ color: colors.muted, fontSize: fontSize(11.5) }}>
-                            Nadal tu: {h.stillHereCount} · Naprawione: {h.fixedCount}
-                          </Text>
-                        </View>
-
-                          <Pressable
-                            accessibilityRole="button"
-                            onPress={() => {
-                              setRandomHazard(h);
-                              setStatusMessage(`Wybrano zgłoszenie do walidacji.`);
-                              setTimeout(() => setStatusMessage(null), 2500);
-                            }}
-                            style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 4,
-                              paddingHorizontal: 8,
-                              paddingVertical: 4,
-                              borderRadius: 6,
-                              backgroundColor: colors.accent,
-                            }}
-                          >
-                            <Camera size={12} weight="bold" color="#FFF" />
-                            <Text style={{ color: '#FFF', fontSize: fontSize(11), fontWeight: '700' }}>
-                              Waliduj zdjęciem
-                            </Text>
-                          </Pressable>
-                      </GovCard>
-                    ))}
-
-                    {localReports.map((r) => (
-                      <GovCard key={r.id} style={{ marginTop: 6 }}>
-                        <Text style={{ color: colors.text, fontSize: fontSize(13) }}>{r.description}</Text>
-                        {r.photoUrl ? (
-                          <Image
-                            source={{ uri: r.photoUrl }}
-                            style={{ width: '100%', height: 130, borderRadius: 6, marginTop: 4 }}
-                            resizeMode="cover"
-                          />
-                        ) : null}
-                        <Text style={{ color: colors.muted, fontSize: fontSize(11), marginTop: 4 }}>
-                          {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {t(locale, 'localReportUnverified')}
-                        </Text>
-                        <CredibilityNote
-                          locale={locale}
-                          assessment={credibilityFromReports({
-                            supportCount: r.stillHereCount ?? 0,
-                            photoCount: r.photoUrl ? 1 : 0,
-                          })}
-                        />
-                      </GovCard>
-                    ))}
-                  </View>
-                </View>
-              ) : null}
             </ScrollView>
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={reportPopupOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setReportPopupOpen(false)}
+      >
+        <View style={styles.reportModalBackdrop}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(locale, 'cancel')}
+            onPress={() => setReportPopupOpen(false)}
+            style={styles.reportModalDismiss}
+          />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={[
+              styles.reportModalSheet,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.reportModalHeader}>
+              <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(17) }]}>
+                {t(locale, 'reportPopupTitle')}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(locale, 'cancel')}
+                onPress={() => setReportPopupOpen(false)}
+                style={[styles.reportCloseBtn, { borderColor: colors.border }]}
+              >
+                <X size={18} weight="bold" color={colors.text} />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 28, gap: 10 }}
+            >
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  krakowCardUser
+                    ? `${t(locale, 'krakowCardVerifiedResident')}: ${krakowCardUser.displayName}`
+                    : t(locale, 'krakowCardLoginBtn')
+                }
+                onPress={() => setKrakowCardModalVisible(true)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 8,
+                  backgroundColor: krakowCardUser
+                    ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.15)')
+                    : (isHighContrast ? colors.surface : 'rgba(0, 92, 169, 0.08)'),
+                  borderWidth: 1,
+                  borderColor: krakowCardUser ? '#22C55E' : colors.border,
+                }}
+              >
+                {krakowCardUser ? (
+                  <ShieldCheck
+                    size={16}
+                    color={isHighContrast ? colors.accentText : '#16A34A'}
+                    weight="fill"
+                  />
+                ) : (
+                  <IdentificationCard size={16} color={colors.accent} weight="bold" />
+                )}
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: fontSize(12),
+                    fontWeight: '700',
+                    color: isHighContrast
+                      ? colors.text
+                      : krakowCardUser
+                        ? '#15803D'
+                        : colors.accent,
+                  }}
+                >
+                  {krakowCardUser
+                    ? `Zweryfikowany: ${krakowCardUser.displayName} (Karta Krakowska)`
+                    : 'Zgłaszasz anonimowo. Zaloguj Kartą Krakowską'}
+                </Text>
+              </Pressable>
+
+              <LocationPicker
+                label={t(locale, 'reportLocationLabel')}
+                point={{ name: reportQuery, position: reportPos ?? EMPTY_POINT }}
+                onChangePoint={(p) => {
+                  setReportQuery(p.name);
+                  setReportPos(p.position);
+                  setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                }}
+                placeholder={t(locale, 'searchPromptOsm')}
+                showMyLocation
+                onUseMyLocation={() => {
+                  if (!userLocation) {
+                    fetchUserLocation().then((loc) => {
+                      if (!loc) return;
+                      setReportPos({ lat: loc.lat, lon: loc.lon });
+                      setReportQuery(t(locale, 'myLocationShort'));
+                    });
+                    return;
+                  }
+                  setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
+                  setReportQuery(t(locale, 'myLocationShort'));
+                }}
+                onPickOnMap={() => {
+                  setPickingTarget('report');
+                  setReportPopupOpen(false);
+                  setPopupExpanded(false);
+                }}
+                isPickingOnMap={pickingTarget === 'report'}
+              />
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {[
+                  { id: 'obstacle' as const, label: 'Krawężnik / schody' },
+                  { id: 'hole' as const, label: 'Wyrwa / dziura' },
+                  { id: 'surface' as const, label: 'Bruk / nawierzchnia' },
+                  { id: 'flood' as const, label: 'Zalanie / kałuża' },
+                  { id: 'other' as const, label: 'Inna przeszkoda' },
+                ].map((cat) => (
+                  <Pressable
+                    key={cat.id}
+                    accessibilityRole="button"
+                    onPress={() => setNewReportCategory(cat.id)}
+                    style={{
+                      paddingHorizontal: 9,
+                      paddingVertical: 5,
+                      borderRadius: 6,
+                      backgroundColor: newReportCategory === cat.id ? colors.accent : colors.background,
+                      borderWidth: 1,
+                      borderColor: newReportCategory === cat.id ? colors.accent : colors.border,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: fontSize(11.5),
+                        color: newReportCategory === cat.id ? colors.accentText : colors.text,
+                        fontWeight: '700',
+                      }}
+                    >
+                      {cat.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              <TextInput
+                value={reportDesc}
+                onChangeText={setReportDesc}
+                placeholder={t(locale, 'reportObstaclePlaceholder')}
+                placeholderTextColor={colors.muted}
+                multiline
+                numberOfLines={3}
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  {
+                    color: colors.text,
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                    fontSize: fontSize(14),
+                    borderWidth: isHighContrast ? 2 : 1,
+                  },
+                ]}
+              />
+
+              <View style={styles.photoBtnRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={async () => {
+                    const photo = await pickPhotoAsync('camera');
+                    if (photo) setNewReportPhoto(photo);
+                  }}
+                  style={[styles.photoBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+                >
+                  <Camera size={14} weight="bold" color={colors.accent} />
+                  <Text style={[styles.photoBtnText, { color: colors.text }]}>Zrób zdjęcie</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={async () => {
+                    const photo = await pickPhotoAsync('library');
+                    if (photo) setNewReportPhoto(photo);
+                  }}
+                  style={[styles.photoBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+                >
+                  <ImageIcon size={14} weight="bold" color={colors.accent} />
+                  <Text style={[styles.photoBtnText, { color: colors.text }]}>Wybierz z galerii</Text>
+                </Pressable>
+              </View>
+
+              {newReportPhoto ? (
+                <View style={[styles.photoPreviewContainer, { borderColor: colors.border }]}>
+                  <Image source={{ uri: newReportPhoto }} style={styles.photoPreviewImage} resizeMode="cover" />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Usuń wybrane zdjęcie"
+                    onPress={() => setNewReportPhoto(null)}
+                    style={styles.photoRemoveBtn}
+                  >
+                    <Trash size={14} color="#FFF" weight="bold" />
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {reportSuccess ? (
+                <GovCard variant="ok">
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Check size={16} weight="bold" color={colors.okText} />
+                    <Text style={{ color: colors.okText, fontWeight: '700', fontSize: fontSize(13) }}>
+                      {t(locale, 'reportSavedSuccess')}
+                    </Text>
+                  </View>
+                </GovCard>
+              ) : null}
+
+              <GovButton
+                title={isUploadingPhoto ? 'Przesyłanie zdjęcia...' : t(locale, 'reportSubmit')}
+                icon={<Check size={16} weight="bold" color={colors.accentText} />}
+                variant="primary"
+                loading={isUploadingPhoto}
+                onPress={handleSubmitLocalReport}
+              />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
     </SafeAreaView>
@@ -3463,6 +3056,36 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     width: 28,
     height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reportModalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  },
+  reportModalDismiss: {
+    flex: 1,
+  },
+  reportModalSheet: {
+    maxHeight: '78%',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  reportCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
