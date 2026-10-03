@@ -23,6 +23,51 @@ import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
+const ROAD_TYPE_OPTIONS = [
+  {
+    id: 'cobblestone',
+    nameKey: 'surfaceCobblestone' as const,
+    icon: '🪨',
+    descPl: 'Bruk i kocie łby, trudne do przejazdu',
+    descEn: 'Cobblestone and historic paving',
+  },
+  {
+    id: 'gravel',
+    nameKey: 'surfaceGravel' as const,
+    icon: '⚪',
+    descPl: 'Gruby żwir i szuter, utrudniający toczenie się kół',
+    descEn: 'Coarse gravel hindering wheel rolling',
+  },
+  {
+    id: 'sand',
+    nameKey: 'surfaceSand' as const,
+    icon: '🏖️',
+    descPl: 'Sypki piasek grzęznący dla wózków',
+    descEn: 'Loose sand causing wheels to sink',
+  },
+  {
+    id: 'dirt',
+    nameKey: 'surfaceDirt' as const,
+    icon: '🌱',
+    descPl: 'Drogi gruntowe i ziemne, błotniste po deszczu',
+    descEn: 'Dirt and soil tracks, muddy in rain',
+  },
+  {
+    id: 'unpaved',
+    nameKey: 'surfaceUnpaved' as const,
+    icon: '🚧',
+    descPl: 'Wszelkie nawierzchnie nieutwardzone',
+    descEn: 'Any general unpaved terrain',
+  },
+  {
+    id: 'compacted',
+    nameKey: 'surfaceCompacted' as const,
+    icon: '🛤️',
+    descPl: 'Nawierzchnia szutrowa utwardzona / ubita',
+    descEn: 'Compacted gravel or stabilized surface',
+  },
+];
+
 export default function ProfileScreen() {
   const {
     locale,
@@ -41,6 +86,9 @@ export default function ProfileScreen() {
   } = useSession();
 
   const [debugVisible, setDebugVisible] = useState(false);
+
+  const blockedList =
+    activeThresholds?.blockedRoadTypes ?? activeThresholds?.blockedSurfaces ?? [];
 
   const getProfileIcon = (id: ProfileId) => {
     switch (id) {
