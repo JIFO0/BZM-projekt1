@@ -64,7 +64,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
-      - frontend
+#      - frontend
       - api
       - graphhopper
     networks:
