@@ -20,9 +20,21 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
-// Exclude backend directory and graphhopper data cache from Metro bundler
-const backendPattern = new RegExp(
-  `^${path.resolve(workspaceRoot, 'backend').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`
+// Helper to escape regex special characters for path matching
+const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Exclude directories not needed by the mobile bundle to speed up Metro file-walking
+const excludedDirs = [
+  path.resolve(workspaceRoot, 'backend'),
+  path.resolve(workspaceRoot, 'packages', 'cli'),
+  path.resolve(workspaceRoot, 'docs'),
+  path.resolve(workspaceRoot, 'tasks'),
+  path.resolve(workspaceRoot, 'scripts'),
+  path.resolve(workspaceRoot, 'schemas'),
+];
+
+const exclusionPatterns = excludedDirs.map(
+  (dir) => new RegExp(`^${escapeRegExp(dir)}([\\/\\\\].*)?$`)
 );
 
 config.resolver.blockList = [
@@ -31,7 +43,7 @@ config.resolver.blockList = [
     : config.resolver.blockList
     ? [config.resolver.blockList]
     : []),
-  backendPattern,
+  ...exclusionPatterns,
 ];
 
 module.exports = config;
