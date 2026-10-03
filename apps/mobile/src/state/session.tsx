@@ -22,6 +22,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { RouteVariant, RouteVariantId } from '@/services/api';
+import { getCookie, setCookie } from '@/services/storage';
 
 import type { Locale } from '@/i18n/strings';
 import {
@@ -138,16 +139,116 @@ interface SessionValue {
 
 const SessionContext = createContext<SessionValue | null>(null);
 
+const COOKIE_CUSTOM_THRESHOLDS = 'krakow_custom_thresholds';
+const COOKIE_PROFILE_ID = 'krakow_profile_id';
+const COOKIE_LOCALE = 'krakow_locale';
+const COOKIE_CONTRAST = 'krakow_contrast';
+const COOKIE_TEXT_SIZE = 'krakow_text_size';
+
+function loadInitialCustomThresholds(): BarrierThresholds {
+  const defaultCustom = city.profiles.custom || city.profiles.wheelchair;
+  try {
+    const raw = getCookie(COOKIE_CUSTOM_THRESHOLDS);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return {
+          ...defaultCustom,
+          ...parsed,
+          allowedSurfaces: Array.isArray(parsed.allowedSurfaces)
+            ? parsed.allowedSurfaces
+            : defaultCustom.allowedSurfaces,
+          blockedRoadTypes: Array.isArray(parsed.blockedRoadTypes)
+            ? parsed.blockedRoadTypes
+            : defaultCustom.blockedRoadTypes,
+          blockedSurfaces: Array.isArray(parsed.blockedSurfaces)
+            ? parsed.blockedSurfaces
+            : defaultCustom.blockedSurfaces,
+        };
+      }
+    }
+  } catch {
+    // Ignore JSON parse errors
+  }
+  return { ...defaultCustom };
+}
+
+function loadInitialProfileId(): ProfileId {
+  try {
+    const raw = getCookie(COOKIE_PROFILE_ID);
+    if (raw && ['wheelchair', 'custom'].includes(raw)) {
+      return raw as ProfileId;
+    }
+  } catch {
+    // Ignore
+  }
+  return 'wheelchair';
+}
+
+function loadInitialLocale(): Locale {
+  try {
+    const raw = getCookie(COOKIE_LOCALE);
+    if (raw && ['pl', 'en', 'uk'].includes(raw)) {
+      return raw as Locale;
+    }
+  } catch {
+    // Ignore
+  }
+  return 'pl';
+}
+
+function loadInitialContrast(): ContrastMode {
+  try {
+    const raw = getCookie(COOKIE_CONTRAST);
+    if (
+      raw &&
+      [
+        'standard-light',
+        'standard-dark',
+        'hc-yellow-black',
+        'hc-black-yellow',
+        'hc-white-black',
+        'monochrome',
+      ].includes(raw)
+    ) {
+      return raw as ContrastMode;
+    }
+  } catch {
+    // Ignore
+  }
+  return 'standard-light';
+}
+
+function loadInitialTextSize(): TextSize {
+  try {
+    const raw = getCookie(COOKIE_TEXT_SIZE);
+    if (raw && ['normal', 'medium', 'large', 'xlarge', 'xxlarge'].includes(raw)) {
+      return raw as TextSize;
+    }
+  } catch {
+    // Ignore
+  }
+  return 'normal';
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>('pl');
-  const [profileId, setProfileId] = useState<ProfileId>('wheelchair');
-  const [profileThresholds, setProfileThresholds] = useState<Record<ProfileId, BarrierThresholds>>({
+  const [locale, setLocaleState] = useState<Locale>(loadInitialLocale);
+  const [profileId, setProfileIdState] = useState<ProfileId>(loadInitialProfileId);
+  const [customThresholds, setCustomThresholdsState] = useState<BarrierThresholds>(loadInitialCustomThresholds);
+  const [profileThresholds, setProfileThresholds] = useState<Record<ProfileId, BarrierThresholds>>(() => ({
     wheelchair: { ...city.profiles.wheelchair },
-    custom: { ...city.profiles.custom },
-  });
-  const [customThresholds, setCustomThresholdsState] = useState<BarrierThresholds>(
-    city.profiles.custom || city.profiles.wheelchair,
-  );
+    custom: loadInitialCustomThresholds(),
+  }));
+
+  const setLocale = useCallback((loc: Locale) => {
+    setLocaleState(loc);
+    setCookie(COOKIE_LOCALE, loc);
+  }, []);
+
+  const setProfileId = useCallback((id: ProfileId) => {
+    setProfileIdState(id);
+    setCookie(COOKIE_PROFILE_ID, id);
+  }, []);
 
   const activeThresholds = useMemo(() => {
     if (profileId === 'custom') return customThresholds;
@@ -157,6 +258,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const setCustomThresholds = useCallback((thresholds: BarrierThresholds) => {
     setCustomThresholdsState(thresholds);
     setProfileThresholds((prev) => ({ ...prev, custom: thresholds }));
+    setCookie(COOKIE_CUSTOM_THRESHOLDS, JSON.stringify(thresholds));
   }, []);
 
   const toggleBlockedRoadType = useCallback(
@@ -393,8 +495,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [startWatchingLocation]);
 
   // Advanced Public-Sector Accessibility State (WCAG 2.2 AAA)
-  const [contrastMode, setContrastMode] = useState<ContrastMode>('standard-light');
-  const [textSize, setTextSize] = useState<TextSize>('normal');
+  const [contrastMode, setContrastModeState] = useState<ContrastMode>(loadInitialContrast);
+  const [textSize, setTextSizeState] = useState<TextSize>(loadInitialTextSize);
   const [lineHeightMode, setLineHeightMode] = useState<LineHeightMode>('normal');
   const [letterSpacingMode, setLetterSpacingMode] = useState<LetterSpacingMode>('normal');
   const [fontFamilyMode, setFontFamilyMode] = useState<FontFamilyMode>('system');
@@ -408,6 +510,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [readingMaskY, setReadingMaskY] = useState<number>(260);
   const [accessibilityModalVisible, setAccessibilityModalVisible] = useState<boolean>(false);
 
+  const setContrastMode = useCallback((mode: ContrastMode) => {
+    setContrastModeState(mode);
+    setCookie(COOKIE_CONTRAST, mode);
+  }, []);
+
+  const setTextSize = useCallback((size: TextSize) => {
+    setTextSizeState(size);
+    setCookie(COOKIE_TEXT_SIZE, size);
+  }, []);
+
   const cycleContrastMode = () => {
     const modes: ContrastMode[] = [
       'standard-light',
@@ -417,31 +529,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       'monochrome',
       'standard-dark',
     ];
-    setContrastMode((curr) => {
+    setContrastModeState((curr) => {
       const idx = modes.indexOf(curr);
-      return modes[(idx + 1) % modes.length]!;
+      const next = modes[(idx + 1) % modes.length]!;
+      setCookie(COOKIE_CONTRAST, next);
+      return next;
     });
   };
 
   const decreaseTextSize = () => {
-    setTextSize((curr) => {
-      if (curr === 'xxlarge') return 'xlarge';
-      if (curr === 'xlarge') return 'large';
-      if (curr === 'large') return 'medium';
-      return 'normal';
+    setTextSizeState((curr) => {
+      let next: TextSize = 'normal';
+      if (curr === 'xxlarge') next = 'xlarge';
+      else if (curr === 'xlarge') next = 'large';
+      else if (curr === 'large') next = 'medium';
+      else next = 'normal';
+      setCookie(COOKIE_TEXT_SIZE, next);
+      return next;
     });
   };
 
   const increaseTextSize = () => {
-    setTextSize((curr) => {
-      if (curr === 'normal') return 'medium';
-      if (curr === 'medium') return 'large';
-      if (curr === 'large') return 'xlarge';
-      return 'xxlarge';
+    setTextSizeState((curr) => {
+      let next: TextSize = 'normal';
+      if (curr === 'normal') next = 'medium';
+      else if (curr === 'medium') next = 'large';
+      else if (curr === 'large') next = 'xlarge';
+      else next = 'xxlarge';
+      setCookie(COOKIE_TEXT_SIZE, next);
+      return next;
     });
   };
 
-  const resetAccessibility = () => {
+  const resetAccessibility = useCallback(() => {
     setContrastMode('standard-light');
     setTextSize('normal');
     setLineHeightMode('normal');
@@ -453,7 +573,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setHighlightLinks(false);
     setReadingRuler(false);
     setReadingMask(false);
-  };
+  }, [setContrastMode, setTextSize]);
 
   const addLocalReport = (description: string) => {
     const newReport: LocalReport = {
@@ -551,7 +671,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }),
     [
       locale,
+      setLocale,
       profileId,
+      setProfileId,
       customThresholds,
       setCustomThresholds,
       activeThresholds,
@@ -574,7 +696,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       isLocating,
       fetchUserLocation,
       contrastMode,
+      setContrastMode,
       textSize,
+      setTextSize,
       lineHeightMode,
       letterSpacingMode,
       fontFamilyMode,
@@ -587,6 +711,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       readingMask,
       readingMaskY,
       accessibilityModalVisible,
+      resetAccessibility,
       colors,
       fontSize,
       lineHeight,
