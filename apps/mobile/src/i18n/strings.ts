@@ -377,6 +377,14 @@ const pl = {
     'Zgłaszasz jako zweryfikowany mieszkaniec (Karta Krakowska). Twoje zgłoszenie ma status zaufanego audytu.',
   krakowCardReportNoticeAnon:
     'Zgłaszasz anonimowo. Zaloguj się Kartą Krakowską, aby nadać zgłoszeniu priorytet weryfikacji przez służby miejskie.',
+  barrierViewModeLabel: 'Widok barier na mapie',
+  barrierModeNone: 'Bez barier',
+  barrierModeRoute: 'Na trasie',
+  barrierModeAll: 'Wszystkie',
+  barrierModeNoneHint: 'Ukryj znaczniki barier na mapie',
+  barrierModeRouteHint: 'Pokaż tylko bariery wzdłuż wyznaczonej trasy',
+  barrierModeAllHint: 'Pokaż wszystkie znane bariery architektoniczne w Krakowie',
+  noActiveRouteForBarriers: 'Brak aktywnej trasy. Zaplanuj trasę, aby zobaczyć jej bariery.',
 };
 
 const en: typeof pl = {
@@ -753,6 +761,14 @@ const en: typeof pl = {
     'Submitting as a verified resident (Krakow Card). Your report has trusted audit status.',
   krakowCardReportNoticeAnon:
     'Submitting anonymously. Log in with Krakow Card to grant your report municipal verification priority.',
+  barrierViewModeLabel: 'Barrier view on map',
+  barrierModeNone: 'No barriers',
+  barrierModeRoute: 'On route',
+  barrierModeAll: 'All barriers',
+  barrierModeNoneHint: 'Hide barrier markers on map',
+  barrierModeRouteHint: 'Show only barriers along the planned route',
+  barrierModeAllHint: 'Show all known architectural barriers across Kraków',
+  noActiveRouteForBarriers: 'No active route. Plan a route to see its barriers.',
 };
 
 const uk: typeof pl = {
@@ -1134,6 +1150,14 @@ const uk: typeof pl = {
     'Ви надсилаєте як верифікований житель (Краківська карта) з пріоритетним статусом.',
   krakowCardReportNoticeAnon:
     'Анонімне надсилання. Увійдіть за допомогою Краківської карти для надання пріоритету перевірки.',
+  barrierViewModeLabel: 'Вигляд бар\'єрів на карті',
+  barrierModeNone: 'Без бар\'єрів',
+  barrierModeRoute: 'На маршруті',
+  barrierModeAll: 'Всі бар\'єри',
+  barrierModeNoneHint: 'Приховати маркери бар\'єрів на карті',
+  barrierModeRouteHint: 'Показати лише бар\'єри вздовж запланованого маршруту',
+  barrierModeAllHint: 'Показати всі відомі архітектурні бар\'єри в Кракові',
+  noActiveRouteForBarriers: 'Немає активного маршруту. Сплануйте маршрут, щоб побачити бар\'єри.',
 };
 
 const dictionaries: Record<Locale, typeof pl> = { pl, en, uk };

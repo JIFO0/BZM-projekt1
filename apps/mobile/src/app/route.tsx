@@ -3,7 +3,7 @@ import {
   type RouteFinding,
 } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -32,6 +32,7 @@ import {
   ListChecks,
   ArrowLeft,
 } from 'phosphor-react-native';
+import { BarrierViewControl } from '@/components/BarrierViewControl';
 import { CoverageBar } from '@/components/CoverageBar';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
@@ -42,6 +43,7 @@ import { KrakowHeader } from '@/components/KrakowHeader';
 import { MapView } from '@/components/MapView';
 import { RouteFindingRow } from '@/components/RouteFindingRow';
 import { t } from '@/i18n/strings';
+import { getAllCityBarriers } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -59,10 +61,31 @@ export default function RouteScreen() {
     increasedSpacing,
     dyslexicFont,
     userLocation,
+    barrierViewMode,
+    setBarrierViewMode,
+    activeThresholds,
   } = useSession();
 
   const [showMap, setShowMap] = useState(true);
   const [debugVisible, setDebugVisible] = useState(false);
+
+  // All city barriers computed with active thresholds
+  const allCityBarriers = useMemo(() => {
+    return getAllCityBarriers(activeThresholds);
+  }, [activeThresholds]);
+
+  // Filter displayed findings based on barrier view mode
+  const displayedFindings = useMemo(() => {
+    switch (barrierViewMode) {
+      case 'none':
+        return [];
+      case 'route':
+        return activeRouteReport?.findings || [];
+      case 'all':
+      default:
+        return allCityBarriers;
+    }
+  }, [barrierViewMode, activeRouteReport?.findings, allCityBarriers]);
 
   if (!activeRouteReport) {
     return (
@@ -537,11 +560,21 @@ export default function RouteScreen() {
         />
 
         {showMap ? (
-          <MapView
-            route={activeWalkingRoute}
-            findings={report.findings}
-            userLocation={userLocation}
-          />
+          <View style={{ gap: 8, marginVertical: 8 }}>
+            <BarrierViewControl
+              compact
+              mode={barrierViewMode}
+              onChangeMode={setBarrierViewMode}
+              routeBarriersCount={report.findings.length}
+              allBarriersCount={allCityBarriers.length}
+              hasActiveRoute={true}
+            />
+            <MapView
+              route={activeWalkingRoute}
+              findings={displayedFindings}
+              userLocation={userLocation}
+            />
+          </View>
         ) : null}
 
         {/* ORDERED FINDINGS LIST (R3, R5, R6) */}

@@ -164,4 +164,21 @@ describe('Route Analysis (T5)', () => {
     expect(warningEval.severity).toBe('warning');
     expect(warningEval.evidence).toContain('Nawierzchnia utrudniająca poruszanie się: cobblestone');
   });
+
+  test('low kerb with mm unit (20 mm) is ok for wheelchair with 30mm threshold, not blocker', () => {
+    const lowKerbFact: Fact = {
+      id: 'node/105',
+      subject: { type: 'crossing', ref: 'node/105', lat: 50.0532, lon: 19.9457 },
+      criterion: 'kerb',
+      value: '20 mm',
+      status: 'community',
+      source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+      retrievedAt: '2026-10-01T10:00:00Z',
+    };
+
+    const evalResult = evaluateFactSeverity(lowKerbFact, MOCK_CONFIG.profiles.wheelchair);
+    expect(evalResult.severity).toBe('ok');
+    expect(evalResult.evidence).toContain('20 mm');
+    expect(evalResult.evidence).not.toContain('20000 mm');
+  });
 });
