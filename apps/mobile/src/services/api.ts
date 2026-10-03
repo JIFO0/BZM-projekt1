@@ -700,8 +700,39 @@ export async function reverseGeocodeLocation(
   lang: 'pl' | 'en' | 'uk' = 'pl',
 ): Promise<PlaceHit | null> {
   try {
-    return await osmNominatim.reverseGeocode(lat, lon, lang);
+    const res = await osmNominatim.reverseGeocode(lat, lon, lang);
+    if (res) return res;
   } catch {
-    return null;
+    // Continue to fallback
   }
+
+  // Find nearest preset place if within 150 metres
+  let closest: PlaceHit | null = null;
+  let minD = Infinity;
+  for (const p of DEFAULT_PRESET_PLACES) {
+    const d = Math.hypot(p.position.lat - lat, p.position.lon - lon);
+    if (d < minD) {
+      minD = d;
+      closest = p;
+    }
+  }
+
+  // 0.0015 degrees is approx 120-150m
+  if (closest && minD < 0.0015) {
+    return {
+      ...closest,
+      id: `picked-${closest.id}`,
+      name: closest.name,
+      label: `W pobliżu: ${closest.name}`,
+      position: { lat, lon },
+    };
+  }
+
+  return {
+    id: `picked-${lat.toFixed(5)}-${lon.toFixed(5)}`,
+    name: `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+    label: `Punkt na mapie (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
+    position: { lat, lon },
+    kind: 'coordinate',
+  };
 }

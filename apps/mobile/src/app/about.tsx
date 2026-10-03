@@ -1,5 +1,6 @@
 import {
   DEMO_SNAPSHOT,
+  GEOPORTAL_BDOT10K_ATTRIBUTION,
   MAPY_ATTRIBUTION,
   MAPY_LOGO,
   OSM_ATTRIBUTION,
@@ -113,6 +114,33 @@ export default function AboutScreen() {
           </Text>
           <Text style={[styles.logoText, { color: '#C62828', fontSize: fontSize(18) }]}>
             mapy.cz / api.mapy.com
+          </Text>
+        </GovCard>
+
+        {/* Geoportal.gov.pl BDOT10k Topographic Map Source */}
+        <GovCard variant="default">
+          <View style={styles.cardHeaderRow}>
+            <MapTrifold size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+            >
+              {GEOPORTAL_BDOT10K_ATTRIBUTION.name}
+            </Text>
+          </View>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
+            {locale === 'pl'
+              ? 'Oficjalna państwowa mapa topograficzna BDOT10k (Baza Danych Obiektów Topograficznych w skali 1:10 000) Głównego Urzędu Geodezji i Kartografii (GUGiK). Zapewnia przejrzysty, czytelny i stabilny podkład kartograficzny zgodny ze standardami państwowymi RP.'
+              : 'Official Polish national topographic database BDOT10k (1:10 000 scale) provided by the Head Office of Geodesy and Cartography (GUGiK). Provides clear and reliable governmental basemaps.'}
+          </Text>
+          <Text style={[styles.meta, { color: colors.muted, fontSize: fontSize(12.5) }]}>
+            {t(locale, 'licenseLabel')}: {GEOPORTAL_BDOT10K_ATTRIBUTION.licence}
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
+            {t(locale, 'copyrightLabel')}: {GEOPORTAL_BDOT10K_ATTRIBUTION.attribution}
+          </Text>
+          <Text style={[styles.meta, { color: colors.muted, fontSize: fontSize(12) }]}>
+            {GEOPORTAL_BDOT10K_ATTRIBUTION.url}
           </Text>
         </GovCard>
 
