@@ -76,7 +76,7 @@ export default function ReportCorrectionScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'reportTitle') }} />
-      <KrakowHeader />
+      <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
 
       <ScrollView
         contentContainerStyle={[

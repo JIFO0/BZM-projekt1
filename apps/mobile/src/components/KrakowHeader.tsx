@@ -7,7 +7,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Globe, PersonArmsSpread } from 'phosphor-react-native';
+import { router } from 'expo-router';
+import { Globe, PersonArmsSpread, ArrowLeft } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
 import { t } from '@/i18n/strings';
@@ -19,6 +20,9 @@ export interface KrakowHeaderProps {
   onReadScreen?: () => void;
   isSpeaking?: boolean;
   compact?: boolean;
+  showBack?: boolean;
+  backTitle?: string;
+  onBack?: () => void;
 }
 
 /**
@@ -30,6 +34,9 @@ export interface KrakowHeaderProps {
  */
 export function KrakowHeader({
   compact,
+  showBack,
+  backTitle,
+  onBack,
 }: KrakowHeaderProps) {
   const { width } = useWindowDimensions();
   const {
@@ -43,11 +50,57 @@ export function KrakowHeader({
     increasedSpacing,
   } = useSession();
 
+  const handleDefaultBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
+  const resolvedBack = onBack ?? handleDefaultBack;
+  const backLabel = backTitle ?? (locale === 'pl' ? 'Wróć do mapy' : 'Back to map');
+
   const minTouch = increasedSpacing ? spacing.touchExpanded : spacing.touch - 4;
   const isMobile = compact !== undefined ? compact : (width > 0 ? width < 768 : Platform.OS !== 'web');
 
   const renderButtons = () => (
     <>
+      {/* 0. Optional Back to Map Button */}
+      {showBack ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={backLabel}
+          onPress={resolvedBack}
+          style={[
+            styles.secondaryBtn,
+            {
+              borderColor: isHighContrast ? colors.accent : '#38BDF8',
+              backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.22)',
+              minHeight: minTouch,
+            },
+          ]}
+        >
+          <ArrowLeft
+            size={16}
+            weight="bold"
+            color={isHighContrast ? colors.text : colors.headerText}
+          />
+          <Text
+            style={[
+              styles.secondaryBtnText,
+              {
+                color: isHighContrast ? colors.text : colors.headerText,
+                fontSize: fontSize(12),
+                fontWeight: '800',
+              },
+            ]}
+          >
+            {backLabel}
+          </Text>
+        </Pressable>
+      ) : null}
+
       {/* 1. Dedicated Accessibility Button */}
       <Pressable
         accessibilityRole="button"
@@ -136,6 +189,22 @@ export function KrakowHeader({
         {/* Rząd 1: Herb Krakowa + Poziomy Tytuł + Tag WCAG AAA */}
         <View style={styles.mobileTopRow}>
           <View style={styles.mobileBrand}>
+            {showBack ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={backLabel}
+                onPress={resolvedBack}
+                style={[
+                  styles.mobileBackIconBtn,
+                  {
+                    backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.18)',
+                    borderColor: isHighContrast ? colors.border : 'rgba(255,255,255,0.3)',
+                  },
+                ]}
+              >
+                <ArrowLeft size={17} weight="bold" color={colors.headerText} />
+              </Pressable>
+            ) : null}
             <KrakowCoatOfArms size="small" showTitle={false} />
             <View style={styles.mobileTitleCol}>
               <Text
@@ -218,6 +287,36 @@ export function KrakowHeader({
         ]}
       >
         <View style={styles.titleArea}>
+          {showBack ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={backLabel}
+              onPress={resolvedBack}
+              style={[
+                styles.secondaryBtn,
+                {
+                  borderColor: isHighContrast ? colors.accent : '#38BDF8',
+                  backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.22)',
+                  minHeight: 36,
+                  marginRight: 6,
+                },
+              ]}
+            >
+              <ArrowLeft size={16} weight="bold" color={isHighContrast ? colors.text : colors.headerText} />
+              <Text
+                style={[
+                  styles.secondaryBtnText,
+                  {
+                    color: isHighContrast ? colors.text : colors.headerText,
+                    fontSize: fontSize(12.5),
+                    fontWeight: '800',
+                  },
+                ]}
+              >
+                {backLabel}
+              </Text>
+            </Pressable>
+          ) : null}
           <KrakowCoatOfArms size="small" showTitle={false} />
           <View style={styles.titleColumn}>
             <Text
@@ -380,5 +479,13 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontWeight: '700',
+  },
+  mobileBackIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    marginRight: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

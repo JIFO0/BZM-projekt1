@@ -94,10 +94,11 @@ export default function MapHomeScreen() {
     locale,
     profileId,
     setProfileId,
-    customThresholds,
-    setCustomThresholds,
     activeThresholds,
+    updateActiveThresholds,
     toggleBlockedRoadType,
+    pendingDestination,
+    setPendingDestination,
     debugState,
     activeRouteReport,
     setActiveRouteReport,
@@ -126,6 +127,20 @@ export default function MapHomeScreen() {
     lat: 50.0619,
     lon: 19.9373,
   });
+
+  // Handle pending destination set from place screen or external sources
+  useEffect(() => {
+    if (pendingDestination) {
+      setToQuery(pendingDestination.name);
+      setToPos(pendingDestination.position);
+      setActiveTab('route');
+      setPopupExpanded(true);
+      setMapCenter({ lat: pendingDestination.position.lat, lon: pendingDestination.position.lon });
+      setStatusMessage(`Ustawiono cel trasy: ${pendingDestination.name}`);
+      setPendingDestination(null);
+      setTimeout(() => setStatusMessage(null), 3000);
+    }
+  }, [pendingDestination, setPendingDestination]);
 
   // Proactively request / fetch location on mount
   useEffect(() => {
@@ -266,9 +281,7 @@ export default function MapHomeScreen() {
       setActiveRouteReport(result.report);
       setActiveRouteFacts(result.facts);
       setActiveRouteIsSample(result.isSample);
-      if (result.variants) {
-        setRouteVariants(result.variants);
-      }
+      setRouteVariants(result.variants ?? null);
       if (result.selectedVariant) {
         selectRouteVariant(result.selectedVariant);
       }
@@ -329,9 +342,7 @@ export default function MapHomeScreen() {
       setActiveRouteReport(result.report);
       setActiveRouteFacts(result.facts);
       setActiveRouteIsSample(result.isSample);
-      if (result.variants) {
-        setRouteVariants(result.variants);
-      }
+      setRouteVariants(result.variants ?? null);
       if (result.selectedVariant) {
         selectRouteVariant(result.selectedVariant);
       }
@@ -1449,51 +1460,47 @@ export default function MapHomeScreen() {
                     </View>
                   </GovCard>
 
-                  {/* Custom Thresholds if custom profile selected */}
-                  {profileId === 'custom' ? (
-                    <GovCard variant="accent">
-                      <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
-                        Progi barier dla profilu własnego:
-                      </Text>
+                  {/* Detailed Thresholds */}
+                  <GovCard variant="accent">
+                    <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
+                      Szczegółowe progi barier ({profileId === 'wheelchair' ? 'Wózek inwalidzki' : 'Profil własny'}):
+                    </Text>
 
-                      <View style={styles.thresholdRow}>
-                        <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                          Maksymalny krawężnik: <Text style={{ fontWeight: '800' }}>{customThresholds.maxKerbMillimetres} mm</Text>
-                        </Text>
-                        <View style={styles.stepBtnRow}>
-                          <GovButton
-                            variant="outline"
-                            title="-10 mm"
-                            onPress={() =>
-                              setCustomThresholds({
-                                ...customThresholds,
-                                maxKerbMillimetres: Math.max(10, customThresholds.maxKerbMillimetres - 10),
-                              })
-                            }
-                            style={styles.smallStepBtn}
-                          />
-                          <GovButton
-                            variant="outline"
-                            title="+10 mm"
-                            onPress={() =>
-                              setCustomThresholds({
-                                ...customThresholds,
-                                maxKerbMillimetres: customThresholds.maxKerbMillimetres + 10,
-                              })
-                            }
-                            style={styles.smallStepBtn}
-                          />
-                        </View>
+                    <View style={styles.thresholdRow}>
+                      <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
+                        Maksymalny krawężnik: <Text style={{ fontWeight: '800' }}>{activeThresholds.maxKerbMillimetres} mm</Text>
+                      </Text>
+                      <View style={styles.stepBtnRow}>
+                        <GovButton
+                          variant="outline"
+                          title="-10 mm"
+                          onPress={() =>
+                            updateActiveThresholds({
+                              maxKerbMillimetres: Math.max(10, activeThresholds.maxKerbMillimetres - 10),
+                            })
+                          }
+                          style={styles.smallStepBtn}
+                        />
+                        <GovButton
+                          variant="outline"
+                          title="+10 mm"
+                          onPress={() =>
+                            updateActiveThresholds({
+                              maxKerbMillimetres: activeThresholds.maxKerbMillimetres + 10,
+                            })
+                          }
+                          style={styles.smallStepBtn}
+                        />
+                      </View>
                         <View style={styles.presetChipsRow}>
                           {[20, 30, 50, 80, 140].map((kVal) => {
-                            const isSelected = customThresholds.maxKerbMillimetres === kVal;
+                            const isSelected = activeThresholds.maxKerbMillimetres === kVal;
                             return (
                               <Pressable
                                 key={kVal}
                                 accessibilityRole="button"
                                 onPress={() =>
-                                  setCustomThresholds({
-                                    ...customThresholds,
+                                  updateActiveThresholds({
                                     maxKerbMillimetres: kVal,
                                   })
                                 }
@@ -1527,23 +1534,21 @@ export default function MapHomeScreen() {
                       <View style={styles.thresholdRow}>
                         <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
                           Traktowanie stopni:{' '}
-                          <Text style={{ fontWeight: '800', color: customThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
-                            {customThresholds.stepsAreBlocker ? 'BLOKADA' : 'OSTRZEŻENIE'}
+                          <Text style={{ fontWeight: '800', color: activeThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
+                            {activeThresholds.stepsAreBlocker ? 'BLOKADA' : 'OSTRZEŻENIE'}
                           </Text>
                         </Text>
                         <GovButton
                           variant="secondary"
-                          title="Przełącz status schodów"
+                          title={activeThresholds.stepsAreBlocker ? 'Zmień na: Ostrzeżenie (nie blokada)' : 'Zmień na: Blokada trasy'}
                           onPress={() =>
-                            setCustomThresholds({
-                              ...customThresholds,
-                              stepsAreBlocker: !customThresholds.stepsAreBlocker,
+                            updateActiveThresholds({
+                              stepsAreBlocker: !activeThresholds.stepsAreBlocker,
                             })
                           }
                         />
                       </View>
                     </GovCard>
-                  ) : null}
                 </View>
               ) : null}
 

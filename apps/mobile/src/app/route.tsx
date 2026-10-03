@@ -142,7 +142,7 @@ export default function RouteScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'routeReportTitle') }} />
 
-      <KrakowHeader />
+      <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
 
       <DemoBanner isSample={report.isSample} />
 
