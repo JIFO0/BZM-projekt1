@@ -45,9 +45,10 @@ export function evaluateFactSeverity(
     let mm: number | null = null;
     if (mmMatch) {
       const num = parseFloat(mmMatch[1]!);
-      // If unit is cm or metres, normalize to mm
-      if (fact.unit === 'cm' || val.includes('cm')) mm = num * 10;
-      else if (fact.unit === 'm' || val.includes('m')) mm = num * 1000;
+      // If unit is mm, cm or metres, normalize to mm
+      if (fact.unit === 'mm' || val.includes('mm')) mm = num;
+      else if (fact.unit === 'cm' || val.includes('cm')) mm = num * 10;
+      else if (fact.unit === 'm' || /\b\d+(\.\d+)?\s*m\b/.test(val)) mm = num * 1000;
       else mm = num;
     } else if (val === 'flush') {
       mm = 0;

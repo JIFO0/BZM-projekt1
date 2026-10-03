@@ -67,6 +67,8 @@ export interface KrakowCardUser {
   discountTier: string;
 }
 
+export type BarrierViewMode = 'none' | 'route' | 'all';
+
 interface SessionValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
@@ -98,6 +100,10 @@ interface SessionValue {
   selectRouteVariant: (variantId: RouteVariantId) => void;
   activePlaceReport: PlaceAnalysisReport | null;
   setActivePlaceReport: (report: PlaceAnalysisReport | null) => void;
+
+  // Barrier view mode: none | route | all
+  barrierViewMode: BarrierViewMode;
+  setBarrierViewMode: (mode: BarrierViewMode) => void;
 
   // Real user GPS location
   userLocation: UserCoordinates | null;
@@ -277,6 +283,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [routeVariants, setRouteVariants] = useState<Record<RouteVariantId, RouteVariant> | null>(null);
   const [selectedRouteVariant, setSelectedRouteVariant] = useState<RouteVariantId>('accessible');
   const [activePlaceReport, setActivePlaceReport] = useState<PlaceAnalysisReport | null>(null);
+  const [barrierViewMode, setBarrierViewMode] = useState<BarrierViewMode>('all');
 
   const routeVariantsRef = useRef(routeVariants);
   routeVariantsRef.current = routeVariants;
@@ -589,6 +596,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       selectRouteVariant,
       activePlaceReport,
       setActivePlaceReport,
+      barrierViewMode,
+      setBarrierViewMode,
       userLocation,
       setUserLocation,
       isLocating,
@@ -659,6 +668,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       selectedRouteVariant,
       selectRouteVariant,
       activePlaceReport,
+      barrierViewMode,
+      setBarrierViewMode,
       userLocation,
       isLocating,
       fetchUserLocation,
