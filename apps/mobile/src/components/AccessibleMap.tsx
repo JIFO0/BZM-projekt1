@@ -15,9 +15,10 @@ interface AccessibleMapProps {
   route: AccessibleRouteResult;
   locale: Locale;
   onSelectBarrier?: (barrier: RouteBarrier) => void;
+  userLocation?: { lat: number; lon: number } | null;
 }
 
-export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapProps) {
+export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: AccessibleMapProps) {
   const { colors } = useSession();
   const [zoomOffset, setZoomOffset] = useState<number>(0);
   const [selectedBarrierId, setSelectedBarrierId] = useState<string | null>(null);
@@ -137,6 +138,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
 
   const startPt = coords.length > 0 ? projectPoint(coords[0][0], coords[0][1]) : null;
   const endPt = coords.length > 0 ? projectPoint(coords[coords.length - 1][0], coords[coords.length - 1][1]) : null;
+  const userPt = userLocation ? projectPoint(userLocation.lon, userLocation.lat) : null;
 
   return (
     <View style={styles.container}>
@@ -195,6 +197,14 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
         {endPt && (
           <View style={[styles.marker, styles.endMarker, { left: endPt.px - 10, top: endPt.py - 10 }]}>
             <Text style={styles.markerText}>B</Text>
+          </View>
+        )}
+
+        {/* User GPS Location Marker */}
+        {userPt && (
+          <View style={[styles.userMarkerWrapper, { left: userPt.px - 12, top: userPt.py - 12 }]}>
+            <View style={styles.userPulseCircle} />
+            <View style={styles.userDotCircle} />
           </View>
         )}
 
@@ -336,6 +346,29 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
+  },
+  userMarkerWrapper: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 28,
+  },
+  userPulseCircle: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 122, 255, 0.35)',
+  },
+  userDotCircle: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#007AFF',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
   },
   barrierMarker: {
     position: 'absolute',

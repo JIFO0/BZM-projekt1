@@ -17,7 +17,6 @@ import {
   HandPointing,
   Palette,
   ShieldCheck,
-  SpeakerHigh,
   TextAa,
   TextAlignLeft,
   X,
@@ -50,8 +49,6 @@ export function AccessibilityModal() {
     setLetterSpacingMode,
     fontFamilyMode,
     setFontFamilyMode,
-    speechRate,
-    setSpeechRate,
     setDyslexicFont,
     increasedSpacing,
     setIncreasedSpacing,
@@ -144,18 +141,11 @@ export function AccessibilityModal() {
     { id: 'mono', label: t(locale, 'fontFamilyMono') },
   ];
 
-  const speechRateOptions: { rate: number; label: string }[] = [
-    { rate: 0.8, label: t(locale, 'speechRateSlow') },
-    { rate: 1.0, label: t(locale, 'speechRateNormal') },
-    { rate: 1.2, label: t(locale, 'speechRateFast') },
-  ];
-
   const languageOptions: { id: Locale; label: string; code: string }[] = [
     { id: 'pl', label: t(locale, 'langPl'), code: 'PL' },
     { id: 'en', label: t(locale, 'langEn'), code: 'EN' },
     { id: 'uk', label: t(locale, 'langUk'), code: 'UK' },
   ];
-
   return (
     <Modal
       visible={accessibilityModalVisible}
@@ -747,62 +737,7 @@ export function AccessibilityModal() {
               </View>
             </View>
 
-            {/* SEKCJA 6: Synteza mowy (Lektor) */}
-            <View style={styles.section}>
-              <View style={styles.sectionTitleRow}>
-                <SpeakerHigh size={19} weight="bold" color={colors.accent} />
-                <Text
-                  accessibilityRole="header"
-                  style={[
-                    styles.sectionTitle,
-                    {
-                      color: colors.text,
-                      fontSize: fontSize(15.5),
-                    },
-                  ]}
-                >
-                  {t(locale, 'speechSectionTitle')}
-                </Text>
-              </View>
 
-              <Text style={[styles.subSectionTitle, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                {t(locale, 'speechRateTitle')}
-              </Text>
-              <View accessibilityRole="radiogroup" style={styles.textSizeGrid}>
-                {speechRateOptions.map((opt) => {
-                  const isSelected = speechRate === opt.rate;
-                  return (
-                    <Pressable
-                      key={opt.rate}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: isSelected }}
-                      onPress={() => setSpeechRate(opt.rate)}
-                      style={[
-                        styles.textSizeBtn,
-                        {
-                          backgroundColor: isSelected ? colors.accent : colors.surface,
-                          borderColor: isSelected ? colors.focus : colors.border,
-                          borderWidth: isSelected ? 2.5 : 1.5,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.textSizeBtnText,
-                          {
-                            color: isSelected ? colors.accentText : colors.text,
-                            fontSize: fontSize(12.5),
-                            fontWeight: isSelected ? '800' : '600',
-                          },
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
 
             {/* SEKCJA 7: Zgodność prawna */}
             <View

@@ -1,8 +1,8 @@
 import { DEMO_SNAPSHOT, type LonLat } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -48,6 +48,8 @@ export default function SearchScreen() {
     highlightLinks,
     dyslexicFont,
     activeThresholds,
+    userLocation,
+    fetchUserLocation,
   } = useSession();
 
   const [activeTab, setActiveTab] = useState<'route' | 'place'>('route');
@@ -63,12 +65,23 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const handleUseMyLocation = () => {
-    // Explicit user tap as required by P3
-    setFromQuery(t(locale, 'myLocationCenterKrakow'));
-    setFromPos({ lon: 19.9373, lat: 50.0619 });
+  const handleUseMyLocation = async () => {
+    if (userLocation) {
+      setFromQuery(t(locale, 'myLocationShort'));
+      setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
+      return;
+    }
+    const result = await fetchUserLocation();
+    if (result) {
+      setFromQuery(result.address || t(locale, 'myLocationShort'));
+      setFromPos({ lon: result.lon, lat: result.lat });
+    } else {
+      Alert.alert(
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableDesc'),
+      );
+    }
   };
 
   const handleAnalyzeRoute = async () => {
@@ -139,47 +152,11 @@ export default function SearchScreen() {
     setActiveTab('place');
   };
 
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    const routeTabNarrative =
-      locale === 'pl'
-        ? `Aktywna zakładka: Trasa piesza A do B. Punkt początkowy: ${fromQuery}. Punkt docelowy: ${toQuery}. Naciśnij przycisk Analizuj trasę, aby sprawdzić bariery.`
-        : locale === 'uk'
-          ? `Активна вкладка: Пішохідний маршрут з А в Б. Початкова точка: ${fromQuery}. Кінцева точка: ${toQuery}. Натисніть кнопку Аналізувати маршрут, щоб перевірити перешкоди.`
-          : `Active tab: Walking route A to B. Origin: ${fromQuery}. Destination: ${toQuery}. Press Analyze route to check barriers.`;
-
-    const placeTabNarrative =
-      locale === 'pl'
-        ? `Aktywna zakładka: Dostępność obiektu. Szukany obiekt: ${placeQuery}. Naciśnij przycisk Sprawdź dostępność miejsca.`
-        : locale === 'uk'
-          ? `Активна вкладка: Доступність об'єкта. Шуканий об'єкт: ${placeQuery}. Натисніть кнопку Перевірити доступність місця.`
-          : `Active tab: Place accessibility. Search query: ${placeQuery}. Press Check place accessibility.`;
-
-    const text = `${t(locale, 'searchTitle')}. ${t(locale, 'searchLead')}. ${
-      activeTab === 'route' ? routeTabNarrative : placeTabNarrative
-    }`;
-
-    setIsSpeaking(true);
-    Speech.speak(text, {
-      language: locale === 'pl' ? 'pl-PL' : locale === 'uk' ? 'uk-UA' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'searchTitle') }} />
 
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner />
 

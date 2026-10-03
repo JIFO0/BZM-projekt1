@@ -4,10 +4,8 @@ import {
   type ProfileId,
 } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import {
   ArrowRight,
-  Baby,
   Buildings,
   CaretDown,
   CaretUp,
@@ -20,11 +18,11 @@ import {
   Prohibit,
   SlidersHorizontal,
   Warning,
-  Wheelchair,
   X,
 } from 'phosphor-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -113,6 +111,9 @@ export default function MapHomeScreen() {
     setActivePlaceReport,
     localReports,
     addLocalReport,
+    userLocation,
+    isLocating,
+    fetchUserLocation,
     colors,
     fontSize,
     isHighContrast,
@@ -123,6 +124,15 @@ export default function MapHomeScreen() {
     lat: 50.0619,
     lon: 19.9373,
   });
+
+  // Proactively request / fetch location on mount
+  useEffect(() => {
+    fetchUserLocation().then((loc) => {
+      if (loc) {
+        setMapCenter({ lat: loc.lat, lon: loc.lon });
+      }
+    });
+  }, [fetchUserLocation]);
 
   // Popup menu / sheet state (Google/Apple Maps style)
   const [popupExpanded, setPopupExpanded] = useState(false);
@@ -145,7 +155,6 @@ export default function MapHomeScreen() {
   const [loadingPlace, setLoadingPlace] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const blockedList =
     activeThresholds?.blockedRoadTypes ?? activeThresholds?.blockedSurfaces ?? [];
@@ -153,9 +162,8 @@ export default function MapHomeScreen() {
   const getProfileIcon = (id: ProfileId, size = 18) => {
     switch (id) {
       case 'wheelchair':
-        return <Wheelchair size={size} weight="bold" color={colors.accent} />;
-      case 'stroller':
-        return <Baby size={size} weight="bold" color={colors.accent} />;
+        // Less intimidating modern navigation arrow icon
+        return <NavigationArrow size={size} weight="bold" color={colors.accent} />;
       case 'custom':
       default:
         return <SlidersHorizontal size={size} weight="bold" color={colors.accent} />;
@@ -166,8 +174,6 @@ export default function MapHomeScreen() {
     switch (id) {
       case 'wheelchair':
         return t(locale, 'wheelchair');
-      case 'stroller':
-        return t(locale, 'stroller');
       case 'custom':
       default:
         return t(locale, 'custom');
@@ -181,10 +187,62 @@ export default function MapHomeScreen() {
     setTimeout(() => setStatusMessage(null), 3000);
   };
 
-  const handleUseMyLocation = () => {
-    setFromQuery(t(locale, 'myLocationCenter'));
-    setFromPos({ lon: 19.9373, lat: 50.0619 });
-    setMapCenter({ lat: 50.0619, lon: 19.9373 });
+  const handleLocateUser = async () => {
+    setStatusMessage(t(locale, 'gpsFetching'));
+    const result = await fetchUserLocation();
+    if (result) {
+      setMapCenter({ lat: result.lat, lon: result.lon });
+      setStatusMessage(t(locale, 'gpsCenteredSuccess'));
+      setTimeout(() => setStatusMessage(null), 3000);
+    } else {
+      Alert.alert(
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableDesc'),
+        [
+          { text: t(locale, 'btnCenterKrakowAction'), onPress: handleCenterKrakow },
+          { text: 'OK', style: 'cancel' },
+        ],
+      );
+      setStatusMessage(null);
+    }
+  };
+
+  const handleUseMyLocation = async () => {
+    if (userLocation) {
+      setFromQuery(t(locale, 'myLocationShort'));
+      setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
+      setMapCenter({ lat: userLocation.lat, lon: userLocation.lon });
+      setStatusMessage(t(locale, 'gpsStartPointSet'));
+      setTimeout(() => setStatusMessage(null), 2500);
+      return;
+    }
+
+    setStatusMessage(t(locale, 'gpsFetching'));
+    const result = await fetchUserLocation();
+    if (result) {
+      setFromQuery(result.address || t(locale, 'myLocationShort'));
+      setFromPos({ lon: result.lon, lat: result.lat });
+      setMapCenter({ lat: result.lat, lon: result.lon });
+      setStatusMessage(t(locale, 'gpsStartPointSet'));
+      setTimeout(() => setStatusMessage(null), 2500);
+    } else {
+      Alert.alert(
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableSearchDesc'),
+        [
+          {
+            text: t(locale, 'btnCenterKrakowAction'),
+            onPress: () => {
+              setFromQuery(t(locale, 'rynekGlowny'));
+              setFromPos({ lon: 19.9373, lat: 50.0619 });
+              setMapCenter({ lat: 50.0619, lon: 19.9373 });
+            },
+          },
+          { text: t(locale, 'cancel'), style: 'cancel' },
+        ],
+      );
+      setStatusMessage(null);
+    }
   };
 
   // 2. Plan & Analyze Route
@@ -308,60 +366,6 @@ export default function MapHomeScreen() {
     setTimeout(() => setReportSuccess(false), 3500);
   };
 
-  // Screen Reader Narrative
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    let narrative = '';
-    if (locale === 'pl') {
-      narrative = `${t(locale, 'appName')}. Mapa dostępności Krakowa w stylu map mobilnych. Aktualny profil poruszania: ${getProfileLabel(
-        profileId,
-      )}. `;
-      if (activeWalkingRoute && activeRouteReport) {
-        narrative += `Aktywna trasa z ${fromQuery} do ${toQuery} o długości ${activeRouteReport.lengthMetres} metrów. `;
-        const blockers = activeRouteReport.findings.filter((f) => f.severity === 'blocker');
-        const warnings = activeRouteReport.findings.filter((f) => f.severity === 'warning');
-        narrative += `Wykryto ${blockers.length} blokad oraz ${warnings.length} ostrzeżeń. `;
-      } else {
-        narrative += 'Brak aktywnej trasy. Użyj dolnego menu wyszukiwania, aby wyznaczyć trasę lub sprawdzić obiekt.';
-      }
-    } else if (locale === 'uk') {
-      narrative = `${t(locale, 'appName')}. Карта доступності Кракова. Поточний профіль пересування: ${getProfileLabel(
-        profileId,
-      )}. `;
-      if (activeWalkingRoute && activeRouteReport) {
-        narrative += `Активний маршрут від ${fromQuery} до ${toQuery} довжиною ${activeRouteReport.lengthMetres} метрів. `;
-        const blockers = activeRouteReport.findings.filter((f) => f.severity === 'blocker');
-        const warnings = activeRouteReport.findings.filter((f) => f.severity === 'warning');
-        narrative += `Виявлено ${blockers.length} блокад та ${warnings.length} попереджень. `;
-      } else {
-        narrative += 'Немає активного маршруту. Використовуйте нижнє меню пошуку, щоб прокласти маршрут або перевірити об’єкт.';
-      }
-    } else {
-      narrative = `${t(locale, 'appName')}. Kraków spatial accessibility map. Current mobility profile: ${getProfileLabel(
-        profileId,
-      )}. `;
-      if (activeWalkingRoute && activeRouteReport) {
-        narrative += `Active route from ${fromQuery} to ${toQuery} with distance ${activeRouteReport.lengthMetres} metres. `;
-        const blockers = activeRouteReport.findings.filter((f) => f.severity === 'blocker');
-        const warnings = activeRouteReport.findings.filter((f) => f.severity === 'warning');
-        narrative += `Detected ${blockers.length} blockers and ${warnings.length} warnings. `;
-      } else {
-        narrative += 'No active route. Use the bottom search menu to plan a route or inspect a place.';
-      }
-    }
-
-    setIsSpeaking(true);
-    Speech.speak(narrative, {
-      language: locale === 'pl' ? 'pl-PL' : locale === 'uk' ? 'uk-UA' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
-
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background }]}
@@ -370,11 +374,7 @@ export default function MapHomeScreen() {
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'appName') }} />
 
       {/* 1. TOP HEADER (Google / Apple Maps Style Floating Top Bar) */}
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner />
 
@@ -385,6 +385,7 @@ export default function MapHomeScreen() {
           route={activeWalkingRoute}
           findings={activeRouteReport?.findings || []}
           center={mapCenter}
+          userLocation={userLocation}
           startLocation={
             activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
               ? { name: fromQuery, lat: activeWalkingRoute.coordinates[0]![1], lon: activeWalkingRoute.coordinates[0]![0] }
@@ -405,18 +406,22 @@ export default function MapHomeScreen() {
         <View style={styles.floatingControlsRight}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t(locale, 'btnCenterKrakow')}
-            onPress={handleCenterKrakow}
+            accessibilityLabel={t(locale, 'accessibilityShowMyLocation')}
+            onPress={handleLocateUser}
             style={[
               styles.floatingBtn,
               {
                 backgroundColor: colors.surface,
-                borderColor: colors.border,
+                borderColor: userLocation ? colors.accent : colors.border,
                 borderWidth: isHighContrast ? 2.5 : 1.5,
               },
             ]}
           >
-            <Crosshair size={22} weight="bold" color={colors.accent} />
+            {isLocating ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Crosshair size={22} weight="bold" color={userLocation ? colors.accent : colors.text} />
+            )}
           </Pressable>
 
           <Pressable
@@ -977,7 +982,7 @@ export default function MapHomeScreen() {
 
                   {/* Profile Cards */}
                   <View style={styles.profilesGrid}>
-                    {(['wheelchair', 'stroller', 'custom'] as ProfileId[]).map((pid) => {
+                    {(['wheelchair', 'custom'] as ProfileId[]).map((pid) => {
                       const selected = profileId === pid;
                       return (
                         <Pressable

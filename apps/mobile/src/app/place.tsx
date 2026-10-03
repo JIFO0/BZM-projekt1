@@ -1,6 +1,5 @@
 import { findConflicts, isStale } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,8 +8,6 @@ import {
   ArrowLeft,
   CheckCircle,
   Question,
-  SpeakerHigh,
-  Stop,
   Lightning,
   Clock,
   Door,
@@ -42,13 +39,12 @@ export default function PlaceScreen() {
   } = useSession();
 
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
   if (!activePlaceReport) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false, title: t(locale, 'placeDetailTitle') }} />
-        <KrakowHeader onOpenDemo={() => setDebugVisible(true)} />
+        <KrakowHeader />
         <View style={styles.emptyContainer}>
           <GovCard variant="warning">
             <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
@@ -83,71 +79,10 @@ export default function PlaceScreen() {
       (!f.lastConfirmedAt && isStale(f.lastEditedAt, now, 24)),
   );
 
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    let speechText = '';
-    if (locale === 'pl') {
-      speechText = `Karta obiektu: ${report.placeName}. ${report.summaryMessage}. `;
-      if (report.isConfidentMatch) {
-        speechText += `Dopasowano obiekt z bazy OpenStreetMap z pewnością ${Math.round(report.matchConfidence * 100)} procent. `;
-      } else {
-        speechText += 'Brak danych o dostępności tego miejsca w OpenStreetMap. ';
-      }
-      if (conflicts.length > 0) {
-        speechText += `Wykryto sprzeczne dane dla ${conflicts.length} parametrów. `;
-      }
-      if (staleFacts.length > 0) {
-        speechText += 'Część danych jest starsza niż 24 miesiące. ';
-      }
-    } else if (locale === 'uk') {
-      speechText = `Картка об’єкта: ${report.placeName}. ${report.summaryMessage}. `;
-      if (report.isConfidentMatch) {
-        speechText += `Об’єкт зіставлено з базою OpenStreetMap із точністю ${Math.round(report.matchConfidence * 100)} відсотків. `;
-      } else {
-        speechText += 'В OpenStreetMap немає даних про доступність цього місця. ';
-      }
-      if (conflicts.length > 0) {
-        speechText += `Виявлено суперечливі дані для ${conflicts.length} параметрів. `;
-      }
-      if (staleFacts.length > 0) {
-        speechText += 'Частина даних старша за 24 місяці. ';
-      }
-    } else {
-      speechText = `Place card: ${report.placeName}. ${report.summaryMessage}. `;
-      if (report.isConfidentMatch) {
-        speechText += `Matched object from OpenStreetMap with confidence ${Math.round(report.matchConfidence * 100)} percent. `;
-      } else {
-        speechText += 'No accessibility data for this place in OpenStreetMap. ';
-      }
-      if (conflicts.length > 0) {
-        speechText += `Detected conflicting data for ${conflicts.length} parameters. `;
-      }
-      if (staleFacts.length > 0) {
-        speechText += 'Some data is older than 24 months. ';
-      }
-    }
-
-    setIsSpeaking(true);
-    Speech.speak(speechText, {
-      language: locale === 'pl' ? 'pl-PL' : locale === 'uk' ? 'uk-UA' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: report.placeName }} />
-
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner isSample={report.isSample} />
 
@@ -230,18 +165,6 @@ export default function PlaceScreen() {
             </View>
           </View>
 
-          <GovButton
-            title={isSpeaking ? t(locale, 'stopSpeech') : t(locale, 'readAloudPlace')}
-            icon={
-              isSpeaking ? (
-                <Stop size={18} color="#fff" weight="bold" />
-              ) : (
-                <SpeakerHigh size={18} color={colors.text} weight="bold" />
-              )
-            }
-            variant={isSpeaking ? 'danger' : 'outline'}
-            onPress={handleReadScreen}
-          />
         </GovCard>
 
         {/* Conflicting Data Warning (R7) */}
