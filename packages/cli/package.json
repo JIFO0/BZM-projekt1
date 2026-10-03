@@ -11,8 +11,9 @@
   "scripts": {
     "start": "tsx ./src/index.ts",
     "server": "tsx ./src/index.ts server",
-    "datagen": "tsx ./src/index.ts datagen",
+    "datagen": "tsx ./src/index.ts datagen; tsx ./src/index.ts download-tiles",
     "build-snapshot": "tsx ./src/index.ts datagen",
+    "download-tiles": "tsx ./src/index.ts download-tiles",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -54,3 +54,8 @@ app-example
 backend/data/graph-cache/
 backend/data/*.osm.pbf
 backend/data/*.pbf
+
+# Geoportal tile cache
+data/tiles/
+packages/cli/data/tiles/
+
