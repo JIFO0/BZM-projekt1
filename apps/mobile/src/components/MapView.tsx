@@ -5,7 +5,7 @@ import {
   type WalkingRoute,
 } from '@krakow-bez-barier/core';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { WebView } from 'react-native-webview';
 
 import { useSession } from '@/state/session';
@@ -41,6 +41,12 @@ export function MapView({
   const { colors, isHighContrast, locale } = useSession();
   const iframeRef = useRef<any>(null);
   const webViewRef = useRef<WebView>(null);
+  const isMapLoaded = useRef(false);
+
+  const pendingUserLocation = useRef(userLocation);
+  pendingUserLocation.current = userLocation;
+  const pendingCenter = useRef(center);
+  pendingCenter.current = center;
 
   let defaultLat = 50.0619;
   let defaultLon = 19.9373;
@@ -57,65 +63,73 @@ export function MapView({
     defaultLat = route.coordinates[midIdx]![1];
   }
 
-  // Smooth centering via message/injection without reloading page
-  useEffect(() => {
-    if (!center) return;
+  // Reliable cross-platform message dispatch to the active Leaflet map
+  const sendToMap = useCallback((msg: { type: string; lat: number; lon: number; zoom?: number }) => {
     if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ type: 'SET_CENTER', lat: center.lat, lon: center.lon, zoom }),
-        '*',
-      );
+      try {
+        const win = iframeRef.current.contentWindow as any;
+        if (msg.type === 'SET_USER_LOCATION' && typeof win.updateUserMarker === 'function') {
+          win.updateUserMarker(msg.lat, msg.lon);
+          return;
+        }
+        if (msg.type === 'SET_CENTER' && typeof win.setMapCenter === 'function') {
+          win.setMapCenter(msg.lat, msg.lon, msg.zoom);
+          return;
+        }
+      } catch {
+        // Fallback to postMessage
+      }
+      iframeRef.current.contentWindow.postMessage(JSON.stringify(msg), '*');
     } else if (Platform.OS !== 'web' && webViewRef.current) {
-      const js = `if (typeof map !== 'undefined') { map.setView([${center.lat}, ${center.lon}], ${zoom}, { animate: true }); } true;`;
-      webViewRef.current.injectJavaScript(js);
+      if (msg.type === 'SET_USER_LOCATION') {
+        const js = `if (typeof updateUserMarker === 'function') { updateUserMarker(${msg.lat}, ${msg.lon}); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'SET_CENTER') {
+        const js = `if (typeof setMapCenter === 'function') { setMapCenter(${msg.lat}, ${msg.lon}, ${msg.zoom || 16}); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      }
     }
-  }, [center, zoom]);
+  }, []);
 
-  // Dynamic user marker update
+  const flushPendingUpdates = useCallback(() => {
+    isMapLoaded.current = true;
+    if (pendingUserLocation.current) {
+      sendToMap({
+        type: 'SET_USER_LOCATION',
+        lat: pendingUserLocation.current.lat,
+        lon: pendingUserLocation.current.lon,
+      });
+    }
+    if (pendingCenter.current) {
+      sendToMap({
+        type: 'SET_CENTER',
+        lat: pendingCenter.current.lat,
+        lon: pendingCenter.current.lon,
+        zoom,
+      });
+    }
+  }, [sendToMap, zoom]);
+
+  // Smooth dynamic user marker update without reloading iframe / WebView
   useEffect(() => {
     if (!userLocation) return;
-    if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ type: 'SET_USER_LOCATION', lat: userLocation.lat, lon: userLocation.lon }),
-        '*',
-      );
-    } else if (Platform.OS !== 'web' && webViewRef.current) {
-      const js = `if (typeof updateUserMarker === 'function') { updateUserMarker(${userLocation.lat}, ${userLocation.lon}); } true;`;
-      webViewRef.current.injectJavaScript(js);
-    }
-  }, [userLocation]);
+    sendToMap({
+      type: 'SET_USER_LOCATION',
+      lat: userLocation.lat,
+      lon: userLocation.lon,
+    });
+  }, [userLocation, sendToMap]);
 
-  const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
-
-  const markersData = findings.map((f, i) => {
-    let color = colors.infoBorder;
-    if (f.severity === 'blocker') color = colors.blockerBorder;
-    else if (f.severity === 'warning') color = colors.warningBorder;
-    else if (f.severity === 'ok') color = colors.okBorder;
-    else if (f.severity === 'unknown') color = colors.unknownBorder;
-
-    return {
-      index: i + 1,
-      lat: f.fact.subject.lat,
-      lon: f.fact.subject.lon,
-      title: `#${i + 1} (${f.distanceFromStartMetres} m): ${f.type}`,
-      value: f.fact.value,
-      severity: f.severity,
-      color,
-    };
-  });
-
-  const startPin = startLocation || (route && route.coordinates.length > 0 ? {
-    name: 'Start',
-    lat: route.coordinates[0]![1],
-    lon: route.coordinates[0]![0],
-  } : null);
-
-  const endPin = endLocation || (route && route.coordinates.length > 0 ? {
-    name: locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination',
-    lat: route.coordinates[route.coordinates.length - 1]![1],
-    lon: route.coordinates[route.coordinates.length - 1]![0],
-  } : null);
+  // Smooth dynamic centering
+  useEffect(() => {
+    if (!center) return;
+    sendToMap({
+      type: 'SET_CENTER',
+      lat: center.lat,
+      lon: center.lon,
+      zoom,
+    });
+  }, [center, zoom, sendToMap]);
 
   const mapyApiKey = process.env.EXPO_PUBLIC_MAPY_API_KEY;
   const hasMapyKey = Boolean(
@@ -132,7 +146,41 @@ export function MapView({
     ? MAPY_ATTRIBUTION.attribution
     : OSM_ATTRIBUTION.attribution;
 
-  const htmlContent = `
+  // htmlContent is memoized so it does NOT reload on userLocation updates
+  const htmlContent = useMemo(() => {
+    const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
+
+    const markersData = findings.map((f, i) => {
+      let color = colors.infoBorder;
+      if (f.severity === 'blocker') color = colors.blockerBorder;
+      else if (f.severity === 'warning') color = colors.warningBorder;
+      else if (f.severity === 'ok') color = colors.okBorder;
+      else if (f.severity === 'unknown') color = colors.unknownBorder;
+
+      return {
+        index: i + 1,
+        lat: f.fact.subject.lat,
+        lon: f.fact.subject.lon,
+        title: `#${i + 1} (${f.distanceFromStartMetres} m): ${f.type}`,
+        value: f.fact.value,
+        severity: f.severity,
+        color,
+      };
+    });
+
+    const startPin = startLocation || (route && route.coordinates.length > 0 ? {
+      name: 'Start',
+      lat: route.coordinates[0]![1],
+      lon: route.coordinates[0]![0],
+    } : null);
+
+    const endPin = endLocation || (route && route.coordinates.length > 0 ? {
+      name: locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination',
+      lat: route.coordinates[route.coordinates.length - 1]![1],
+      lon: route.coordinates[route.coordinates.length - 1]![0],
+    } : null);
+
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -263,10 +311,23 @@ export function MapView({
         .bindPopup('<b>Cel:</b> ' + (endPin.name || 'Koniec trasy'));
     }
 
-    var userLocation = ${JSON.stringify(userLocation || null)};
+    var markers = ${JSON.stringify(markersData)};
+    markers.forEach(function(m) {
+      var icon = L.divIcon({
+        className: 'custom-marker',
+        html: '<div style="border-color:' + m.color + '; color:' + m.color + ';">' + m.index + '</div>',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      });
+
+      var marker = L.marker([m.lat, m.lon], { icon: icon }).addTo(map);
+      marker.bindPopup('<b>' + m.title + '</b><br/>' + m.value + '<br/><i>Status: ' + m.severity + '</i>');
+    });
+
     var userMarker = null;
 
-    function updateUserMarker(lat, lon) {
+    window.updateUserMarker = function(lat, lon) {
+      if (!map) return;
       if (userMarker) {
         userMarker.setLatLng([lat, lon]);
       } else {
@@ -281,24 +342,12 @@ export function MapView({
           zIndexOffset: 1000
         }).addTo(map).bindPopup('<b>Twoja lokalizacja</b>');
       }
-    }
+    };
 
-    if (userLocation && userLocation.lat && userLocation.lon) {
-      updateUserMarker(userLocation.lat, userLocation.lon);
-    }
-
-    var markers = ${JSON.stringify(markersData)};
-    markers.forEach(function(m) {
-      var icon = L.divIcon({
-        className: 'custom-marker',
-        html: '<div style="border-color:' + m.color + '; color:' + m.color + ';">' + m.index + '</div>',
-        iconSize: [26, 26],
-        iconAnchor: [13, 13]
-      });
-
-      var marker = L.marker([m.lat, m.lon], { icon: icon }).addTo(map);
-      marker.bindPopup('<b>' + m.title + '</b><br/>' + m.value + '<br/><i>Status: ' + m.severity + '</i>');
-    });
+    window.setMapCenter = function(lat, lon, zoomLevel) {
+      if (!map) return;
+      map.setView([lat, lon], zoomLevel || 16, { animate: true });
+    };
 
     map.on('click', function(e) {
       var msg = JSON.stringify({ type: 'MAP_CLICK', lat: e.latlng.lat, lon: e.latlng.lng });
@@ -319,9 +368,9 @@ export function MapView({
         var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (!data) return;
         if (data.type === 'SET_CENTER') {
-          map.setView([data.lat, data.lon], data.zoom || 16, { animate: true });
+          window.setMapCenter(data.lat, data.lon, data.zoom);
         } else if (data.type === 'SET_USER_LOCATION') {
-          updateUserMarker(data.lat, data.lon);
+          window.updateUserMarker(data.lat, data.lon);
         }
       } catch (err) {}
     }
@@ -338,7 +387,25 @@ export function MapView({
   </script>
 </body>
 </html>
-  `;
+    `;
+  }, [
+    route,
+    findings,
+    startLocation,
+    endLocation,
+    defaultLat,
+    defaultLon,
+    zoom,
+    tileUrl,
+    tileAttribution,
+    colors.accent,
+    colors.infoBorder,
+    colors.blockerBorder,
+    colors.warningBorder,
+    colors.okBorder,
+    colors.unknownBorder,
+    locale,
+  ]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !onMapClick) return;
@@ -370,6 +437,7 @@ export function MapView({
           ref={iframeRef}
           title="Mapa trasy"
           srcDoc={htmlContent}
+          onLoad={flushPendingUpdates}
           style={{ width: '100%', height: '100%', border: 'none' }}
         />
       ) : (
@@ -377,6 +445,7 @@ export function MapView({
           ref={webViewRef}
           originWhitelist={['*']}
           source={{ html: htmlContent }}
+          onLoadEnd={flushPendingUpdates}
           style={styles.webview}
           javaScriptEnabled={true}
           domStorageEnabled={true}
