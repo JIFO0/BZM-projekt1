@@ -34,3 +34,18 @@ export const OSM_ATTRIBUTION: SourceDescriptor = {
 };
 
 export const OSM_ODBL_URL = 'https://opendatacommons.org/licenses/odbl/';
+
+/**
+ * Geoportal.gov.pl (GUGiK) BDOT10k official attribution & WMTS endpoint.
+ * Official topographic database 1:10 000 with public open access.
+ */
+export const GEOPORTAL_BDOT10K_ATTRIBUTION: SourceDescriptor = {
+  name: 'Geoportal.gov.pl (BDOT10k)',
+  url: 'https://mapy.geoportal.gov.pl/',
+  licence: 'Ustawa Prawo Geodezyjne i Kartograficzne (rejestr publiczny)',
+  attribution: '© Główny Urząd Geodezji i Kartografii (GUGiK) - BDOT10k',
+  updateFrequency: 'oficjalna państwowa baza danych obiektów topograficznych BDOT10k',
+};
+
+export const GEOPORTAL_BDOT10K_WMTS_URL =
+  'https://mapy.geoportal.gov.pl/wss/service/WMTS/guest/wmts/BDOT10k';

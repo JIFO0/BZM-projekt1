@@ -59,7 +59,7 @@ async function tryReverseGeocode(lat: number, lon: number): Promise<string> {
     }
   }
 
-  // Web and fallback: OpenStreetMap Nominatim reverse geocode
+  // Web and fallback: reverse geocoding with nearest preset fallback and silent error handling
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1`,
@@ -86,10 +86,10 @@ async function tryReverseGeocode(lat: number, lon: number): Promise<string> {
       }
     }
   } catch {
-    // Non-fatal
+    // If Nominatim is rate-limited (429) or CORS-blocked in browser, fall back gracefully
   }
 
-  return address;
+  return `${address} (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
 }
 
 /**

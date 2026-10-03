@@ -26,7 +26,7 @@
     "routing": "graphhopper",
     "geocoding": "mapy",
     "accessibility": "osm-overpass",
-    "tiles": "mapy"
+    "tiles": "geoportal"
   },
   "profiles": {
     "wheelchair": {
