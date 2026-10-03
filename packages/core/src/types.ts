@@ -13,7 +13,7 @@ export const SEVERITIES = ['blocker', 'warning', 'info', 'ok', 'unknown'] as con
 
 export type Severity = (typeof SEVERITIES)[number];
 
-export const PROFILE_IDS = ['wheelchair', 'stroller', 'custom'] as const;
+export const PROFILE_IDS = ['wheelchair', 'custom'] as const;
 
 export type ProfileId = (typeof PROFILE_IDS)[number];
 

@@ -118,7 +118,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profileId, setProfileId] = useState<ProfileId>('wheelchair');
   const [profileThresholds, setProfileThresholds] = useState<Record<ProfileId, BarrierThresholds>>({
     wheelchair: { ...city.profiles.wheelchair },
-    stroller: { ...city.profiles.stroller },
     custom: { ...city.profiles.custom },
   });
   const [customThresholds, setCustomThresholdsState] = useState<BarrierThresholds>(

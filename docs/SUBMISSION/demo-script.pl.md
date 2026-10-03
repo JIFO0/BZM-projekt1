@@ -8,7 +8,7 @@ Scenariusz nagrania wideo prezentującego działanie aplikacji **Kraków bez bar
 - **Ekran:** Ekran powitalny / wybór profilu (`/`).
 - **Narracja lektora:**
   > *„Dzień dobry! Oto «Kraków bez barier» – aplikacja, która zamiast fałszywych zapewnień o dostępności, dostarcza rzetelne, zweryfikowane fakty o przeszkodach architektonicznych.*
-  > *Na start wybieramy profil: Wózek, Wózek dziecięcy lub Własny. Zauważcie: aplikacja nie pyta o stan zdrowia ani stopień niepełnosprawności, nie wymaga logowania i chroni naszą prywatność. Wybieramy profil Wózek, dla którego schody to bezwzględna blokada, a próg krawężnika to maksymalnie 30 mm.”*
+  > *Na start wybieramy profil: Wózek lub Własny. Zauważcie: aplikacja nie pyta o stan zdrowia ani stopień niepełnosprawności, nie wymaga logowania i chroni naszą prywatność. Wybieramy profil Wózek, dla którego schody to bezwzględna blokada, próg krawężnika to maksymalnie 30 mm, a nawierzchnie takie jak kocie łby i piasek są omijane.”*
 - **Akcja na ekranie:** Kliknięcie profilu „Wózek”, przejście przyciskiem „Przejdź do wyszukiwania”.
 
 ---
