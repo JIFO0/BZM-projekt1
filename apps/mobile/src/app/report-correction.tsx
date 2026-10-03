@@ -50,7 +50,14 @@ export default function ReportCorrectionScreen() {
 
   const handleSubmitLocal = () => {
     if (!description.trim()) {
-      Alert.alert('Błąd', 'Wpisz treść uwagi lub przeszkody.');
+      Alert.alert(
+        locale === 'pl' ? 'Błąd' : locale === 'uk' ? 'Помилка' : 'Error',
+        locale === 'pl'
+          ? 'Wpisz treść uwagi lub przeszkody.'
+          : locale === 'uk'
+            ? 'Введіть опис зауваження або перешкоди.'
+            : 'Please enter description of the issue or barrier.'
+      );
       return;
     }
     addLocalReport(description.trim());
@@ -71,7 +78,14 @@ export default function ReportCorrectionScreen() {
     if (supported) {
       await Linking.openURL(osmUrl);
     } else {
-      Alert.alert('Błąd', `Nie można otworzyć linku: ${osmUrl}`);
+      Alert.alert(
+        locale === 'pl' ? 'Błąd' : locale === 'uk' ? 'Помилка' : 'Error',
+        locale === 'pl'
+          ? `Nie można otworzyć linku: ${osmUrl}`
+          : locale === 'uk'
+            ? `Не вдалося відкрити посилання: ${osmUrl}`
+            : `Cannot open link: ${osmUrl}`
+      );
     }
   };
 
@@ -81,14 +95,18 @@ export default function ReportCorrectionScreen() {
       setIsSpeaking(false);
       return;
     }
-    const text = `${t(locale, 'reportTitle')}. ${t(
-      locale,
-      'reportLead',
-    )}. Wpisz treść uwagi w polu formularza, a następnie kliknij przycisk Zapisz zgłoszenie lokalnie.`;
+    const instructionNarrative =
+      locale === 'pl'
+        ? 'Wpisz treść uwagi w polu formularza, a następnie kliknij przycisk Zapisz zgłoszenie lokalnie.'
+        : locale === 'uk'
+          ? 'Введіть текст зауваження у полі форми, а потім натисніть кнопку Зберегти повідомлення локально.'
+          : 'Enter your feedback in the form field, then press Save report locally.';
+
+    const text = `${t(locale, 'reportTitle')}. ${t(locale, 'reportLead')}. ${instructionNarrative}`;
 
     setIsSpeaking(true);
     Speech.speak(text, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
+      language: locale === 'pl' ? 'pl-PL' : locale === 'uk' ? 'uk-UA' : 'en-US',
       onDone: () => setIsSpeaking(false),
       onError: () => setIsSpeaking(false),
     });
@@ -238,7 +256,7 @@ export default function ReportCorrectionScreen() {
                   <View style={styles.statusBadgeRow}>
                     <Warning size={16} color={colors.warningText} weight="bold" />
                     <Text style={[styles.statusBadge, { color: colors.warningText, fontSize: fontSize(13) }]}>
-                      Zgłoszenie lokalne (niezweryfikowane)
+                      {t(locale, 'localReportUnverified')}
                     </Text>
                   </View>
                   <Text style={[styles.itemDate, { color: colors.muted, fontSize: fontSize(12) }]}>

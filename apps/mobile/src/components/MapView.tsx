@@ -31,7 +31,7 @@ export function MapView({
   startLocation,
   endLocation,
 }: MapViewProps) {
-  const { colors, isHighContrast } = useSession();
+  const { colors, isHighContrast, locale } = useSession();
 
   let defaultLat = 50.0619;
   let defaultLon = 19.9373;
@@ -72,7 +72,7 @@ export function MapView({
   } : null);
 
   const endPin = endLocation || (route && route.coordinates.length > 0 ? {
-    name: 'Cel',
+    name: locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination',
     lat: route.coordinates[route.coordinates.length - 1]![1],
     lon: route.coordinates[route.coordinates.length - 1]![0],
   } : null);

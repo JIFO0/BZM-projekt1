@@ -1,6 +1,7 @@
 import type { CoverageStat } from '@krakow-bez-barier/core';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { getLocalizedCoverageCriterion, t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 
 interface CoverageBarProps {
@@ -8,11 +9,15 @@ interface CoverageBarProps {
 }
 
 export function CoverageBar({ stat }: CoverageBarProps) {
-  const { colors, fontSize, isHighContrast } = useSession();
+  const { colors, fontSize, isHighContrast, locale } = useSession();
 
   const pct = stat.ratio !== null ? Math.round(stat.ratio * 100) : 0;
   const ratioText =
-    stat.ratio !== null ? `${pct}% (${stat.known}/${stat.total})` : 'brak punktów pomiarowych';
+    stat.ratio !== null
+      ? `${pct}% (${stat.known}/${stat.total})`
+      : t(locale, 'noMeasurementPoints');
+
+  const localizedCriterion = getLocalizedCoverageCriterion(stat.criterion, locale);
 
   const fillColor =
     pct >= 80 ? colors.okBorder : pct >= 40 ? colors.warningBorder : colors.blockerBorder;
@@ -20,12 +25,12 @@ export function CoverageBar({ stat }: CoverageBarProps) {
   return (
     <View
       accessibilityRole="summary"
-      accessibilityLabel={`Pokrycie parametru ${stat.criterion}: ${ratioText}`}
+      accessibilityLabel={`${t(locale, 'coverageParam')} ${localizedCriterion}: ${ratioText}`}
       style={styles.container}
     >
       <View style={styles.headerRow}>
         <Text style={[styles.title, { color: colors.text, fontSize: fontSize(14) }]}>
-          {stat.criterion}
+          {localizedCriterion}
         </Text>
         <Text style={[styles.ratio, { color: colors.muted, fontSize: fontSize(13) }]}>
           {ratioText}

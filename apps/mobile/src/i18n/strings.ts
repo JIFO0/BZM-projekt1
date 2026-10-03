@@ -1,4 +1,4 @@
-export type Locale = 'pl' | 'en';
+export type Locale = 'pl' | 'en' | 'uk';
 
 const pl = {
   appName: 'Kraków bez barier',
@@ -114,7 +114,7 @@ const pl = {
   logoLabel: 'Wymagane logo Mapy.com',
   demoArea: 'Obszar demonstracyjny HackYeah 2026',
   provisional: 'Obszar demonstracyjny: Rynek Główny - Kazimierz - Wawel - Planty.',
-  language: 'English',
+  language: 'Polski',
   back: 'Wróć',
   close: 'Zamknij',
 
@@ -201,6 +201,114 @@ const pl = {
   severityWarning: 'Ostrzeżenie',
   severityInfo: 'Informacja',
   severityOk: 'Dostępne',
+
+  // Language selectors
+  languageSectionTitle: 'Język interfejsu',
+  switchLanguage: 'Przełącz język',
+  langPl: 'Polski',
+  langEn: 'English',
+  langUk: 'Українська',
+
+  // Newly unified UI & action keys
+  reader: 'Lektor',
+  stop: 'Stop',
+  openPlaceCard: 'Otwórz pełną kartę obiektu',
+  showFullReportAndManeuvers: 'Pokaż pełny raport i manewry',
+  fastDemoRoutes: 'SZYBKIE TRASY DEMO (KRAKÓW):',
+  popularDemoPlaces: 'POPULARNE OBIEKTY DEMO:',
+  selectProfile: 'Wybierz profil mobilności:',
+  customThresholdsTitle: 'Progi barier dla profilu własnego:',
+  maxKerb: 'Maksymalny krawężnik:',
+  stepsTreatment: 'Traktowanie stopni:',
+  toggleStepsStatus: 'Przełącz status schodów',
+  reportObstacleHeading: 'Zgłoś przeszkodę lub nieaktualną barierę:',
+  openFullOsmForm: 'Przejdź do pełnego formularza OSM',
+  collapseMenu: 'Zwiń dolne menu',
+  expandMenu: 'Rozwiń menu',
+  hideMenu: 'Ukryj menu',
+  searchPlaceholderUnified: 'Dokąd w Krakowie? Szukaj trasy lub miejsca...',
+  surfacesChip: 'Nawierzchnie',
+  tabRoute: 'Trasa',
+  tabPlace: 'Obiekt',
+  tabProfile: 'Profil',
+  tabReport: 'Zgłoś',
+  myLocationShort: 'Moja lokalizacja',
+  myLocationCenter: 'Moja lokalizacja (Centrum)',
+  myLocationCenterKrakow: 'Moja lokalizacja (Centrum Krakowa)',
+  toastCenteredKrakow: 'Wycentrowano mapę na Rynku Głównym w Krakowie.',
+  routeErrorTitle: 'Błąd wyznaczania trasy',
+  routeErrorMsg: 'Nie udało się obliczyć trasy.',
+  placeErrorTitle: 'Błąd sprawdzania obiektu',
+  placeErrorMsg: 'Nie udało się pobrać danych.',
+  errorTitle: 'Błąd',
+  warningTitle: 'Uwaga',
+  reportDescRequired: 'Wpisz opis przeszkody przed zapisem.',
+  btnCenterKrakow: 'Wycentruj na centrum Krakowa',
+  btnChangeProfile: 'Zmień profil poruszania się',
+  btnClearRoute: 'Wyczyść aktywną trasę',
+  btnShowRouteSummary: 'Pokaż podsumowanie aktywnej trasy',
+  noSelectedPlace: 'Brak wybranego miejsca.',
+  municipalObjectKrakow: 'OBIEKT MIEJSKI KRAKÓW',
+  readAloudPlace: 'Odsłuchaj opis obiektu',
+  conflictingDataTitle: 'Wykryto sprzeczne dane w OpenStreetMap (R7):',
+  conflictingDataDesc:
+    'Różne obiekty OSM (np. budynek vs węzeł wejścia) podają sprzeczne informacje dla tego samego miejsca. Poniżej przedstawiono obie wartości:',
+  criterion: 'Kryterium',
+  source: 'Źródło',
+  value: 'Wartość',
+  staleDataTitle: 'Uwaga: Przedawnione dane w OpenStreetMap (R8):',
+  staleDataDesc:
+    'Niektóre informacje o tym miejscu nie były weryfikowane ani edytowane od ponad 24 miesięcy. Stan faktyczny mógł ulec zmianie.',
+  noActiveRouteReport: 'Brak aktywnego raportu trasy.',
+  backToSearch: 'Wróć do wyszukiwania',
+  krakowRouteTag: 'KRAKÓW TRASA',
+  metresContinuousNoData: 'metrów ciągłego braku danych',
+  orderedByDistance: 'Uporządkowane rosnąco według odległości od startu:',
+  noElementsInCorridor: 'Brak zarejestrowanych elementów w OpenStreetMap w korytarzu tej trasy.',
+  dateConfirmed: 'potwierdzono',
+  dateOsmEdit: 'ostatnia edycja OSM',
+  dateRetrieved: 'pobrano',
+  noDate: 'brak daty',
+  noVerificationDate: 'brak daty weryfikacji',
+  afterDistance: 'Po',
+  hideDetails: 'Ukryj szczegóły',
+  osmEvidenceDetails: 'Szczegóły dowodowe z OpenStreetMap:',
+  objectId: 'Identyfikator obiektu',
+  credibilityStatus: 'Status wiarygodności',
+  dataLicense: 'Licencja danych',
+  geometricMatchConfidence: 'Pewność dopasowania geometrycznego',
+  sourceUrl: 'URL źródła',
+  less: 'Mniej',
+  objectLabel: 'Obiekt',
+  licenseLabel: 'Licencja',
+  confirmationDateLabel: 'Data potwierdzenia (check_date)',
+  noCheckDateLabel:
+    'Brak tagu potwierdzenia (check_date). Data edycji nie jest datą weryfikacji.',
+  placeMatchConfidenceLabel: 'Pewność dopasowania do miejsca',
+  zoomIn: 'Przybliż mapę',
+  zoomOut: 'Oddal mapę',
+  noMeasurementPoints: 'brak punktów pomiarowych',
+  coverageParam: 'Pokrycie parametru',
+  noDetailedManeuvers: 'Brak szczegółowych manewrów.',
+  debugDesc:
+    'Symulacja stanów awaryjnych i brzegowych wymaganych przez regulamin HackYeah (R7, R8, R12):',
+  footerA11yLabel: 'Informacje urzędowe i deklaracja dostępności Miasta Kraków',
+  privacyTag: '100% Prywatności (P1–P5)',
+  coatOfArmsA11y:
+    'Herb Stołecznego Królewskiego Miasta Krakowa: mury ceglane z trzema basztami, korona i orzeł w otwartej bramie',
+  localReportUnverified: 'Zgłoszenie lokalne (niezweryfikowane)',
+  simOverpassFailShort: 'Awaria Overpass (503)',
+  simMapyFailShort: 'Błąd Mapy.com (429)',
+  simOfflineShort: 'Wymuszony Offline',
+  fallbackDataDisplayed: 'Wyświetlono dane zapasowe',
+  activeFailureSimulation: 'AKTYWNA SYMULACJA AWARII:',
+  cityHallKrakow: 'Urząd Miasta Krakowa',
+  distanceLabel: 'Dystans',
+  coverageKerbs: 'Krawężniki na przejściach',
+  coverageSurface: 'Dane o nawierzchni',
+  coverageSteps: 'Stopnie i schody',
+  coverageWidth: 'Szerokość przejścia',
+  coverageIncline: 'Nachylenie',
 };
 
 const en: typeof pl = {
@@ -316,7 +424,7 @@ const en: typeof pl = {
   logoLabel: 'Required Mapy.com logo',
   demoArea: 'HackYeah 2026 demo area',
   provisional: 'Demo area: Main Square - Kazimierz - Wawel - Planty.',
-  language: 'Polski',
+  language: 'English',
   back: 'Back',
   close: 'Close',
 
@@ -401,8 +509,532 @@ const en: typeof pl = {
   severityWarning: 'Warning',
   severityInfo: 'Information',
   severityOk: 'Accessible',
+
+  // Language selectors
+  languageSectionTitle: 'Interface Language',
+  switchLanguage: 'Switch language',
+  langPl: 'Polski (Polish)',
+  langEn: 'English',
+  langUk: 'Українська (Ukrainian)',
+
+  // Newly unified UI & action keys
+  reader: 'Voice',
+  stop: 'Stop',
+  openPlaceCard: 'Open place card',
+  showFullReportAndManeuvers: 'Show full report & maneuvers',
+  fastDemoRoutes: 'QUICK DEMO ROUTES (KRAKÓW):',
+  popularDemoPlaces: 'POPULAR DEMO PLACES:',
+  selectProfile: 'Select mobility profile:',
+  customThresholdsTitle: 'Custom profile barrier limits:',
+  maxKerb: 'Max kerb height:',
+  stepsTreatment: 'Steps treatment:',
+  toggleStepsStatus: 'Toggle steps status',
+  reportObstacleHeading: 'Report obstacle or outdated barrier:',
+  openFullOsmForm: 'Go to full OSM form',
+  collapseMenu: 'Collapse bottom menu',
+  expandMenu: 'Expand menu',
+  hideMenu: 'Hide menu',
+  searchPlaceholderUnified: 'Where in Kraków? Search route or place...',
+  surfacesChip: 'Surfaces',
+  tabRoute: 'Route',
+  tabPlace: 'Place',
+  tabProfile: 'Profile',
+  tabReport: 'Report',
+  myLocationShort: 'My location',
+  myLocationCenter: 'My location (City Centre)',
+  myLocationCenterKrakow: 'My location (Kraków Centre)',
+  toastCenteredKrakow: 'Map centered on the Main Market Square in Kraków.',
+  routeErrorTitle: 'Route calculation error',
+  routeErrorMsg: 'Could not calculate route.',
+  placeErrorTitle: 'Place inspection error',
+  placeErrorMsg: 'Failed to fetch data.',
+  errorTitle: 'Error',
+  warningTitle: 'Warning',
+  reportDescRequired: 'Please enter obstacle description before saving.',
+  btnCenterKrakow: 'Center on Kraków centre',
+  btnChangeProfile: 'Change mobility profile',
+  btnClearRoute: 'Clear active route',
+  btnShowRouteSummary: 'Show active route summary',
+  noSelectedPlace: 'No place selected.',
+  municipalObjectKrakow: 'KRAKÓW MUNICIPAL PLACE',
+  readAloudPlace: 'Listen to place description',
+  conflictingDataTitle: 'Conflicting data detected in OpenStreetMap (R7):',
+  conflictingDataDesc:
+    'Different OSM objects (e.g. building vs entrance node) provide conflicting information for the same place. Both values are shown below:',
+  criterion: 'Criterion',
+  source: 'Source',
+  value: 'Value',
+  staleDataTitle: 'Notice: Stale data in OpenStreetMap (R8):',
+  staleDataDesc:
+    'Some information about this place has not been verified or edited in over 24 months. Actual conditions may have changed.',
+  noActiveRouteReport: 'No active route report.',
+  backToSearch: 'Back to search',
+  krakowRouteTag: 'KRAKÓW ROUTE',
+  metresContinuousNoData: 'metres of continuous missing data',
+  orderedByDistance: 'Ordered ascending by distance from start:',
+  noElementsInCorridor: 'No elements registered in OpenStreetMap within this route corridor.',
+  dateConfirmed: 'confirmed',
+  dateOsmEdit: 'last OSM edit',
+  dateRetrieved: 'retrieved',
+  noDate: 'no date',
+  noVerificationDate: 'no verification date',
+  afterDistance: 'After',
+  hideDetails: 'Hide details',
+  osmEvidenceDetails: 'Evidence details from OpenStreetMap:',
+  objectId: 'Object identifier',
+  credibilityStatus: 'Credibility status',
+  dataLicense: 'Data license',
+  geometricMatchConfidence: 'Geometric match confidence',
+  sourceUrl: 'Source URL',
+  less: 'Less',
+  objectLabel: 'Object',
+  licenseLabel: 'License',
+  confirmationDateLabel: 'Confirmation date (check_date)',
+  noCheckDateLabel:
+    'No confirmation tag (check_date). Edit date is not verification date.',
+  placeMatchConfidenceLabel: 'Place match confidence',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  noMeasurementPoints: 'no measurement points',
+  coverageParam: 'Coverage of parameter',
+  noDetailedManeuvers: 'No detailed maneuvers.',
+  debugDesc:
+    'Simulation of emergency and edge states required by HackYeah regulations (R7, R8, R12):',
+  footerA11yLabel: 'Official information and digital accessibility declaration of the City of Kraków',
+  privacyTag: '100% Privacy (P1–P5)',
+  coatOfArmsA11y:
+    'Coat of arms of the Royal Capital City of Kraków: brick walls with three towers, crown and eagle in open gate',
+  localReportUnverified: 'Local report (unverified)',
+  simOverpassFailShort: 'Overpass failure (503)',
+  simMapyFailShort: 'Mapy.com error (429)',
+  simOfflineShort: 'Forced Offline',
+  fallbackDataDisplayed: 'Fallback data displayed',
+  activeFailureSimulation: 'ACTIVE FAILURE SIMULATION:',
+  cityHallKrakow: 'Kraków City Hall',
+  distanceLabel: 'Distance',
+  coverageKerbs: 'Kerbs at crossings',
+  coverageSurface: 'Surface data',
+  coverageSteps: 'Steps and stairs',
+  coverageWidth: 'Passage width',
+  coverageIncline: 'Incline',
 };
 
+const uk: typeof pl = {
+  appName: 'Краків без бар’єрів',
+  profileTitle: 'Вибір профілю мобільності',
+  profileLead:
+    'Виберіть профіль для аналізу бар’єрів. Додаток не збирає дані про інвалідність, не створює облікових записів і працює на 100% локально на пристрої.',
+  wheelchair: 'Крісло колісне',
+  wheelchairHint: 'Сходи блокують маршрут (blocker). Бордюр макс. 30 мм.',
+  stroller: 'Дитячий візок',
+  strollerHint: 'Сходи є попередженням (warning). Бордюр макс. 60 мм.',
+  custom: 'Власний профіль',
+  customHint: 'Налаштуйте власні ліміти бордюрів, нахилу та сходинок.',
+  selected: 'Вибраний профіль',
+  blockedRoadTypesTitle: 'Заблоковані типи покриття та доріг',
+  blockedRoadTypesSubtitle:
+    'Дороги з вибраними покриттями будуть оминатися або позначатися на маршруті як непрохідні (блокада).',
+  surfaceCobblestone: 'Бруківка / Кругляк (cobblestone)',
+  surfaceGravel: 'Гравій / Щебінь (gravel)',
+  surfaceSand: 'Пісок (sand)',
+  surfaceDirt: 'Ґрунт / Земля (dirt)',
+  surfaceUnpaved: 'Невимощена (unpaved)',
+  surfaceCompacted: 'Утрамбований гравій (compacted)',
+  surfacePavingStones: 'Бруківка / Плитка (paving stones)',
+  surfaceSteps: 'Пішохідні сходи (steps)',
+  blockedStatusBlocked: 'ЗАБЛОКОВАНО',
+  blockedStatusAllowed: 'ДОЗВОЛЕНО',
+  continue: 'Перейти до пошуку',
+  privacy:
+    'Координати маршруту надсилаються виключно до Mapy.com (геометрія маршруту) та публічного API Overpass / OpenStreetMap (дані про бар’єри). Додаток не передає жодних ідентифікаторів користувача чи персональних даних.',
+  searchTitle: 'Маршрут або місце',
+  searchLead:
+    'Сплануйте пішохідний маршрут А - Б у Кракові або перевірте доступність конкретного місця.',
+  routeTab: 'Маршрут А - Б',
+  placeTab: 'Перевірити місце',
+  from: 'Початкова точка (А)',
+  to: 'Кінцева точка (Б)',
+  placeLabel: 'Назва або адреса місця',
+  fromPlaceholder: 'наприклад, Площа Ринок',
+  toPlaceholder: 'наприклад, Вавель',
+  placePlaceholder: 'наприклад, Сукенниці, Вавельський собор',
+  myLocation: 'Використати моє розташування',
+  searchButton: 'Аналізувати маршрут на наявність бар’єрів',
+  searchPlaceButton: 'Перевірити доступність місця',
+  demoScenarios: 'Приклади тестових маршрутів (Демо):',
+  demoRoute1: 'Площа Ринок - Вавель (вул. Гродзька)',
+  demoRoute2: 'Казімєж (Нова площа) - Планти',
+  demoPlace1: 'Сукенниці (повна доступність)',
+  demoPlace2: 'Кам’яниця на Гродзькій (симуляція: суперечливі дані)',
+  demoPlace3: 'Староміський ресторан (симуляція: застарілі дані)',
+  notReady: 'Аналіз триває...',
+  routeReportTitle: 'Звіт про бар’єри на маршруті',
+  summaryCardTitle: 'Підсумок маршруту',
+  routeLength: 'Довжина маршруту',
+  routeDuration: 'Орієнтовний час',
+  blockersCount: 'Блокади (непрохідно)',
+  warningsCount: 'Попередження (труднощі)',
+  infoCount: 'Зручності / Інформація',
+  unknownCount: 'Невідомі ділянки',
+  longestUnknownStretch: 'Найдовша ділянка без даних',
+  dataCoverage: 'Покриття даними вздовж маршруту',
+  coverageRatio: 'покриття',
+  noBarriersFound:
+    'У наявних даних перешкод не знайдено. Увага: дані OSM можуть бути неповними.',
+  caveatNotice:
+    'Пам’ятайте: відсутність зареєстрованої перешкоди в OpenStreetMap не гарантує її відсутності в дійсності.',
+  showMap: 'Показати карту з бар’єрами',
+  hideMap: 'Сховати карту (список)',
+  readAloud: 'Прослухати голосовий підсумок',
+  stopSpeech: 'Зупинити читання',
+  shareSummary: 'Поділитися текстовим звітом',
+  findingsListTitle: 'Перелік бар’єрів за порядком маршруту',
+  distanceFromStart: 'Відстань від старту',
+  whyThisStatus: 'Чому такий статус?',
+  reportCorrection: 'Повідомити про помилку або бар’єр',
+  placeDetailTitle: 'Доступність об’єкта',
+  matchConfidence: 'Точність зіставлення з OSM',
+  confidentMatch: 'Об’єкт зіставлено з базою OpenStreetMap',
+  noPlaceData:
+    'В OpenStreetMap немає даних про доступність цього місця. Згідно з правилами додатка, невідоме місце не позначається як доступне.',
+  catEntrance: 'Вхід до будівлі',
+  catInside: 'Інтер’єр та коридори',
+  catToilet: 'Пристосований туалет',
+  catSurroundings: 'Територія та підхід',
+  emptyCategory: 'Немає детальної інформації в цій категорії',
+  reportTitle: 'Повідомлення про виправлення даних',
+  reportLead:
+    'Помітили бар’єр або неточність? Ваше повідомлення буде збережено локально в черзі перевірки. Ви також можете додати нотатку безпосередньо в OpenStreetMap.',
+  reportObstacleDesc: 'Опис перешкоди або зауваження',
+  reportObstaclePlaceholder: 'наприклад, пошкоджений пандус, сходинка 15 см біля входу...',
+  reportSubmit: 'Зберегти повідомлення локально',
+  reportSavedSuccess:
+    'Повідомлення збережено в пам’яті пристрою (позначено як неперевірене).',
+  openOsmNote: 'Додати нотатку в OpenStreetMap (зовнішнє посилання)',
+  osmNoteDisclaimer:
+    'Додаток ніколи не надсилає дані автоматично до бази OSM. Ви відкриєте офіційний сайт OpenStreetMap, щоб створити публічну нотатку як користувач.',
+  localReportsQueue: 'Локальні повідомлення користувача (неперевірені):',
+  noLocalReports: 'Немає очікуваних локальних повідомлень.',
+  debugPanel: 'Панель симуляції та тестів (Демо)',
+  simulateOverpassFail: 'Симулювати збій Overpass API (помилка 503 / тайм-аут)',
+  simulateMapyFail: 'Симулювати помилку Mapy.com API (помилка 429 ліміт запитів)',
+  simulateOffline: 'Увімкнути режим офлайн (використовувати знімок даних)',
+  resetSimulation: 'Вимкнути симуляції (відновити роботу онлайн)',
+  sampleDataBanner: 'ЗРАЗКОВІ ДАНІ (Офлайн Демо-знімок Краків)',
+  simulationActiveBanner: 'АКТИВНА СИМУЛЯЦІЯ ЗБОЮ: ',
+  sourceFailedMessage:
+    'Не вдалося завантажити дані із зовнішнього джерела. Показано резервні дані / демо-знімок.',
+  about: 'Про дані та ліцензії',
+  aboutTitle: 'Звідки надходить інформація',
+  aboutLead:
+    'Кожен факт у додатку містить значення, статус, джерело, дату оновлення та пояснення. Відсутність даних завжди показується як невідомо, ніколи як доступно.',
+  mapyUses: 'Пішохідні маршрути та геокодування адрес.',
+  osmUses: 'Геометрія бар’єрів, покриття, сходів, бордюрів та об’єктів.',
+  copyrightLabel: 'Інформація про авторські права',
+  logoLabel: 'Обов’язковий логотип Mapy.com',
+  demoArea: 'Демонстраційна зона HackYeah 2026',
+  provisional: 'Демонстраційна зона: Площа Ринок - Казімєж - Вавель - Планти.',
+  language: 'Українська',
+  back: 'Назад',
+  close: 'Закрити',
+
+  // Kraków Municipal & Gov branding
+  krakowOfficialHeader: 'Офіційна система просторової доступності',
+  krakowGovSub: 'Проєкт команди Burza z Mózgów',
+  krakowCityBadge: 'Місто Краків',
+  wcagBadge: 'Стандарт WCAG 2.2 AAA',
+  krakowMunicipalFooter:
+    'Міський прототип у межах Програми Краків Без Бар’єрів • Відповідність Європейському акту про доступність (EAA) та стандарту PN-EN 301 549 (WCAG 2.2 AAA)',
+
+  // Accessibility Panel & Controls
+  accessibilityMenuBtn: 'Доступність',
+  accessibilityHeaderButton: 'Налаштування доступності (WCAG)',
+  quickA11yToolbar: 'Панель швидкого доступу WCAG',
+  accessibilityPanelTitle: 'Центр налаштування доступності',
+  accessibilityPanelDesc:
+    'Налаштуйте інтерфейс відповідно до своїх зорових, когнітивних та моторних потреб згідно з вимогами Закону про цифрову доступність.',
+  contrastSectionTitle: 'Контраст та кольори (WCAG 2.2 AAA)',
+  contrastModeStandardLight: 'Стандартний світлий (Краківський синій)',
+  contrastModeStandardDark: 'Стандартний темний (Нічний режим)',
+  contrastModeYellowBlack: 'Високий контраст: Жовтий на чорному',
+  contrastModeBlackYellow: 'Високий контраст: Чорний на жовтому',
+  contrastModeWhiteBlack: 'Високий контраст: Білий на чорному',
+  contrastModeMonochrome: 'Монохромний (Відтінки сірого)',
+  contrastModeMonochromeHint:
+    'Вимикає насиченість кольорів, зменшуючи втому очей та світлобоязнь.',
+  textSizeSectionTitle: 'Масштабування тексту',
+  textSizeNormal: '100% (Стандартний)',
+  textSizeMedium: '115% (Збільшений)',
+  textSizeLarge: '130% (Великий)',
+  textSizeXLarge: '150% (Дуже великий)',
+  textSizeXXLarge: '175% (Максимальний)',
+  textSizeBtnDecrease: 'Зменшити текст (A-)',
+  textSizeBtnIncrease: 'Збільшити текст (A+)',
+  fontFamilySectionTitle: 'Шрифт',
+  fontFamilySystem: 'Стандартний системний шрифт',
+  fontFamilyDyslexic: 'Шрифт підвищеної читабельності (Dyslexic)',
+  fontFamilyMono: 'Моноширинний шрифт',
+  lineSpacingTitle: 'Міжрядковий інтервал',
+  lineSpacingNormal: 'Стандартний (1.45)',
+  lineSpacingIncreased: 'Збільшений (1.80)',
+  lineSpacingLoose: 'Вільний (2.20)',
+  letterSpacingTitle: 'Міжлітерний інтервал',
+  letterSpacingNormal: 'Стандартний',
+  letterSpacingIncreased: 'Збільшений (+1.2)',
+  letterSpacingWide: 'Широкий (+2.5)',
+  readabilitySectionTitle: 'Читабельність та сприйняття',
+  dyslexicMode: 'Режим полегшеного читання',
+  dyslexicModeHint: 'Збільшує відстань між символами та рядками для легшого читання.',
+  motorSectionTitle: 'Моторна підтримка (Розмір цілей)',
+  increasedSpacing: 'Збільшені зони натискання (мін. 56 px)',
+  increasedSpacingHint:
+    'Збільшує відступи між інтерактивними елементами для запобігання випадковим натисканням.',
+  visualFocusSectionTitle: 'Фокус зору та увага',
+  highlightInteractive: 'Виразне виділення посилань і кнопок',
+  highlightInteractiveHint:
+    'Додає чітку рамку 4 px та підкреслення до клікабельних елементів (WCAG 1.4.1).',
+  readingRuler: 'Лінійка для читання (Напрямна рядка)',
+  readingRulerHint:
+    'Відображає горизонтальну лінійку для відстеження тексту рядок за рядком.',
+  readingMask: 'Маска фокусування на тексті',
+  readingMaskHint: 'Затемнює верхню та нижню частини екрана, ізолюючи активний фрагмент тексту.',
+  speechSectionTitle: 'Синтез мовлення (Голосовий супровід)',
+  speechAssistant: 'Екранний диктор (Синтез мовлення)',
+  speechRateTitle: 'Швидкість мовлення диктора',
+  speechRateSlow: '0.8x (Повільна)',
+  speechRateNormal: '1.0x (Стандартна)',
+  speechRateFast: '1.2x (Швидка)',
+  readCurrentScreen: 'Прочитати вміст екрана',
+  stopCurrentSpeech: 'Зупинити читання',
+  resetAccessibilityBtn: 'Скинути до стандартних',
+  applyAndClose: 'Зберегти та закрити',
+  accessibilityDeclaration: 'Декларація цифрової доступності',
+  screenReaderReady: 'Оптимізовано для програм зчитування з екрана (TalkBack / VoiceOver)',
+  facilitiesCount: 'Зручності',
+
+  // Badges
+  statusVerified: 'Перевірено',
+  statusCommunity: 'Спільнота OSM',
+  statusReported: 'Локальне повідомлення',
+  statusUnknown: 'Немає даних',
+  statusConflicting: 'Суперечливі дані',
+  severityBlocker: 'Блокада',
+  severityWarning: 'Попередження',
+  severityInfo: 'Інформація',
+  severityOk: 'Доступно',
+
+  // Language selectors
+  languageSectionTitle: 'Мова інтерфейсу',
+  switchLanguage: 'Змінити мову',
+  langPl: 'Polski (Польська)',
+  langEn: 'English (Англійська)',
+  langUk: 'Українська',
+
+  // Newly unified UI & action keys
+  reader: 'Голос',
+  stop: 'Стоп',
+  openPlaceCard: 'Відкрити повну картку об’єкта',
+  showFullReportAndManeuvers: 'Показати повний звіт та маневри',
+  fastDemoRoutes: 'ШВИДКІ ДЕМО-МАРШРУТИ (КРАКІВ):',
+  popularDemoPlaces: 'ПОПУЛЯРНІ ДЕМО-ОБ’ЄКТИ:',
+  selectProfile: 'Виберіть профіль мобільності:',
+  customThresholdsTitle: 'Пороги бар’єрів для власного профілю:',
+  maxKerb: 'Максимальний бордюр:',
+  stepsTreatment: 'Обробка сходинок:',
+  toggleStepsStatus: 'Змінити статус сходинок',
+  reportObstacleHeading: 'Повідомити про перешкоду або застарілий бар’єр:',
+  openFullOsmForm: 'Перейти до повної форми OSM',
+  collapseMenu: 'Згорнути нижнє меню',
+  expandMenu: 'Розгорнути меню',
+  hideMenu: 'Сховати меню',
+  searchPlaceholderUnified: 'Куди в Кракові? Шукати маршрут або місце...',
+  surfacesChip: 'Покриття',
+  tabRoute: 'Маршрут',
+  tabPlace: 'Об’єкт',
+  tabProfile: 'Профіль',
+  tabReport: 'Повідомити',
+  myLocationShort: 'Моє розташування',
+  myLocationCenter: 'Моє розташування (Центр)',
+  myLocationCenterKrakow: 'Моє розташування (Центр Кракова)',
+  toastCenteredKrakow: 'Карту відцентровано на площі Ринок у Кракові.',
+  routeErrorTitle: 'Помилка прокладання маршруту',
+  routeErrorMsg: 'Не вдалося прокласти маршрут.',
+  placeErrorTitle: 'Помилка перевірки місця',
+  placeErrorMsg: 'Не вдалося завантажити дані.',
+  errorTitle: 'Помилка',
+  warningTitle: 'Увага',
+  reportDescRequired: 'Введіть опис перешкоди перед збереженням.',
+  btnCenterKrakow: 'Відцентрувати на центр Кракова',
+  btnChangeProfile: 'Змінити профіль пересування',
+  btnClearRoute: 'Очистити активний маршрут',
+  btnShowRouteSummary: 'Показати підсумок активного маршруту',
+  noSelectedPlace: 'Місце не вибрано.',
+  municipalObjectKrakow: 'МІСЬКИЙ ОБ’ЄКТ КРАКІВ',
+  readAloudPlace: 'Прослухати опис об’єкта',
+  conflictingDataTitle: 'Виявлено суперечливі дані в OpenStreetMap (R7):',
+  conflictingDataDesc:
+    'Різні об’єкти OSM (наприклад, будівля та точка входу) надають суперечливу інформацію про одне й те саме місце. Нижче наведено обидва значення:',
+  criterion: 'Критерій',
+  source: 'Джерело',
+  value: 'Значення',
+  staleDataTitle: 'Увага: Застарілі дані в OpenStreetMap (R8):',
+  staleDataDesc:
+    'Деяка інформація про це місце не перевірялася і не редагувалася понад 24 місяці. Фактичний стан міг змінитися.',
+  noActiveRouteReport: 'Немає активного звіту маршруту.',
+  backToSearch: 'Повернутися до пошуку',
+  krakowRouteTag: 'КРАКІВ МАРШРУТ',
+  metresContinuousNoData: 'метрів безперервної відсутності даних',
+  orderedByDistance: 'Впорядковано за зростанням відстані від старту:',
+  noElementsInCorridor: 'У коридорі цього маршруту не зареєстровано елементів в OpenStreetMap.',
+  dateConfirmed: 'підтверджено',
+  dateOsmEdit: 'останнє редагування OSM',
+  dateRetrieved: 'отримано',
+  noDate: 'немає дати',
+  noVerificationDate: 'немає дати перевірки',
+  afterDistance: 'Через',
+  hideDetails: 'Сховати деталі',
+  osmEvidenceDetails: 'Доказові деталі з OpenStreetMap:',
+  objectId: 'Ідентифікатор об’єкта',
+  credibilityStatus: 'Статус достовірності',
+  dataLicense: 'Ліцензія даних',
+  geometricMatchConfidence: 'Впевненість геометричного зіставлення',
+  sourceUrl: 'URL джерела',
+  less: 'Менше',
+  objectLabel: 'Об’єкт',
+  licenseLabel: 'Ліцензія',
+  confirmationDateLabel: 'Дата підтвердження (check_date)',
+  noCheckDateLabel:
+    'Немає тегу підтвердження (check_date). Дата редагування не є датою перевірки.',
+  placeMatchConfidenceLabel: 'Впевненість зіставлення з місцем',
+  zoomIn: 'Приблизити карту',
+  zoomOut: 'Віддалити карту',
+  noMeasurementPoints: 'немає точок вимірювання',
+  coverageParam: 'Покриття параметра',
+  noDetailedManeuvers: 'Немає детальних маневрів.',
+  debugDesc:
+    'Симуляція аварійних та граничних станів за регламентом HackYeah (R7, R8, R12):',
+  footerA11yLabel: 'Офіційна інформація та декларація доступності міста Краків',
+  privacyTag: '100% Конфіденційність (P1–P5)',
+  coatOfArmsA11y:
+    'Герб столичного королівського міста Кракова: цегляні мури з трьома вежами, корона та орел у відкритій брамі',
+  localReportUnverified: 'Локальне повідомлення (неперевірене)',
+  simOverpassFailShort: 'Збій Overpass (503)',
+  simMapyFailShort: 'Помилка Mapy.com (429)',
+  simOfflineShort: 'Примусовий офлайн',
+  fallbackDataDisplayed: 'Відображено резервні дані',
+  activeFailureSimulation: 'АКТИВНА СИМУЛЯЦІЯ ЗБОЮ:',
+  cityHallKrakow: 'Мерія міста Краків',
+  distanceLabel: 'Дистанція',
+  coverageKerbs: 'Бордюри на переходах',
+  coverageSurface: 'Дані про покриття',
+  coverageSteps: 'Сходинки та сходи',
+  coverageWidth: 'Ширина проходу',
+  coverageIncline: 'Нахил',
+};
+
+const dictionaries: Record<Locale, typeof pl> = { pl, en, uk };
+
 export function t(locale: Locale, key: keyof typeof pl): string {
-  return (locale === 'en' ? en : pl)[key];
+  const dict = dictionaries[locale] ?? pl;
+  return dict[key] ?? pl[key] ?? '';
+}
+
+export function getLocalizedCoverageCriterion(criterion: string, locale: Locale): string {
+  const c = criterion.toLowerCase().trim();
+  if (c.includes('krawężnik') || c.includes('kerb')) {
+    return t(locale, 'coverageKerbs');
+  }
+  if (c.includes('nawierzchni') || c.includes('surface')) {
+    return t(locale, 'coverageSurface');
+  }
+  if (c.includes('schody') || c.includes('stopnie') || c.includes('step')) {
+    return t(locale, 'coverageSteps');
+  }
+  if (c.includes('szerokoś') || c.includes('width')) {
+    return t(locale, 'coverageWidth');
+  }
+  if (c.includes('nachyleni') || c.includes('incline')) {
+    return t(locale, 'coverageIncline');
+  }
+  return criterion;
+}
+
+export function getLocalizedFindingType(type: string, locale: Locale): string {
+  const tKey = type.toLowerCase().trim();
+  if (tKey === 'kerb' || tKey.includes('krawężnik')) {
+    return locale === 'pl' ? 'Krawężnik' : locale === 'uk' ? 'Бордюр' : 'Kerb';
+  }
+  if (tKey === 'surface' || tKey.includes('nawierzchni')) {
+    return locale === 'pl' ? 'Nawierzchnia' : locale === 'uk' ? 'Покриття' : 'Surface';
+  }
+  if (tKey === 'steps' || tKey.includes('schody')) {
+    return locale === 'pl' ? 'Schody' : locale === 'uk' ? 'Сходи' : 'Steps';
+  }
+  if (tKey === 'crossing' || tKey.includes('przejście')) {
+    return locale === 'pl' ? 'Przejście dla pieszych' : locale === 'uk' ? 'Пішохідний перехід' : 'Crossing';
+  }
+  if (tKey === 'width' || tKey.includes('szerokoś')) {
+    return locale === 'pl' ? 'Szerokość przejścia' : locale === 'uk' ? 'Ширина проходу' : 'Passage width';
+  }
+  if (tKey === 'elevator' || tKey.includes('winda')) {
+    return locale === 'pl' ? 'Winda' : locale === 'uk' ? 'Ліфт' : 'Elevator';
+  }
+  if (tKey === 'ramp' || tKey.includes('rampa')) {
+    return locale === 'pl' ? 'Rampa / pochylnia' : locale === 'uk' ? 'Пандус' : 'Ramp';
+  }
+  return type;
+}
+
+export function getLocalizedFactValue(val: string, locale: Locale): string {
+  if (!val) return '';
+  if (locale === 'pl') {
+    if (val === 'cobblestone') return 'Kocie łby / bruk';
+    if (val === 'asphalt') return 'Asfalt';
+    if (val === 'paving_stones') return 'Kostka brukowa';
+    if (val === 'sett') return 'Kostka kamienna';
+    if (val === 'gravel') return 'Żwir';
+    if (val === 'compacted') return 'Nawierzchnia utwardzona';
+    if (val === 'unpaved') return 'Nieutwardzona';
+    if (val === 'obecny') return 'Krawężnik obecny';
+    return val;
+  }
+  if (locale === 'uk') {
+    let result = val;
+    result = result.replace(/traffic_signals=yes/gi, 'світлофор');
+    result = result.replace(/tactile_paving=yes/gi, 'тактильна плитка');
+    result = result.replace(/sygnalizacja/gi, 'світлофор');
+    result = result.replace(/pasy dotykowe/gi, 'тактильна плитка');
+    result = result.replace(/brak rampy/gi, 'без пандуса');
+    result = result.replace(/rampa obecna/gi, 'є пандус');
+    result = result.replace(/stopni/gi, 'сходинок');
+    result = result.replace(/stopnie/gi, 'сходинки');
+    result = result.replace(/^cobblestone$/gi, 'Бруківка');
+    result = result.replace(/^asphalt$/gi, 'Асфальт');
+    result = result.replace(/^paving_stones$/gi, 'Бруківка плитка');
+    result = result.replace(/^sett$/gi, 'Кам’яна бруківка');
+    result = result.replace(/^gravel$/gi, 'Гравій');
+    result = result.replace(/^compacted$/gi, 'Ущільнене покриття');
+    result = result.replace(/^unpaved$/gi, 'Неущільнене');
+    result = result.replace(/^obecny$/gi, 'Бордюр наявний');
+    return result;
+  }
+  // English
+  let result = val;
+  result = result.replace(/traffic_signals=yes/gi, 'traffic signals');
+  result = result.replace(/tactile_paving=yes/gi, 'tactile paving');
+  result = result.replace(/sygnalizacja/gi, 'traffic signals');
+  result = result.replace(/pasy dotykowe/gi, 'tactile paving');
+  result = result.replace(/brak rampy/gi, 'no ramp');
+  result = result.replace(/rampa obecna/gi, 'ramp present');
+  result = result.replace(/stopni/gi, 'steps');
+  result = result.replace(/stopnie/gi, 'steps');
+  result = result.replace(/^cobblestone$/gi, 'Cobblestone');
+  result = result.replace(/^asphalt$/gi, 'Asphalt');
+  result = result.replace(/^paving_stones$/gi, 'Paving stones');
+  result = result.replace(/^sett$/gi, 'Stone sett');
+  result = result.replace(/^gravel$/gi, 'Gravel');
+  result = result.replace(/^compacted$/gi, 'Compacted surface');
+  result = result.replace(/^unpaved$/gi, 'Unpaved');
+  result = result.replace(/^obecny$/gi, 'Kerb present');
+  return result;
 }

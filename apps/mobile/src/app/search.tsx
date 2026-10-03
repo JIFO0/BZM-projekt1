@@ -67,7 +67,7 @@ export default function SearchScreen() {
 
   const handleUseMyLocation = () => {
     // Explicit user tap as required by P3
-    setFromQuery('Moja lokalizacja (Centrum Krakowa)');
+    setFromQuery(t(locale, 'myLocationCenterKrakow'));
     setFromPos({ lon: 19.9373, lat: 50.0619 });
   };
 
@@ -87,7 +87,14 @@ export default function SearchScreen() {
       setActiveRouteReport(result.report);
       router.push('/route' as any);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Wystąpił błąd podczas analizowania trasy.');
+      setErrorMsg(
+        err.message ||
+          (locale === 'pl'
+            ? 'Wystąpił błąd podczas analizowania trasy.'
+            : locale === 'uk'
+              ? 'Сталася помилка під час аналізу маршруту.'
+              : 'An error occurred while analyzing the route.')
+      );
     } finally {
       setLoading(false);
     }
@@ -101,7 +108,14 @@ export default function SearchScreen() {
       setActivePlaceReport(result.report);
       router.push('/place' as any);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Wystąpił błąd podczas sprawdzania miejsca.');
+      setErrorMsg(
+        err.message ||
+          (locale === 'pl'
+            ? 'Wystąpił błąd podczas sprawdzania miejsca.'
+            : locale === 'uk'
+              ? 'Сталася помилка під час перевірки місця.'
+              : 'An error occurred while checking place.')
+      );
     } finally {
       setLoading(false);
     }
@@ -131,15 +145,27 @@ export default function SearchScreen() {
       setIsSpeaking(false);
       return;
     }
-    const text = `${t(locale, 'searchTitle')}. ${t(locale, 'searchLead')}. ${
-      activeTab === 'route'
+    const routeTabNarrative =
+      locale === 'pl'
         ? `Aktywna zakładka: Trasa piesza A do B. Punkt początkowy: ${fromQuery}. Punkt docelowy: ${toQuery}. Naciśnij przycisk Analizuj trasę, aby sprawdzić bariery.`
-        : `Aktywna zakładka: Dostępność obiektu. Szukany obiekt: ${placeQuery}. Naciśnij przycisk Sprawdź dostępność miejsca.`
+        : locale === 'uk'
+          ? `Активна вкладка: Пішохідний маршрут з А в Б. Початкова точка: ${fromQuery}. Кінцева точка: ${toQuery}. Натисніть кнопку Аналізувати маршрут, щоб перевірити перешкоди.`
+          : `Active tab: Walking route A to B. Origin: ${fromQuery}. Destination: ${toQuery}. Press Analyze route to check barriers.`;
+
+    const placeTabNarrative =
+      locale === 'pl'
+        ? `Aktywna zakładka: Dostępność obiektu. Szukany obiekt: ${placeQuery}. Naciśnij przycisk Sprawdź dostępność miejsca.`
+        : locale === 'uk'
+          ? `Активна вкладка: Доступність об'єкта. Шуканий об'єкт: ${placeQuery}. Натисніть кнопку Перевірити доступність місця.`
+          : `Active tab: Place accessibility. Search query: ${placeQuery}. Press Check place accessibility.`;
+
+    const text = `${t(locale, 'searchTitle')}. ${t(locale, 'searchLead')}. ${
+      activeTab === 'route' ? routeTabNarrative : placeTabNarrative
     }`;
 
     setIsSpeaking(true);
     Speech.speak(text, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
+      language: locale === 'pl' ? 'pl-PL' : locale === 'uk' ? 'uk-UA' : 'en-US',
       onDone: () => setIsSpeaking(false),
       onError: () => setIsSpeaking(false),
     });
@@ -405,37 +431,41 @@ export default function SearchScreen() {
             </Text>
           </View>
           <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13.5) }]}>
-            Kliknij gotowy scenariusz, aby przetestować bez wpisywania:
+            {locale === 'pl'
+              ? 'Kliknij gotowy scenariusz, aby przetestować bez wpisywania:'
+              : locale === 'uk'
+                ? 'Натисніть готовий сценарій, щоб протестувати без введення:'
+                : 'Click a preset scenario to test without typing:'}
           </Text>
 
           <View style={styles.scenariosList}>
             <GovButton
               variant="outline"
-              title={`Trasa: ${t(locale, 'demoRoute1')}`}
+              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute1')}`}
               icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(0)}
             />
             <GovButton
               variant="outline"
-              title={`Trasa: ${t(locale, 'demoRoute2')}`}
+              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute2')}`}
               icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(1)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce: ${t(locale, 'demoPlace1')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace1')}`}
               icon={<Buildings size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(0)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce (R7 Sprzeczne): ${t(locale, 'demoPlace2')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace2')}`}
               icon={<Lightning size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(1)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce (R8 Przedawnione): ${t(locale, 'demoPlace3')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace3')}`}
               icon={<Clock size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(2)}
             />
