@@ -40,6 +40,10 @@ export default function SearchScreen() {
     debugState,
     setActiveRouteReport,
     setActiveWalkingRoute,
+    setActiveRouteFacts,
+    setActiveRouteIsSample,
+    setRouteVariants,
+    selectRouteVariant,
     setActivePlaceReport,
     colors,
     fontSize,
@@ -85,6 +89,14 @@ export default function SearchScreen() {
 
       setActiveWalkingRoute(result.walkingRoute);
       setActiveRouteReport(result.report);
+      setActiveRouteFacts(result.facts);
+      setActiveRouteIsSample(result.isSample);
+      if (result.variants) {
+        setRouteVariants(result.variants);
+      }
+      if (result.selectedVariant) {
+        selectRouteVariant(result.selectedVariant);
+      }
       router.push('/route' as any);
     } catch (err: any) {
       setErrorMsg(err.message || 'Wystąpił błąd podczas analizowania trasy.');

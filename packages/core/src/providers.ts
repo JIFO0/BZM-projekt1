@@ -26,6 +26,8 @@ export interface PlaceHit {
   label: string;
   position: LonLat;
   kind: string;
+  category?: string;
+  tags?: string[];
 }
 
 export interface RoutingProvider {

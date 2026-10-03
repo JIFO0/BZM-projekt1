@@ -1,14 +1,17 @@
 import {
   city,
 } from '@/config/city';
-import type {
-  BarrierThresholds,
-  PlaceAnalysisReport,
-  ProfileId,
-  RouteReport,
-  WalkingRoute,
+import {
+  analyzeRoute,
+  type BarrierThresholds,
+  type Fact,
+  type PlaceAnalysisReport,
+  type ProfileId,
+  type RouteReport,
+  type WalkingRoute,
 } from '@krakow-bez-barier/core';
-import { createContext, useContext, useMemo, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, useCallback, useEffect, type ReactNode } from 'react';
+import type { RouteVariant, RouteVariantId } from '@/services/api';
 
 import type { Locale } from '@/i18n/strings';
 import {
@@ -55,6 +58,14 @@ interface SessionValue {
   setActiveRouteReport: (report: RouteReport | null) => void;
   activeWalkingRoute: WalkingRoute | null;
   setActiveWalkingRoute: (route: WalkingRoute | null) => void;
+  activeRouteFacts: Fact[];
+  setActiveRouteFacts: (facts: Fact[]) => void;
+  activeRouteIsSample: boolean;
+  setActiveRouteIsSample: (isSample: boolean) => void;
+  routeVariants: Record<RouteVariantId, RouteVariant> | null;
+  setRouteVariants: (variants: Record<RouteVariantId, RouteVariant> | null) => void;
+  selectedRouteVariant: RouteVariantId;
+  selectRouteVariant: (variantId: RouteVariantId) => void;
   activePlaceReport: PlaceAnalysisReport | null;
   setActivePlaceReport: (report: PlaceAnalysisReport | null) => void;
 
@@ -195,7 +206,83 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   ]);
   const [activeRouteReport, setActiveRouteReport] = useState<RouteReport | null>(null);
   const [activeWalkingRoute, setActiveWalkingRoute] = useState<WalkingRoute | null>(null);
+  const [activeRouteFacts, setActiveRouteFacts] = useState<Fact[]>([]);
+  const [activeRouteIsSample, setActiveRouteIsSample] = useState<boolean>(false);
+  const [routeVariants, setRouteVariants] = useState<Record<RouteVariantId, RouteVariant> | null>(null);
+  const [selectedRouteVariant, setSelectedRouteVariant] = useState<RouteVariantId>('accessible');
   const [activePlaceReport, setActivePlaceReport] = useState<PlaceAnalysisReport | null>(null);
+
+  const selectRouteVariant = useCallback(
+    (variantId: RouteVariantId) => {
+      setSelectedRouteVariant(variantId);
+      if (routeVariants && routeVariants[variantId]) {
+        const v = routeVariants[variantId];
+        setActiveWalkingRoute(v.walkingRoute);
+        setActiveRouteReport(v.report);
+        setActiveRouteFacts(v.facts);
+        setActiveRouteIsSample(v.isSample);
+      }
+    },
+    [routeVariants],
+  );
+
+  // Dynamic real-time blocker recalculation whenever thresholds or mobility profile changes
+  useEffect(() => {
+    if (routeVariants) {
+      const updatedAccessibleReport = analyzeRoute({
+        routeId: routeVariants.accessible.report.routeId,
+        profileId,
+        routeCoordinates: routeVariants.accessible.walkingRoute.coordinates,
+        facts: routeVariants.accessible.facts,
+        config: city,
+        thresholds: activeThresholds,
+        isSample: routeVariants.accessible.isSample,
+      });
+
+      const updatedShortestReport = analyzeRoute({
+        routeId: routeVariants.shortest.report.routeId,
+        profileId,
+        routeCoordinates: routeVariants.shortest.walkingRoute.coordinates,
+        facts: routeVariants.shortest.facts,
+        config: city,
+        thresholds: activeThresholds,
+        isSample: routeVariants.shortest.isSample,
+      });
+
+      const nextVariants: Record<RouteVariantId, RouteVariant> = {
+        accessible: {
+          ...routeVariants.accessible,
+          report: updatedAccessibleReport,
+        },
+        shortest: {
+          ...routeVariants.shortest,
+          report: updatedShortestReport,
+        },
+      };
+
+      setRouteVariants(nextVariants);
+
+      const activeVar = nextVariants[selectedRouteVariant];
+      if (activeVar) {
+        setActiveWalkingRoute(activeVar.walkingRoute);
+        setActiveRouteReport(activeVar.report);
+        setActiveRouteFacts(activeVar.facts);
+        setActiveRouteIsSample(activeVar.isSample);
+      }
+    } else if (activeWalkingRoute && activeRouteFacts && activeRouteFacts.length > 0) {
+      const updated = analyzeRoute({
+        routeId: activeRouteReport?.routeId ?? `route-${Date.now()}`,
+        profileId,
+        routeCoordinates: activeWalkingRoute.coordinates,
+        facts: activeRouteFacts,
+        config: city,
+        thresholds: activeThresholds,
+        isSample: activeRouteIsSample,
+      });
+      setActiveRouteReport(updated);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileId, activeThresholds]);
 
   // Advanced Public-Sector Accessibility State (WCAG 2.2 AAA)
   const [contrastMode, setContrastMode] = useState<ContrastMode>('standard-light');
@@ -298,6 +385,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setActiveRouteReport,
       activeWalkingRoute,
       setActiveWalkingRoute,
+      activeRouteFacts,
+      setActiveRouteFacts,
+      activeRouteIsSample,
+      setActiveRouteIsSample,
+      routeVariants,
+      setRouteVariants,
+      selectedRouteVariant,
+      selectRouteVariant,
       activePlaceReport,
       setActivePlaceReport,
       // Accessibility
@@ -351,6 +446,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       localReports,
       activeRouteReport,
       activeWalkingRoute,
+      activeRouteFacts,
+      activeRouteIsSample,
+      routeVariants,
+      selectedRouteVariant,
+      selectRouteVariant,
       activePlaceReport,
       contrastMode,
       textSize,
