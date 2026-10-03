@@ -6,7 +6,7 @@ import type {
   SourceDescriptor,
   WalkingRoute,
 } from '@krakow-bez-barier/core';
-import { fetchGraphHopperRoute } from './client';
+import { fetchGraphHopperRoute, fetchRouteRespectingDetour } from './client';
 import type { AccessibleRouteResult } from './types';
 
 const DEFAULT_PROFILE_THRESHOLDS: Record<ProfileId, BarrierThresholds> = {
@@ -67,7 +67,7 @@ export class GraphHopperRoutingProvider implements RoutingProvider {
       DEFAULT_PROFILE_THRESHOLDS[request.profileId] ||
       DEFAULT_PROFILE_THRESHOLDS.wheelchair;
 
-    const result = await fetchGraphHopperRoute(
+    const planned = await fetchRouteRespectingDetour(
       {
         apiBase: this.apiBase,
         start: request.start,
@@ -81,10 +81,11 @@ export class GraphHopperRoutingProvider implements RoutingProvider {
 
     return {
       provider: 'graphhopper',
-      lengthMetres: result.distanceMeters,
-      durationSeconds: result.timeSeconds,
-      coordinates: result.geometry.coordinates,
+      lengthMetres: planned.result.distanceMeters,
+      durationSeconds: planned.result.timeSeconds,
+      coordinates: planned.result.geometry.coordinates,
       retrievedAt: new Date().toISOString(),
+      surfaceSpans: planned.colorBySurface ? planned.result.surfaceSpans ?? [] : undefined,
     };
   }
 

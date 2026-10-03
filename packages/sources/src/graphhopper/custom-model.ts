@@ -1,5 +1,27 @@
 import type { BarrierThresholds } from '@krakow-bez-barier/core';
-import type { GraphHopperCustomModel, GraphHopperCustomModelStatement } from './types';
+import type {
+  GraphHopperCustomModel,
+  GraphHopperCustomModelStatement,
+  RoutingWeightMode,
+} from './types';
+
+/**
+ * Carriageway classes. Parallel `highway=footway` / `footway=sidewalk`
+ * keeps the default priority (1), so a sidewalk of similar length wins
+ * over the street centreline. Roads stay usable where no sidewalk is mapped.
+ */
+const CARRIAGEWAY_PRIORITY: GraphHopperCustomModelStatement = {
+  if: [
+    'road_class == MOTORWAY',
+    'road_class == TRUNK',
+    'road_class == PRIMARY',
+    'road_class == SECONDARY',
+    'road_class == TERTIARY',
+    'road_class == RESIDENTIAL',
+    'road_class == UNCLASSIFIED',
+  ].join(' || '),
+  multiply_by: '0.35',
+};
 
 /**
  * Standard Surface enum values known by GraphHopper core engine.
@@ -29,9 +51,14 @@ export const GRAPHHOPPER_SURFACE_ENUMS: Record<string, string> = {
  */
 export function buildCustomModel(
   thresholds: BarrierThresholds,
-  options?: { includeSlope?: boolean },
+  options?: { includeSlope?: boolean; mode?: RoutingWeightMode },
 ): GraphHopperCustomModel {
-  const priority: GraphHopperCustomModelStatement[] = [];
+  const mode = options?.mode ?? 'strict';
+  const priority: GraphHopperCustomModelStatement[] = [CARRIAGEWAY_PRIORITY];
+
+  if (mode === 'practical') {
+    return { priority };
+  }
 
   // 1. Handling Steps
   const blockedRoads = new Set(

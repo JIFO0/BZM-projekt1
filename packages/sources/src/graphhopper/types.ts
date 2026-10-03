@@ -1,4 +1,17 @@
-import type { BarrierThresholds, FactSource, FactStatus, LonLat, Severity } from '@krakow-bez-barier/core';
+import type {
+  BarrierThresholds,
+  FactSource,
+  FactStatus,
+  LonLat,
+  RouteSurfaceSpan,
+  Severity,
+} from '@krakow-bez-barier/core';
+
+/**
+ * `strict` forbids mapped barriers.
+ * `practical` keeps the sidewalk walk when a barrier-free detour is unreasonable.
+ */
+export type RoutingWeightMode = 'strict' | 'practical';
 
 export interface GraphHopperRouteQuery {
   apiBase: string;
@@ -7,6 +20,7 @@ export interface GraphHopperRouteQuery {
   waypoints?: LonLat[];
   thresholds: BarrierThresholds;
   lang?: 'pl' | 'en';
+  mode?: RoutingWeightMode;
 }
 
 export interface GraphHopperCustomModelStatement {
@@ -31,6 +45,8 @@ export interface GraphHopperRequestBody {
   locale?: string;
   details?: string[];
   custom_model?: GraphHopperCustomModel;
+  /** Road classes GraphHopper must not snap the waypoints onto. */
+  snap_preventions?: string[];
 }
 
 export interface GraphHopperInstruction {
@@ -142,4 +158,6 @@ export interface AccessibleRouteResult {
   barriers: RouteBarrier[];
   summary: RouteAccessibilitySummary;
   source: FactSource;
+  /** Surface colouring of the geometry. Unknown surfaces use tone `ok`. */
+  surfaceSpans?: RouteSurfaceSpan[];
 }

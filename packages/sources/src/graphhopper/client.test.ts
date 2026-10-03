@@ -1,5 +1,10 @@
 import type { BarrierThresholds } from '@krakow-bez-barier/core';
-import { buildGraphHopperRequestBody, buildGraphHopperUrl, fetchGraphHopperRoute } from './client';
+import {
+  buildGraphHopperRequestBody,
+  buildGraphHopperUrl,
+  fetchGraphHopperRoute,
+  fetchRouteRespectingDetour,
+} from './client';
 import type { GraphHopperRouteQuery } from './types';
 
 describe('GraphHopper client', () => {
@@ -36,6 +41,8 @@ describe('GraphHopper client', () => {
     expect(body.custom_model?.priority).toBeDefined();
     expect(body.details).toContain('surface');
     expect(body.details).toContain('max_width');
+    expect(body.snap_preventions).toContain('residential');
+    expect(body.custom_model?.priority?.[0]?.if).toContain('road_class == RESIDENTIAL');
   });
 
   it('fetches route and returns mapped result', async () => {
@@ -99,5 +106,92 @@ describe('GraphHopper client', () => {
     await expect(fetchGraphHopperRoute(query, mockFetch)).rejects.toThrow(
       'Błąd wyznaczania trasy w GraphHopper (400): Cannot find sequence of points',
     );
+  });
+
+  it('keeps the barrier-free route when the extra walk stays reasonable', async () => {
+    const mockFetch = jest.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as {
+        custom_model: { priority: Array<{ multiply_by?: string }> };
+      };
+      const strict = body.custom_model.priority.some((rule) => rule.multiply_by === '0.0');
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          paths: [
+            {
+              distance: strict ? 2600 : 2000,
+              weight: strict ? 2600 : 2000,
+              time: 60000,
+              bbox: [19.936, 50.061, 19.938, 50.063],
+              points: {
+                type: 'LineString',
+                coordinates: [
+                  [19.936, 50.061],
+                  [19.938, 50.063],
+                ],
+              },
+              instructions: [],
+              details: { surface: [[0, 1, 'asphalt']] },
+            },
+          ],
+        }),
+      };
+    }) as unknown as typeof fetch;
+
+    const planned = await fetchRouteRespectingDetour(query, mockFetch);
+    expect(planned.colorBySurface).toBe(false);
+    expect(planned.result.distanceMeters).toBe(2600);
+  });
+
+  it('switches to the practical sidewalk route and marks a non-ok surface when the detour is huge', async () => {
+    const mockFetch = jest.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as {
+        custom_model: { priority: Array<{ multiply_by?: string }> };
+      };
+      const strict = body.custom_model.priority.some((rule) => rule.multiply_by === '0.0');
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          paths: [
+            {
+              distance: strict ? 16000 : 2200,
+              weight: strict ? 16000 : 2200,
+              time: 60000,
+              bbox: [19.7, 50.06, 19.94, 50.2],
+              points: {
+                type: 'LineString',
+                coordinates: strict
+                  ? [
+                      [19.936, 50.061],
+                      [19.75, 50.2],
+                      [19.938, 50.063],
+                    ]
+                  : [
+                      [19.936, 50.061],
+                      [19.937, 50.062],
+                      [19.938, 50.063],
+                    ],
+              },
+              instructions: [],
+              details: {
+                surface: strict
+                  ? [[0, 2, 'asphalt']]
+                  : [
+                      [0, 1, 'asphalt'],
+                      [1, 2, 'cobblestone'],
+                    ],
+              },
+            },
+          ],
+        }),
+      };
+    }) as unknown as typeof fetch;
+
+    const planned = await fetchRouteRespectingDetour(query, mockFetch);
+    expect(planned.colorBySurface).toBe(true);
+    expect(planned.result.distanceMeters).toBe(2200);
+    expect(planned.result.surfaceSpans?.map((span) => span.tone)).toEqual(['ok', 'other']);
   });
 });

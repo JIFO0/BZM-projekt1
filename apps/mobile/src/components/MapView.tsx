@@ -21,6 +21,7 @@ export interface MapViewProps {
   style?: StyleProp<ViewStyle>;
   startLocation?: { name?: string; lat: number; lon: number };
   endLocation?: { name?: string; lat: number; lon: number };
+  clickedLocation?: { name?: string; lat: number; lon: number } | null;
   userLocation?: { lat: number; lon: number } | null;
   onMapClick?: (coords: { lat: number; lon: number }) => void;
   isPickingMode?: boolean;
@@ -35,6 +36,7 @@ export function MapView({
   style,
   startLocation,
   endLocation,
+  clickedLocation,
   userLocation,
   onMapClick,
   isPickingMode = false,
@@ -46,26 +48,18 @@ export function MapView({
 
   const pendingUserLocation = useRef(userLocation);
   pendingUserLocation.current = userLocation;
-  const pendingCenter = useRef(center);
-  pendingCenter.current = center;
+  const pendingClickedLocation = useRef(clickedLocation);
+  pendingClickedLocation.current = clickedLocation;
 
-  let defaultLat = 50.0619;
-  let defaultLon = 19.9373;
+  // Fixed initial center so the iframe is never destroyed/reloaded on center or click updates
+  const initialCenterRef = useRef<{ lat: number; lon: number }>({
+    lat: center ? center.lat : (userLocation ? userLocation.lat : (route?.coordinates?.[0]?.[1] ?? 50.0619)),
+    lon: center ? center.lon : (userLocation ? userLocation.lon : (route?.coordinates?.[0]?.[0] ?? 19.9373)),
+  });
 
-  if (center) {
-    defaultLat = center.lat;
-    defaultLon = center.lon;
-  } else if (userLocation) {
-    defaultLat = userLocation.lat;
-    defaultLon = userLocation.lon;
-  } else if (route && route.coordinates.length > 0) {
-    const midIdx = Math.floor(route.coordinates.length / 2);
-    defaultLon = route.coordinates[midIdx]![0];
-    defaultLat = route.coordinates[midIdx]![1];
-  }
 
   // Reliable cross-platform message dispatch to the active Leaflet map
-  const sendToMap = useCallback((msg: { type: string; lat: number; lon: number; zoom?: number }) => {
+  const sendToMap = useCallback((msg: { type: string; lat?: number; lon?: number; zoom?: number }) => {
     if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
       try {
         const win = iframeRef.current.contentWindow as any;
@@ -75,6 +69,14 @@ export function MapView({
         }
         if (msg.type === 'SET_CENTER' && typeof win.setMapCenter === 'function') {
           win.setMapCenter(msg.lat, msg.lon, msg.zoom);
+          return;
+        }
+        if (msg.type === 'SET_CLICKED_LOCATION' && typeof win.updateClickedMarker === 'function') {
+          win.updateClickedMarker(msg.lat, msg.lon);
+          return;
+        }
+        if (msg.type === 'CLEAR_CLICKED_LOCATION' && typeof win.clearClickedMarker === 'function') {
+          win.clearClickedMarker();
           return;
         }
       } catch {
@@ -87,6 +89,12 @@ export function MapView({
         webViewRef.current.injectJavaScript(js);
       } else if (msg.type === 'SET_CENTER') {
         const js = `if (typeof setMapCenter === 'function') { setMapCenter(${msg.lat}, ${msg.lon}, ${msg.zoom || 16}); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'SET_CLICKED_LOCATION') {
+        const js = `if (typeof updateClickedMarker === 'function') { updateClickedMarker(${msg.lat}, ${msg.lon}); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'CLEAR_CLICKED_LOCATION') {
+        const js = `if (typeof clearClickedMarker === 'function') { clearClickedMarker(); } true;`;
         webViewRef.current.injectJavaScript(js);
       }
     }
@@ -101,15 +109,14 @@ export function MapView({
         lon: pendingUserLocation.current.lon,
       });
     }
-    if (pendingCenter.current) {
+    if (pendingClickedLocation.current) {
       sendToMap({
-        type: 'SET_CENTER',
-        lat: pendingCenter.current.lat,
-        lon: pendingCenter.current.lon,
-        zoom,
+        type: 'SET_CLICKED_LOCATION',
+        lat: pendingClickedLocation.current.lat,
+        lon: pendingClickedLocation.current.lon,
       });
     }
-  }, [sendToMap, zoom]);
+  }, [sendToMap]);
 
   // Smooth dynamic user marker update without reloading iframe / WebView
   useEffect(() => {
@@ -120,6 +127,21 @@ export function MapView({
       lon: userLocation.lon,
     });
   }, [userLocation, sendToMap]);
+
+  // Smooth dynamic clicked location pin update without reloading iframe / WebView
+  useEffect(() => {
+    if (clickedLocation) {
+      sendToMap({
+        type: 'SET_CLICKED_LOCATION',
+        lat: clickedLocation.lat,
+        lon: clickedLocation.lon,
+      });
+    } else {
+      sendToMap({
+        type: 'CLEAR_CLICKED_LOCATION',
+      });
+    }
+  }, [clickedLocation, sendToMap]);
 
   // Smooth dynamic centering
   useEffect(() => {
@@ -156,6 +178,12 @@ export function MapView({
   // htmlContent is memoized so it does NOT reload on userLocation updates
   const htmlContent = useMemo(() => {
     const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
+    const surfaceSpans = (route?.surfaceSpans ?? []).map((span) => ({
+      tone: span.tone,
+      coordinates: span.coordinates.map(([lon, lat]) => [lat, lon]),
+    }));
+    const okRouteColor = isHighContrast ? '#42A5F5' : '#005CA9';
+    const otherRouteColor = '#F57C00';
 
     const markersData = findings.map((f, i) => {
       let color = colors.infoBorder;
@@ -286,6 +314,37 @@ export function MapView({
       70% { transform: scale(1.7); opacity: 0; }
       100% { transform: scale(1.7); opacity: 0; }
     }
+    .clicked-location-marker {
+      width: 30px;
+      height: 38px;
+      position: relative;
+      background: transparent !important;
+      border: none !important;
+    }
+    .clicked-pin-icon {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 30px;
+      height: 38px;
+      filter: drop-shadow(0 3px 5px rgba(0,0,0,0.45));
+      z-index: 2;
+      pointer-events: none;
+    }
+    .clicked-pin-pulse {
+      position: absolute;
+      top: 38px;
+      left: 15px;
+      width: 22px;
+      height: 22px;
+      margin-top: -11px;
+      margin-left: -11px;
+      border-radius: 50%;
+      background: rgba(0, 92, 169, 0.4);
+      animation: user-pulse-anim 1.8s infinite ease-out;
+      z-index: 1;
+      pointer-events: none;
+    }
     .leaflet-control-attribution {
       font-size: 9px !important;
       background: rgba(255, 255, 255, 0.85) !important;
@@ -345,7 +404,7 @@ export function MapView({
       }
     }
 
-    var map = L.map('map', mapOptions).setView([${defaultLat}, ${defaultLon}], initialZoom);
+    var map = L.map('map', mapOptions).setView([${initialCenterRef.current.lat}, ${initialCenterRef.current.lon}], initialZoom);
 
     if (isGeoportal && map.options.crs && map.options.crs.code === 'EPSG:2180') {
       var geoportalLayer = L.tileLayer(
@@ -366,10 +425,19 @@ export function MapView({
     }
 
     var routeCoords = ${JSON.stringify(routeGeoJsonCoords)};
+    var surfaceSpans = ${JSON.stringify(surfaceSpans)};
+    var routeLine = null;
     if (routeCoords.length > 0) {
-      var routeLineBg = L.polyline(routeCoords, { color: '#FFFFFF', weight: 8, opacity: 0.95 }).addTo(map);
-      var routeLine = L.polyline(routeCoords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(map);
-      map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+      L.polyline(routeCoords, { color: '#FFFFFF', weight: 8, opacity: 0.95 }).addTo(map);
+      if (surfaceSpans.length > 0) {
+        surfaceSpans.forEach(function(span) {
+          var color = span.tone === 'other' ? '${otherRouteColor}' : '${okRouteColor}';
+          routeLine = L.polyline(span.coordinates, { color: color, weight: 5, opacity: 0.95 }).addTo(map);
+        });
+      } else {
+        routeLine = L.polyline(routeCoords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(map);
+      }
+      map.fitBounds(L.polyline(routeCoords).getBounds(), { padding: [40, 40] });
     }
 
     var startPin = ${JSON.stringify(startPin)};
@@ -439,6 +507,41 @@ export function MapView({
       }
     };
 
+    var clickedMarker = null;
+    var clickedSvgIconHtml = '<div class="clicked-pin-pulse"></div>' +
+      '<div class="clicked-pin-icon">' +
+        '<svg width="30" height="38" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+          '<path d="M12 0C5.37258 0 0 5.37258 0 12C0 19.8 10.8 29.1 11.26 29.5C11.68 29.87 12.32 29.87 12.74 29.5C13.2 29.1 24 19.8 24 12C24 5.37258 18.6274 0 12 0Z" fill="${colors.accent}"/>' +
+          '<circle cx="12" cy="11" r="5.2" fill="#FFFFFF"/>' +
+          '<circle cx="12" cy="11" r="2.8" fill="${colors.accent}"/>' +
+        '</svg>' +
+      '</div>';
+
+    window.updateClickedMarker = function(lat, lon) {
+      if (!map) return;
+      if (clickedMarker) {
+        clickedMarker.setLatLng([lat, lon]);
+      } else {
+        var clickedIcon = L.divIcon({
+          className: 'clicked-location-marker',
+          html: clickedSvgIconHtml,
+          iconSize: [30, 38],
+          iconAnchor: [15, 38]
+        });
+        clickedMarker = L.marker([lat, lon], {
+          icon: clickedIcon,
+          zIndexOffset: 950
+        }).addTo(map);
+      }
+    };
+
+    window.clearClickedMarker = function() {
+      if (clickedMarker && map) {
+        map.removeLayer(clickedMarker);
+        clickedMarker = null;
+      }
+    };
+
     window.setMapCenter = function(lat, lon, zoomLevel) {
       if (!map) return;
       var targetZoom = zoomLevel || map.getZoom() || 16;
@@ -451,6 +554,7 @@ export function MapView({
     };
 
     map.on('click', function(e) {
+      window.updateClickedMarker(e.latlng.lat, e.latlng.lng);
       var msg = JSON.stringify({ type: 'MAP_CLICK', lat: e.latlng.lat, lon: e.latlng.lng });
       if (window.parent && window.parent !== window) {
         window.parent.postMessage(msg, '*');
@@ -472,6 +576,10 @@ export function MapView({
           window.setMapCenter(data.lat, data.lon, data.zoom);
         } else if (data.type === 'SET_USER_LOCATION') {
           window.updateUserMarker(data.lat, data.lon);
+        } else if (data.type === 'SET_CLICKED_LOCATION') {
+          window.updateClickedMarker(data.lat, data.lon);
+        } else if (data.type === 'CLEAR_CLICKED_LOCATION') {
+          window.clearClickedMarker();
         }
       } catch (err) {}
     }
@@ -494,8 +602,6 @@ export function MapView({
     findings,
     startLocation,
     endLocation,
-    defaultLat,
-    defaultLon,
     zoom,
     tileUrl,
     tileAttribution,
@@ -505,6 +611,7 @@ export function MapView({
     colors.warningBorder,
     colors.okBorder,
     colors.unknownBorder,
+    isHighContrast,
     locale,
     isPickingMode,
     isGeoportal,

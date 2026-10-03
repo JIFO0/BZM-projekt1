@@ -1,10 +1,11 @@
 import {
   evaluateSurface,
-  evaluateWidth,
   noBarrierSentenceAllowed,
+  evaluateWidth,
   type BarrierThresholds,
   type FactSource,
   type FactStatus,
+  type RouteSurfaceSpan,
   type Severity,
 } from '@krakow-bez-barier/core';
 import type {
@@ -40,6 +41,50 @@ export function distanceBetween(coord1: [number, number], coord2: [number, numbe
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+function surfaceTone(
+  raw: string | number | null | undefined,
+  thresholds: BarrierThresholds,
+): RouteSurfaceSpan['tone'] {
+  if (raw == null || raw === 'missing' || String(raw).trim() === '') return 'ok';
+  const severity = evaluateSurface(String(raw), thresholds);
+  return severity === 'warning' || severity === 'blocker' ? 'other' : 'ok';
+}
+
+/**
+ * Splits the route geometry on GraphHopper surface intervals.
+ * Unmapped surfaces stay `ok` (drawn blue). A mapped surface outside the
+ * okay list is `other` (drawn orange).
+ */
+export function buildSurfaceSpans(
+  coordinates: [number, number][],
+  surfaceDetails: Array<[number, number, string | number | null]> | undefined,
+  thresholds: BarrierThresholds,
+): RouteSurfaceSpan[] {
+  if (coordinates.length < 2) return [];
+
+  const intervals =
+    surfaceDetails && surfaceDetails.length > 0
+      ? surfaceDetails
+      : ([[0, coordinates.length - 1, null]] as Array<[number, number, string | number | null]>);
+
+  const spans: RouteSurfaceSpan[] = [];
+  for (const [start, end, raw] of intervals) {
+    const from = Math.max(0, start);
+    const to = Math.min(coordinates.length - 1, end);
+    if (to <= from) continue;
+    const slice = coordinates.slice(from, to + 1);
+    if (slice.length < 2) continue;
+    const tone = surfaceTone(raw, thresholds);
+    const previous = spans[spans.length - 1];
+    if (previous && previous.tone === tone) {
+      previous.coordinates.push(...slice.slice(1));
+    } else {
+      spans.push({ coordinates: slice, tone });
+    }
+  }
+  return spans;
 }
 
 function findDetailValue<T>(
@@ -318,6 +363,7 @@ export function mapGraphHopperPathToResult(
       honestyNote,
     },
     source: OSM_SOURCE,
+    surfaceSpans: buildSurfaceSpans(coordinates, details.surface, thresholds),
   };
 }
 

@@ -134,6 +134,26 @@ describe('GraphHopper mapper', () => {
     expect(surfaceBarrier?.message).toContain('Zablokowana nawierzchnia');
   });
 
+  it('splits surface spans into blue-ok and orange-other pieces', () => {
+    const result = mapGraphHopperPathToResult(samplePath, thresholds);
+    expect(result.surfaceSpans).toEqual([
+      {
+        tone: 'ok',
+        coordinates: [
+          [19.936, 50.061],
+          [19.937, 50.062],
+        ],
+      },
+      {
+        tone: 'other',
+        coordinates: [
+          [19.937, 50.062],
+          [19.938, 50.063],
+        ],
+      },
+    ]);
+  });
+
   it('throws an informative error if response has no paths', () => {
     const emptyResponse: GraphHopperResponse = {
       paths: [],

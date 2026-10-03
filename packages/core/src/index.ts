@@ -3,6 +3,7 @@ export * from './city-config';
 export * from './conflicts';
 export * from './coverage';
 export * from './dates';
+export * from './detour';
 export * from './errors';
 export * from './fixtures';
 export * from './geometry';

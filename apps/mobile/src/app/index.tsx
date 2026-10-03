@@ -46,6 +46,7 @@ import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { LocationPicker } from '@/components/LocationPicker';
+import { MapLocationPopup } from '@/components/MapLocationPopup';
 import { MapView } from '@/components/MapView';
 import { t } from '@/i18n/strings';
 import { DEFAULT_PRESET_PLACES, inspectPlace, planAndAnalyzeRoute, reverseGeocodeLocation } from '@/services/api';
@@ -210,6 +211,14 @@ export default function MapHomeScreen() {
   // Interactive map picking target
   const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | null>(null);
 
+  // Clicked map location popup state
+  const [clickedLocation, setClickedLocation] = useState<{
+    lat: number;
+    lon: number;
+    name: string;
+    isLoading?: boolean;
+  } | null>(null);
+
   // Loading & Audio state
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [loadingPlace, setLoadingPlace] = useState(false);
@@ -310,33 +319,69 @@ export default function MapHomeScreen() {
 
   // Interactive Map Click Handler
   const handleMapClick = async (coords: { lat: number; lon: number }) => {
-    if (!pickingTarget) return;
-
     let name = `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`;
+
+    if (pickingTarget) {
+      setClickedLocation(null);
+      try {
+        const rev = await reverseGeocodeLocation(coords.lat, coords.lon, locale);
+        if (rev?.name) name = rev.name;
+      } catch {}
+
+      if (pickingTarget === 'start') {
+        setFromPos(coords);
+        setFromQuery(name);
+        setPickingTarget(null);
+        setStatusMessage(`${t(locale, 'pointA')}: ${name}`);
+        setTimeout(() => setStatusMessage(null), 3000);
+      } else if (pickingTarget === 'end') {
+        setToPos(coords);
+        setToQuery(name);
+        setPickingTarget(null);
+        setStatusMessage(`${t(locale, 'pointB')}: ${name}`);
+        setTimeout(() => setStatusMessage(null), 3000);
+      } else if (pickingTarget === 'place') {
+        setPlacePos(coords);
+        setPlaceQuery(name);
+        setPickingTarget(null);
+        setStatusMessage(`${t(locale, 'placeLabel')}: ${name}`);
+        setTimeout(() => setStatusMessage(null), 3000);
+      }
+      return;
+    }
+
+    // Default map click: show interactive location popup with geocoded info
+    setClickedLocation({
+      lat: coords.lat,
+      lon: coords.lon,
+      name,
+      isLoading: true,
+    });
+
     try {
       const rev = await reverseGeocodeLocation(coords.lat, coords.lon, locale);
-      if (rev?.name) name = rev.name;
-    } catch {}
-
-    if (pickingTarget === 'start') {
-      setFromPos(coords);
-      setFromQuery(name);
-      setPickingTarget(null);
-      setStatusMessage(`${t(locale, 'pointA')}: ${name}`);
-      setTimeout(() => setStatusMessage(null), 3000);
-    } else if (pickingTarget === 'end') {
-      setToPos(coords);
-      setToQuery(name);
-      setPickingTarget(null);
-      setStatusMessage(`${t(locale, 'pointB')}: ${name}`);
-      setTimeout(() => setStatusMessage(null), 3000);
-    } else if (pickingTarget === 'place') {
-      setPlacePos(coords);
-      setPlaceQuery(name);
-      setPickingTarget(null);
-      setStatusMessage(`${t(locale, 'placeLabel')}: ${name}`);
-      setTimeout(() => setStatusMessage(null), 3000);
+      if (rev?.name) {
+        name = rev.name;
+      } else {
+        const preset = DEFAULT_PRESET_PLACES.find((p) => {
+          const dLat = Math.abs(p.position.lat - coords.lat);
+          const dLon = Math.abs(p.position.lon - coords.lon);
+          return dLat < 0.0015 && dLon < 0.0015;
+        });
+        if (preset) {
+          name = preset.name;
+        }
+      }
+    } catch {
+      // keep coordinates as fallback
     }
+
+    setClickedLocation({
+      lat: coords.lat,
+      lon: coords.lon,
+      name,
+      isLoading: false,
+    });
   };
 
   // 2. Plan & Analyze Route
@@ -377,16 +422,26 @@ export default function MapHomeScreen() {
     }
   };
 
-  // 3. Inspect Place
-  const handleInspectPlace = async () => {
+  // 3. Inspect Place (supports optional direct query/position overrides and screen navigation)
+  const handleInspectPlace = async (
+    targetQuery?: string,
+    targetPos?: LonLat,
+    navigateToScreen = false,
+  ) => {
+    const q = targetQuery ?? placeQuery;
+    const pos = targetPos ?? placePos;
     setLoadingPlace(true);
     setStatusMessage(null);
     try {
-      const result = await inspectPlace(placeQuery, placePos, debugState);
+      const result = await inspectPlace(q, pos, debugState);
       setActivePlaceReport(result.report);
-      setPopupExpanded(true);
-      setActiveTab('place');
-      setMapCenter({ lat: placePos.lat, lon: placePos.lon });
+      setMapCenter({ lat: pos.lat, lon: pos.lon });
+      if (navigateToScreen) {
+        router.push('/place');
+      } else {
+        setPopupExpanded(true);
+        setActiveTab('place');
+      }
     } catch (err: any) {
       Alert.alert(t(locale, 'placeErrorTitle'), err.message || t(locale, 'placeErrorMsg'));
     } finally {
@@ -544,6 +599,7 @@ export default function MapHomeScreen() {
           findings={displayedFindings}
           center={mapCenter}
           userLocation={userLocation}
+          clickedLocation={clickedLocation}
           startLocation={{
             name: fromQuery,
             lat:
@@ -686,6 +742,44 @@ export default function MapHomeScreen() {
             <Text style={[styles.statusToastText, { color: colors.text, fontSize: fontSize(12.5) }]}>
               {statusMessage}
             </Text>
+          </View>
+        ) : null}
+
+        {/* Clicked Map Location Interactive Popup */}
+        {clickedLocation ? (
+          <View style={styles.floatingClickedLocationWrapper}>
+            <MapLocationPopup
+              location={clickedLocation}
+              onSearchPlace={() => {
+                const targetPos = { lat: clickedLocation.lat, lon: clickedLocation.lon };
+                const targetName = clickedLocation.name;
+                setPlacePos(targetPos);
+                setPlaceQuery(targetName);
+                setClickedLocation(null);
+                setPopupExpanded(true);
+                setActiveTab('place');
+                handleInspectPlace(targetName, targetPos, false);
+              }}
+              onSetStart={() => {
+                const targetPos = { lat: clickedLocation.lat, lon: clickedLocation.lon };
+                const targetName = clickedLocation.name;
+                setFromPos(targetPos);
+                setFromQuery(targetName);
+                setStatusMessage(`${t(locale, 'pointA')}: ${targetName}`);
+                setClickedLocation(null);
+                setTimeout(() => setStatusMessage(null), 3000);
+              }}
+              onSetEnd={() => {
+                const targetPos = { lat: clickedLocation.lat, lon: clickedLocation.lon };
+                const targetName = clickedLocation.name;
+                setToPos(targetPos);
+                setToQuery(targetName);
+                setStatusMessage(`${t(locale, 'pointB')}: ${targetName}`);
+                setClickedLocation(null);
+                setTimeout(() => setStatusMessage(null), 3000);
+              }}
+              onClose={() => setClickedLocation(null)}
+            />
           </View>
         ) : null}
       </View>
@@ -1258,7 +1352,7 @@ export default function MapHomeScreen() {
                     icon={<Buildings size={16} weight="bold" color={colors.accentText} />}
                     variant="primary"
                     loading={loadingPlace}
-                    onPress={handleInspectPlace}
+                    onPress={() => handleInspectPlace(placeQuery, placePos, false)}
                   />
 
                   {/* Active Inspected Place Card */}
@@ -1850,6 +1944,13 @@ const styles = StyleSheet.create({
     left: 14,
     right: 70,
     zIndex: 18,
+  },
+  floatingClickedLocationWrapper: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    zIndex: 26,
   },
   routePillText: {
     flex: 1,
