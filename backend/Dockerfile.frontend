@@ -2,7 +2,7 @@
 # Production Dockerfile for Expo Web Frontend
 # ==============================================================================
 # Stage 1: Build the static bundle
-FROM node:22-alpine AS builder
+FROM node:26 AS builder
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ COPY cities/ ./cities/
 COPY fixtures/ ./fixtures/
 
 # Install dependencies across workspaces
-RUN npm ci
+RUN npm ci --verbose
 
 # Export static web files for production hosting
 RUN npx expo export -p web apps/mobile
@@ -38,7 +38,7 @@ RUN printf ':80 {\n\
     root * /usr/share/caddy\n\
     file_server\n\
     try_files {path} {path}.html {path}/ /index.html\n\
-}\n' > /etc/caddy/Caddyfile
+    }\n' > /etc/caddy/Caddyfile
 
 EXPOSE 80
 
