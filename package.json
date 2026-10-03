@@ -8,7 +8,10 @@
   ],
   "scripts": {
     "start": "npm run start -w krakow-bez-barier-mobile",
-    "server": "npm run start -w @krakow-bez-barier/cli",
+    "cli": "npm run start -w @krakow-bez-barier/cli --",
+    "server": "npm run server -w @krakow-bez-barier/cli",
+    "datagen": "npm run datagen -w @krakow-bez-barier/cli",
+    "build-snapshot": "npm run build-snapshot -w @krakow-bez-barier/cli",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint -w krakow-bez-barier-mobile",
     "test": "jest --colors=false",

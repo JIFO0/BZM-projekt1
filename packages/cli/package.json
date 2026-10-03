@@ -10,6 +10,9 @@
   },
   "scripts": {
     "start": "node ./src/index.ts",
+    "server": "node ./src/index.ts server",
+    "datagen": "node ./src/index.ts datagen",
+    "build-snapshot": "node ./src/index.ts datagen",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
