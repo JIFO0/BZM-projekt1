@@ -3,7 +3,6 @@ import {
   type RouteFinding,
 } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import {
   Alert,
@@ -24,8 +23,6 @@ import {
   Ruler,
   ChartLineUp,
   Info,
-  SpeakerHigh,
-  Stop,
   ShareNetwork,
   NotePencil,
   MapTrifold,
@@ -58,14 +55,13 @@ export default function RouteScreen() {
   } = useSession();
 
   const [showMap, setShowMap] = useState(true);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [debugVisible, setDebugVisible] = useState(false);
 
   if (!activeRouteReport) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false, title: t(locale, 'routeReportTitle') }} />
-        <KrakowHeader onOpenDemo={() => setDebugVisible(true)} />
+        <KrakowHeader />
         <View style={styles.emptyContainer}>
           <GovCard variant="warning">
             <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
@@ -122,19 +118,7 @@ export default function RouteScreen() {
     return narrative;
   };
 
-  const handleSpeechToggle = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-    } else {
-      setIsSpeaking(true);
-      Speech.speak(generateNarrative(), {
-        language: locale === 'pl' ? 'pl-PL' : 'en-US',
-        onDone: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false),
-      });
-    }
-  };
+
 
   const handleShare = async () => {
     try {
@@ -151,11 +135,7 @@ export default function RouteScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'routeReportTitle') }} />
 
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleSpeechToggle}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner isSample={report.isSample} />
 
@@ -369,29 +349,13 @@ export default function RouteScreen() {
             </View>
           )}
 
-          {/* Audio & Share buttons */}
-          <View style={styles.actionRow}>
-            <GovButton
-              title={isSpeaking ? t(locale, 'stopSpeech') : t(locale, 'readAloud')}
-              icon={
-                isSpeaking ? (
-                  <Stop size={18} color="#fff" weight="bold" />
-                ) : (
-                  <SpeakerHigh size={18} color="#fff" weight="bold" />
-                )
-              }
-              variant={isSpeaking ? 'danger' : 'primary'}
-              onPress={handleSpeechToggle}
-              style={{ flex: 1 }}
-            />
-            <GovButton
-              title={t(locale, 'shareSummary')}
-              icon={<ShareNetwork size={18} color={colors.text} weight="bold" />}
-              variant="outline"
-              onPress={handleShare}
-              style={{ flex: 1 }}
-            />
-          </View>
+          {/* Share button */}
+          <GovButton
+            title={t(locale, 'shareSummary')}
+            icon={<ShareNetwork size={18} color={colors.text} weight="bold" />}
+            variant="outline"
+            onPress={handleShare}
+          />
 
           <GovButton
             title={t(locale, 'reportCorrection')}

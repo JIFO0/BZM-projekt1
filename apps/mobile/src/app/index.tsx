@@ -4,7 +4,6 @@ import {
   type ProfileId,
 } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import {
   ArrowRight,
   Buildings,
@@ -138,7 +137,6 @@ export default function MapHomeScreen() {
   const [loadingPlace, setLoadingPlace] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const blockedList =
     activeThresholds?.blockedRoadTypes ?? activeThresholds?.blockedSurfaces ?? [];
@@ -297,33 +295,6 @@ export default function MapHomeScreen() {
     setTimeout(() => setReportSuccess(false), 3500);
   };
 
-  // Screen Reader Narrative
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    let narrative = `${t(locale, 'appName')}. Mapa dostępności Krakowa w stylu map mobilnych. Aktualny profil poruszania: ${getProfileLabel(
-      profileId,
-    )}. `;
-    if (activeWalkingRoute && activeRouteReport) {
-      narrative += `Aktywna trasa z ${fromQuery} do ${toQuery} o długości ${activeRouteReport.lengthMetres} metrów. `;
-      const blockers = activeRouteReport.findings.filter((f) => f.severity === 'blocker');
-      const warnings = activeRouteReport.findings.filter((f) => f.severity === 'warning');
-      narrative += `Wykryto ${blockers.length} blokad oraz ${warnings.length} ostrzeżeń. `;
-    } else {
-      narrative += 'Brak aktywnej trasy. Użyj dolnego menu wyszukiwania, aby wyznaczyć trasę lub sprawdzić obiekt.';
-    }
-
-    setIsSpeaking(true);
-    Speech.speak(narrative, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
-
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background }]}
@@ -332,11 +303,7 @@ export default function MapHomeScreen() {
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'appName') }} />
 
       {/* 1. TOP HEADER (Google / Apple Maps Style Floating Top Bar) */}
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner />
 
