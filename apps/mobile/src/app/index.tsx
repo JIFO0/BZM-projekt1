@@ -7,7 +7,6 @@ import { router, Stack } from 'expo-router';
 import * as Speech from 'expo-speech';
 import {
   ArrowRight,
-  Baby,
   Buildings,
   CaretDown,
   CaretUp,
@@ -148,8 +147,6 @@ export default function MapHomeScreen() {
     switch (id) {
       case 'wheelchair':
         return <Wheelchair size={size} weight="bold" color={colors.accent} />;
-      case 'stroller':
-        return <Baby size={size} weight="bold" color={colors.accent} />;
       case 'custom':
       default:
         return <SlidersHorizontal size={size} weight="bold" color={colors.accent} />;
@@ -160,8 +157,6 @@ export default function MapHomeScreen() {
     switch (id) {
       case 'wheelchair':
         return t(locale, 'wheelchair');
-      case 'stroller':
-        return t(locale, 'stroller');
       case 'custom':
       default:
         return t(locale, 'custom');
@@ -944,7 +939,7 @@ export default function MapHomeScreen() {
 
                   {/* Profile Cards */}
                   <View style={styles.profilesGrid}>
-                    {(['wheelchair', 'stroller', 'custom'] as ProfileId[]).map((pid) => {
+                    {(['wheelchair', 'custom'] as ProfileId[]).map((pid) => {
                       const selected = profileId === pid;
                       return (
                         <Pressable

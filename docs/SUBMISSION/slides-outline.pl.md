@@ -19,7 +19,7 @@ Plan prezentacji przygotowany na finał HackYeah 2026 w kategorii *Cracow Withou
 ---
 
 ### Slajd 3: Profile i Poszanowanie Godności (Pomysł 30%)
-- **Zero pytań o niepełnosprawność:** Użytkownik wybiera progi parametrów fizycznych (Wózek: schody = blokada, krawężnik ≤ 30 mm; Wózek dziecięcy: schody = ostrzeżenie, krawężnik ≤ 60 mm; Profil własny).
+- **Zero pytań o niepełnosprawność:** Użytkownik wybiera progi parametrów fizycznych (Wózek: schody = blokada, krawężnik ≤ 30 mm, omijanie kocich łbów i piasku; Profil własny: brak domyślnie blokowanych nawierzchni, indywidualne suwaki progów).
 - **Całkowita prywatność:** Brak rejestracji, brak kont, brak przechowywania danych w chmurze – 100% lokalnie na urządzeniu.
 
 ---
