@@ -19,7 +19,6 @@ config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
-config.resolver.disableHierarchicalLookup = true;
 
 // Exclude backend directory and graphhopper data cache from Metro bundler
 const backendPattern = new RegExp(
