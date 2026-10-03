@@ -6,16 +6,19 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "bin": {
-    "krakow-cli": "./src/index.ts"
+    "krakow-cli": "./src/cli.ts"
   },
   "scripts": {
-    "start": "node ./src/index.ts",
-    "server": "node ./src/index.ts server",
-    "datagen": "node ./src/index.ts datagen",
-    "build-snapshot": "node ./src/index.ts datagen",
+    "start": "tsx ./src/cli.ts",
+    "server": "tsx ./src/cli.ts server",
+    "datagen": "tsx ./src/cli.ts datagen",
+    "build-snapshot": "tsx ./src/cli.ts datagen",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@krakow-bez-barier/core": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }
