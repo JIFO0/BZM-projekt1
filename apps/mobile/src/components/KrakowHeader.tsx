@@ -7,7 +7,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Globe, SpeakerHigh, Stop, Wheelchair, Wrench } from 'phosphor-react-native';
+import { Globe, PersonArmsSpread, SpeakerHigh, Stop, Wrench } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
 import { t } from '@/i18n/strings';
@@ -22,10 +22,10 @@ export interface KrakowHeaderProps {
 }
 
 /**
- * KrakowHeader - Oficjalny nagłówek miejski Krakowa
+ * KrakowHeader - Nagłówek aplikacji Krakowa
  * W wersji mobilnej (ekrany < 768px):
  *   - Rząd górny: Herb Krakowa + poziomy tytuł "Kraków bez barier" + plakietka WCAG AAA
- *   - Rząd dolny: Przewijany poziomo pasek przycisków funkcyjnych (Ułatwienia, Język, Lektor, Demo)
+ *   - Rząd dolny: Przewijany poziomo pasek przycisków funkcyjnych
  * W wersji desktopowej: Pełny pasek miejski z herbem, tytułem i przyciskami w jednym rzędzie.
  */
 export function KrakowHeader({
@@ -68,8 +68,8 @@ export function KrakowHeader({
           },
         ]}
       >
-        <Wheelchair
-          size={17}
+        <PersonArmsSpread
+          size={18}
           weight="bold"
           color={isHighContrast ? colors.accentText : '#FFFFFF'}
         />
@@ -290,64 +290,13 @@ export function KrakowHeader({
   // Pełna wersja instytucjonalna (na ekrany desktopowe i szerokie tablety)
   return (
     <View style={styles.container}>
-      {/* 1. Official Municipal Gov Strip */}
-      <View
-        style={[
-          styles.govStrip,
-          {
-            backgroundColor: isHighContrast ? colors.background : colors.govBarBg,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <View style={styles.govStripLeft}>
-          <View style={styles.flagSymbol}>
-            <View style={styles.flagWhite} />
-            <View style={styles.flagBlue} />
-          </View>
-          <Text
-            style={[
-              styles.govStripText,
-              {
-                color: colors.govBarText,
-                fontSize: fontSize(11),
-              },
-            ]}
-          >
-            OFICJALNY PROTOTYP MIEJSKI • MIASTO KRAKÓW
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.wcagTag,
-            {
-              backgroundColor: isHighContrast ? colors.surface : 'rgba(255,255,255,0.15)',
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.wcagTagText,
-              {
-                color: colors.govBarText,
-                fontSize: fontSize(10),
-              },
-            ]}
-          >
-            WCAG 2.2 AAA
-          </Text>
-        </View>
-      </View>
-
-      {/* 2. Main Institutional Bar */}
+      {/* Main Institutional Bar */}
       <View
         style={[
           styles.mainBar,
           {
             backgroundColor: isHighContrast ? colors.surface : colors.headerBg,
-            borderColor: colors.border,
+            borderBottomColor: colors.border,
           },
         ]}
       >
@@ -450,40 +399,6 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
   },
-  govStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    gap: 8,
-  },
-  govStripLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  flagSymbol: {
-    width: 14,
-    height: 10,
-    borderWidth: 0.5,
-    borderColor: '#FFFFFF',
-    overflow: 'hidden',
-  },
-  flagWhite: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  flagBlue: {
-    flex: 1,
-    backgroundColor: '#005CA9',
-  },
-  govStripText: {
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
   wcagTag: {
     paddingHorizontal: 7,
     paddingVertical: 2,
@@ -500,6 +415,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 10,
+    borderBottomWidth: 1,
     gap: 12,
   },
   titleArea: {
