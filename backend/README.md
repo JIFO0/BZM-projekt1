@@ -51,6 +51,11 @@ curl http://hopper.accessible.krakow.local/health
 # Odpowiedź: {"status":"clean"}
 ```
 
+#### Temporary solution (because the forntend is commented-out due to AWFUL build times):
+```bash
+npm install; npm run verify; cd backend; docker compose up -d --build; cd ..; npm start
+```
+
 ---
 
 ## 3. Przełączenie na produkcję (Domena `.pl` i HTTPS)
