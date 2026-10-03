@@ -316,6 +316,7 @@ export function MapView({
       width: 32px !important;
       height: 32px !important;
       box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+      z-index: 10000 !important;
     }
     .endpoint-marker.start {
       background-color: #22C55E;
@@ -602,7 +603,7 @@ export function MapView({
       });
       var startPopupLabel = ${JSON.stringify(t(locale, 'from') || 'Start')};
       var startFallback = ${JSON.stringify(locale === 'pl' ? 'Początek trasy' : locale === 'uk' ? 'Початок маршруту' : 'Start')};
-      L.marker([startPin.lat, startPin.lon], { icon: startIcon }).addTo(map)
+      L.marker([startPin.lat, startPin.lon], { icon: startIcon, zIndexOffset: 10000 }).addTo(map)
         .bindPopup('<b>' + startPopupLabel + ':</b> ' + (startPin.name || startFallback));
     }
 
@@ -616,7 +617,7 @@ export function MapView({
       });
       var endPopupLabel = ${JSON.stringify(t(locale, 'to') || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'))};
       var endFallback = ${JSON.stringify(locale === 'pl' ? 'Koniec trasy' : locale === 'uk' ? 'Кінець маршруту' : 'Destination')};
-      L.marker([endPin.lat, endPin.lon], { icon: endIcon }).addTo(map)
+      L.marker([endPin.lat, endPin.lon], { icon: endIcon, zIndexOffset: 10000 }).addTo(map)
         .bindPopup('<b>' + endPopupLabel + ':</b> ' + (endPin.name || endFallback));
     }
 
