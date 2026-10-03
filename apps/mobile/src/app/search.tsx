@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,12 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Footprints,
   Buildings,
-  MapPin,
   MagnifyingGlass,
   Warning,
   Lightning,
   Clock,
   Target,
+  ArrowsDownUp,
 } from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
@@ -28,6 +27,7 @@ import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
+import { LocationPicker } from '@/components/LocationPicker';
 import { t } from '@/i18n/strings';
 import { inspectPlace, planAndAnalyzeRoute } from '@/services/api';
 import { useSession } from '@/state/session';
@@ -65,6 +65,15 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
+
+  const handleSwapPoints = () => {
+    const prevFromQuery = fromQuery;
+    const prevFromPos = fromPos;
+    setFromQuery(toQuery);
+    setFromPos(toPos);
+    setToQuery(prevFromQuery);
+    setToPos(prevFromPos);
+  };
 
   const handleUseMyLocation = async () => {
     const result = await fetchUserLocation();
@@ -264,76 +273,54 @@ export default function SearchScreen() {
           <GovCard variant="default">
             <View style={styles.formSection}>
               {/* Point A */}
-              <View style={styles.field}>
-                <View style={styles.fieldHeader}>
-                  <Text style={[styles.label, { color: colors.text, fontSize: fontSize(15) }]}>
-                    {t(locale, 'from')}
-                  </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(locale, 'myLocation')}
-                    onPress={handleUseMyLocation}
-                    style={styles.locationBtn}
-                  >
-                    <View style={styles.inlineRow}>
-                      <MapPin size={15} color={colors.accent} weight="bold" />
-                      <Text
-                        style={[
-                          styles.linkText,
-                          {
-                            color: colors.accent,
-                            fontSize: fontSize(13),
-                            textDecorationLine: highlightLinks ? 'underline' : 'none',
-                          },
-                        ]}
-                      >
-                        {t(locale, 'myLocation')}
-                      </Text>
-                    </View>
-                  </Pressable>
-                </View>
-                <TextInput
-                  value={fromQuery}
-                  onChangeText={setFromQuery}
-                  placeholder={t(locale, 'fromPlaceholder')}
-                  placeholderTextColor={colors.muted}
+              <LocationPicker
+                label={t(locale, 'from')}
+                badge="A"
+                badgeColor="#005CA9"
+                point={{ name: fromQuery, position: fromPos }}
+                onChangePoint={(p) => {
+                  setFromQuery(p.name);
+                  setFromPos(p.position);
+                }}
+                placeholder={t(locale, 'fromPlaceholder')}
+                showMyLocation
+                onUseMyLocation={handleUseMyLocation}
+              />
+
+              {/* Swap Button */}
+              <View style={styles.swapBtnRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(locale, 'swapPoints')}
+                  onPress={handleSwapPoints}
                   style={[
-                    styles.input,
+                    styles.swapBtn,
                     {
-                      color: colors.text,
-                      borderColor: colors.border,
                       backgroundColor: colors.background,
-                      minHeight: increasedSpacing ? 56 : spacing.touch,
-                      fontSize: fontSize(15),
-                      borderWidth: isHighContrast ? 2.5 : 1.5,
+                      borderColor: colors.border,
+                      borderWidth: isHighContrast ? 2 : 1,
                     },
                   ]}
-                />
+                >
+                  <ArrowsDownUp size={15} weight="bold" color={colors.accent} />
+                  <Text style={[styles.swapBtnText, { color: colors.accent, fontSize: fontSize(12) }]}>
+                    {t(locale, 'swapPoints')}
+                  </Text>
+                </Pressable>
               </View>
 
               {/* Point B */}
-              <View style={styles.field}>
-                <Text style={[styles.label, { color: colors.text, fontSize: fontSize(15) }]}>
-                  {t(locale, 'to')}
-                </Text>
-                <TextInput
-                  value={toQuery}
-                  onChangeText={setToQuery}
-                  placeholder={t(locale, 'toPlaceholder')}
-                  placeholderTextColor={colors.muted}
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      borderColor: colors.border,
-                      backgroundColor: colors.background,
-                      minHeight: increasedSpacing ? 56 : spacing.touch,
-                      fontSize: fontSize(15),
-                      borderWidth: isHighContrast ? 2.5 : 1.5,
-                    },
-                  ]}
-                />
-              </View>
+              <LocationPicker
+                label={t(locale, 'to')}
+                badge="B"
+                badgeColor="#D32F2F"
+                point={{ name: toQuery, position: toPos }}
+                onChangePoint={(p) => {
+                  setToQuery(p.name);
+                  setToPos(p.position);
+                }}
+                placeholder={t(locale, 'toPlaceholder')}
+              />
 
               <GovButton
                 title={t(locale, 'searchButton')}
@@ -347,28 +334,15 @@ export default function SearchScreen() {
         ) : (
           <GovCard variant="default">
             <View style={styles.formSection}>
-              <View style={styles.field}>
-                <Text style={[styles.label, { color: colors.text, fontSize: fontSize(15) }]}>
-                  {t(locale, 'placeLabel')}
-                </Text>
-                <TextInput
-                  value={placeQuery}
-                  onChangeText={setPlaceQuery}
-                  placeholder={t(locale, 'placePlaceholder')}
-                  placeholderTextColor={colors.muted}
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      borderColor: colors.border,
-                      backgroundColor: colors.background,
-                      minHeight: increasedSpacing ? 56 : spacing.touch,
-                      fontSize: fontSize(15),
-                      borderWidth: isHighContrast ? 2.5 : 1.5,
-                    },
-                  ]}
-                />
-              </View>
+              <LocationPicker
+                label={t(locale, 'placeLabel')}
+                point={{ name: placeQuery, position: placePos }}
+                onChangePoint={(p) => {
+                  setPlaceQuery(p.name);
+                  setPlacePos(p.position);
+                }}
+                placeholder={t(locale, 'placePlaceholder')}
+              />
 
               <GovButton
                 title={t(locale, 'searchPlaceButton')}
@@ -527,5 +501,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  swapBtnRow: {
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  swapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  swapBtnText: {
+    fontWeight: '700',
   },
 });

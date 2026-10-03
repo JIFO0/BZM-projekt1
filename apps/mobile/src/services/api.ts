@@ -4,6 +4,7 @@ import {
   analyzePlace,
   analyzeRoute,
   DEMO_SNAPSHOT,
+  parseCoordinates,
   type AccessibilityBundle,
   type BarrierThresholds,
   type Fact,
@@ -18,7 +19,9 @@ import {
   GraphHopperRoutingProvider,
   MapyGeocodingProvider,
   MapyRoutingProvider,
+  OsmNominatimGeocodingProvider,
   OsmOverpassProvider,
+  OsmRoutingProvider,
 } from '@krakow-bez-barier/sources';
 
 function getMapyApiKey(): string {
@@ -43,6 +46,11 @@ const osmOverpass = new OsmOverpassProvider({
   stalenessMonths: city.stalenessMonths,
   timeoutMs: 4000,
 });
+const osmNominatim = new OsmNominatimGeocodingProvider({
+  userAgent: city.overpass.userAgent,
+});
+const osmRouting = new OsmRoutingProvider();
+
 
 export interface PlanRouteParams {
   start: { name: string; position: LonLat };
@@ -97,18 +105,49 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
         });
         routed = true;
       } catch {
-        // Fall back to sample below
+        // Fall back to OSM routing below
       }
     }
 
-    // 3. Graceful fallback on API error (R12)
+    // 3. Fall back to OpenStreetMap (OSRM foot router)
+    if (!routed && !debugState.simulateMapyDown) {
+      try {
+        walkingRoute = await osmRouting.route({
+          start: start.position,
+          end: end.position,
+          profileId,
+          thresholds: params.thresholds,
+        });
+        routed = true;
+        fallbackNotice = 'Trasa wyznaczona na podstawie danych OpenStreetMap.';
+      } catch {
+        // Fall back below
+      }
+    }
+
+    // 4. Graceful fallback on API error (R12)
     if (!routed) {
-      const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
-      walkingRoute = sampleRoute.walkingRoute;
-      isSample = true;
-      fallbackNotice = debugState.simulateMapyDown
-        ? 'Symulacja awarii Mapy.com API (HTTP 429). Załadowano trasę z lokalnego snapshotu demo.'
-        : 'Zewnętrzny routing niedostępny. Załadowano trasę zapasową z pamięci urządzenia.';
+      const isCustom =
+        Math.abs(start.position.lat - DEMO_SNAPSHOT.routes[0]!.start.position.lat) > 0.0005 ||
+        Math.abs(start.position.lon - DEMO_SNAPSHOT.routes[0]!.start.position.lon) > 0.0005 ||
+        Math.abs(end.position.lat - DEMO_SNAPSHOT.routes[0]!.end.position.lat) > 0.0005 ||
+        Math.abs(end.position.lon - DEMO_SNAPSHOT.routes[0]!.end.position.lon) > 0.0005;
+
+      if (isCustom) {
+        walkingRoute = await osmRouting.route({
+          start: start.position,
+          end: end.position,
+          profileId,
+        });
+        fallbackNotice = 'Trasa bezpośrednia (połączenie punktów A i B na mapie).';
+      } else {
+        const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
+        walkingRoute = sampleRoute.walkingRoute;
+        isSample = true;
+        fallbackNotice = debugState.simulateMapyDown
+          ? 'Symulacja awarii Mapy.com API (HTTP 429). Załadowano trasę z lokalnego snapshotu demo.'
+          : 'Zewnętrzny routing niedostępny. Załadowano trasę zapasową z pamięci urządzenia.';
+      }
     }
   }
 
@@ -227,52 +266,116 @@ export async function inspectPlace(
   }
 }
 
-export async function suggestPlaces(query: string, lang: 'pl' | 'en'): Promise<PlaceHit[]> {
-  if (!query.trim() || !hasValidMapyKey()) {
-    // Default demo locations
+const DEFAULT_DEMO_LOCATIONS: PlaceHit[] = [
+  {
+    id: 'sug-1',
+    name: 'Rynek Główny',
+    label: 'Rynek Główny, Kraków',
+    position: { lon: 19.9373, lat: 50.0619 },
+    kind: 'poi',
+  },
+  {
+    id: 'sug-2',
+    name: 'Zamek Królewski na Wawelu',
+    label: 'Wawel 5, Kraków',
+    position: { lon: 19.9354, lat: 50.0544 },
+    kind: 'poi',
+  },
+  {
+    id: 'sug-3',
+    name: 'Plac Nowy (Kazimierz)',
+    label: 'Plac Nowy, Kraków',
+    position: { lon: 19.9449, lat: 50.0519 },
+    kind: 'poi',
+  },
+  {
+    id: 'sug-4',
+    name: 'Sukiennice',
+    label: 'Rynek Główny 1/3, Kraków',
+    position: { lon: 19.9373, lat: 50.0619 },
+    kind: 'poi',
+  },
+  {
+    id: 'sug-5',
+    name: 'Planty (Poczta Główna)',
+    label: 'ul. Westerplatte / Wielopole, Kraków',
+    position: { lon: 19.9423, lat: 50.0592 },
+    kind: 'poi',
+  },
+  {
+    id: 'sug-6',
+    name: 'Dworzec Główny PKP',
+    label: 'Plac Jana Nowaka-Jeziorańskiego 3, Kraków',
+    position: { lon: 19.9482, lat: 50.0664 },
+    kind: 'station',
+  },
+];
+
+export async function suggestPlaces(
+  query: string,
+  lang: 'pl' | 'en' | 'uk' = 'pl',
+): Promise<PlaceHit[]> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return DEFAULT_DEMO_LOCATIONS;
+  }
+
+  // 1. Direct coordinate check (lat, lon or lon, lat)
+  const coords = parseCoordinates(trimmed);
+  if (coords) {
     return [
       {
-        id: 'sug-1',
-        name: 'Rynek Główny',
-        label: 'Rynek Główny, Kraków',
-        position: { lon: 19.9373, lat: 50.0619 },
-        kind: 'poi',
-      },
-      {
-        id: 'sug-2',
-        name: 'Zamek Królewski na Wawelu',
-        label: 'Wawel 5, Kraków',
-        position: { lon: 19.9354, lat: 50.0544 },
-        kind: 'poi',
-      },
-      {
-        id: 'sug-3',
-        name: 'Plac Nowy (Kazimierz)',
-        label: 'Plac Nowy, Kraków',
-        position: { lon: 19.9449, lat: 50.0519 },
-        kind: 'poi',
-      },
-      {
-        id: 'sug-4',
-        name: 'Sukiennice',
-        label: 'Rynek Główny 1/3, Kraków',
-        position: { lon: 19.9373, lat: 50.0619 },
-        kind: 'poi',
-      },
-      {
-        id: 'sug-5',
-        name: 'Planty (Poczta Główna)',
-        label: 'ul. Westerplatte / Wielopole, Kraków',
-        position: { lon: 19.9423, lat: 50.0592 },
-        kind: 'poi',
+        id: `coord-${coords.lat.toFixed(5)}-${coords.lon.toFixed(5)}`,
+        name: `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`,
+        label: `Współrzędne GPS: ${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`,
+        position: coords,
+        kind: 'coordinate',
       },
     ];
   }
 
+  // 2. OpenStreetMap Nominatim geocoder
   try {
-    const mapyGeocode = new MapyGeocodingProvider({ apiKey: getMapyApiKey() });
-    return await mapyGeocode.suggest(query, lang);
+    const osmHits = await osmNominatim.suggest(trimmed, lang);
+    if (osmHits.length > 0) {
+      return osmHits;
+    }
   } catch {
-    return [];
+    // Continue to fallback
+  }
+
+  // 3. Fall back to Mapy.com if API key is present
+  if (hasValidMapyKey()) {
+    try {
+      const mapyGeocode = new MapyGeocodingProvider({ apiKey: getMapyApiKey() });
+      const mapyHits = await mapyGeocode.suggest(trimmed, lang === 'uk' ? 'pl' : lang);
+      if (mapyHits.length > 0) {
+        return mapyHits;
+      }
+    } catch {
+      // Continue to local filter
+    }
+  }
+
+  // 4. Local fallback filter for demo locations
+  const qLower = trimmed.toLowerCase();
+  const matched = DEFAULT_DEMO_LOCATIONS.filter(
+    (loc) =>
+      loc.name.toLowerCase().includes(qLower) ||
+      loc.label.toLowerCase().includes(qLower),
+  );
+  return matched;
+}
+
+export async function reverseGeocodeLocation(
+  lat: number,
+  lon: number,
+  lang: 'pl' | 'en' | 'uk' = 'pl',
+): Promise<PlaceHit | null> {
+  try {
+    return await osmNominatim.reverseGeocode(lat, lon, lang);
+  } catch {
+    return null;
   }
 }
+
