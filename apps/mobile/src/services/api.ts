@@ -15,6 +15,7 @@ import {
   type WalkingRoute,
 } from '@krakow-bez-barier/core';
 import {
+  GraphHopperRoutingProvider,
   MapyGeocodingProvider,
   MapyRoutingProvider,
   OsmOverpassProvider,
@@ -23,6 +24,9 @@ import {
 const MAPY_API_KEY = process.env.EXPO_PUBLIC_MAPY_API_KEY || '';
 
 // Initialize providers
+const graphhopperRouting = new GraphHopperRoutingProvider({
+  apiBase: process.env.EXPO_PUBLIC_GRAPHHOPPER_URL || 'http://localhost:8989',
+});
 const mapyRouting = new MapyRoutingProvider({ apiKey: MAPY_API_KEY });
 const mapyGeocode = new MapyGeocodingProvider({ apiKey: MAPY_API_KEY });
 const osmOverpass = new OsmOverpassProvider({
@@ -66,21 +70,32 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
       ? 'Symulacja awarii Mapy.com API (HTTP 429). Załadowano trasę z lokalnego snapshotu demo.'
       : 'Użyto trasy demonstracyjnej ze snapshotu (brak klucza API lub tryb offline).';
   } else {
+    // 1. Try self-hosted GraphHopper first (applies dynamic barrier weights)
     try {
-      walkingRoute = await mapyRouting.route({
+      walkingRoute = await graphhopperRouting.route({
         start: start.position,
         end: end.position,
         profileId,
       });
-    } catch (err) {
-      // Graceful fallback on API error (R12)
-      const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
-      walkingRoute = sampleRoute.walkingRoute;
-      isSample = true;
-      fallbackNotice =
-        err instanceof SourceFailure
-          ? `Błąd Mapy.com (${err.kind}). Załadowano trasę zapasową z pamięci urządzenia.`
-          : 'Błąd połączenia z Mapy.com. Załadowano trasę zapasową.';
+      fallbackNotice = 'Trasa zoptymalizowana przez silnik GraphHopper (dynamiczne wagi barier).';
+    } catch {
+      // 2. Fall back to Mapy.com if GraphHopper is offline
+      try {
+        walkingRoute = await mapyRouting.route({
+          start: start.position,
+          end: end.position,
+          profileId,
+        });
+      } catch (err) {
+        // 3. Graceful fallback on API error (R12)
+        const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
+        walkingRoute = sampleRoute.walkingRoute;
+        isSample = true;
+        fallbackNotice =
+          err instanceof SourceFailure
+            ? `Błąd Mapy.com (${err.kind}). Załadowano trasę zapasową z pamięci urządzenia.`
+            : 'Błąd połączenia z silnikiem routingu. Załadowano trasę zapasową.';
+      }
     }
   }
 

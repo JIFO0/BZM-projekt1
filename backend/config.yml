@@ -1,0 +1,37 @@
+graphhopper:
+  datareader.file: ""
+  graph.location: /data/graph-cache
+  import.osm.ignored_highways: ''
+
+  # Wymagane zakodowane wartości w GraphHopper:
+  # surface, smoothness, max_width (obsługuje width i max_width), footway, road_class (schody/steps)
+  # oraz atrybuty profilu pieszego:
+  graph.encoded_values: >
+    foot_access, foot_average_speed, foot_priority, foot_road_access,
+    surface, smoothness, max_width, footway, road_class,
+    hike_rating, mtb_rating, road_environment, ferry_speed
+
+  profiles:
+    - name: foot
+      custom_model_files: [foot.json]
+
+  # Dynamiczne wagi (Custom Models) wymagają elastycznego routingu bez sztywnego CH
+  profiles_ch: []
+  profiles_lm: []
+
+server:
+  application_connectors:
+    - type: http
+      port: 8989
+      max_request_header_size: 50k
+  admin_connectors:
+    - type: http
+      port: 8990
+  request_log:
+    appenders: []
+
+logging:
+  appenders:
+    - type: console
+      time_zone: UTC
+      log_format: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

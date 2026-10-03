@@ -1,0 +1,20 @@
+services:
+  graphhopper:
+    image: israelhikingmap/graphhopper:latest
+    container_name: krakow-graphhopper
+    restart: unless-stopped
+    ports:
+      - "8989:8989"
+    environment:
+      - JAVA_OPTS=-Xmx2g -Xms1g
+    volumes:
+      - ./config.yml:/config.yml:ro
+      - ./entrypoint.sh:/entrypoint.sh:ro
+      - ./data:/data
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8989/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
