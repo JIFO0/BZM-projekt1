@@ -305,7 +305,7 @@ export function KrakowCardModal() {
                 {/* Logout Button */}
                 <GovButton
                   title={t(locale, 'krakowCardLogout')}
-                  icon={<SignOut size={18} color={colors.warnText} weight="bold" />}
+                  icon={<SignOut size={18} color={colors.warningText} weight="bold" />}
                   variant="outline"
                   onPress={handleLogout}
                 />
