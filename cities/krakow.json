@@ -1,0 +1,62 @@
+{
+  "id": "krakow",
+  "displayName": "Kraków",
+  "defaultLanguage": "pl",
+  "languages": ["pl", "en"],
+  "teamId": null,
+  "demoArea": {
+    "label": "Rynek Główny – Kazimierz – Wawel – Planty",
+    "provisional": true
+  },
+  "bbox": {
+    "minLon": 19.792,
+    "minLat": 49.967,
+    "maxLon": 20.217,
+    "maxLat": 50.126,
+    "note": "Working approximation for queries. Not an official UMK boundary."
+  },
+  "stalenessMonths": 24,
+  "corridorMeters": 18,
+  "placeMatchMaxMetres": 40,
+  "minCoverageForNoBarrierWording": 0.8,
+  "adapters": {
+    "routing": "mapy",
+    "geocoding": "mapy",
+    "accessibility": "osm-overpass",
+    "tiles": "mapy"
+  },
+  "profiles": {
+    "wheelchair": {
+      "maxKerbMillimetres": 30,
+      "minWidthMetres": 0.9,
+      "maxInclinePercent": 6,
+      "stepsAreBlocker": true,
+      "allowedSurfaces": ["asphalt", "concrete", "paving_stones", "compacted"]
+    },
+    "stroller": {
+      "maxKerbMillimetres": 60,
+      "minWidthMetres": 0.75,
+      "maxInclinePercent": 8,
+      "stepsAreBlocker": false,
+      "allowedSurfaces": ["asphalt", "concrete", "paving_stones", "compacted", "fine_gravel"]
+    },
+    "custom": {
+      "maxKerbMillimetres": 30,
+      "minWidthMetres": 0.9,
+      "maxInclinePercent": 6,
+      "stepsAreBlocker": true,
+      "allowedSurfaces": ["asphalt", "concrete", "paving_stones", "compacted"]
+    }
+  },
+  "overpass": {
+    "endpoint": "https://overpass-api.de/api/interpreter",
+    "userAgent": "KrakowBezBarier/0.1 (HackYeah 2026 prototype)"
+  },
+  "mapy": {
+    "apiBase": "https://api.mapy.com",
+    "routeType": "foot_fast",
+    "geometryFormat": "geojson",
+    "language": "pl",
+    "tileMapset": "basic"
+  }
+}

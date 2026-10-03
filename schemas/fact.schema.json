@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://krakow-bez-barier.local/schemas/fact.schema.json",
+  "title": "Fact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "subject",
+    "criterion",
+    "value",
+    "status",
+    "source",
+    "retrievedAt"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "ref", "lat", "lon"],
+      "properties": {
+        "type": {
+          "enum": ["place", "segment", "crossing", "entrance"]
+        },
+        "ref": { "type": "string", "minLength": 1 },
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+      }
+    },
+    "criterion": { "type": "string", "minLength": 1 },
+    "value": { "type": "string" },
+    "unit": { "type": "string" },
+    "status": {
+      "enum": ["verified", "community", "reported", "inferred", "unknown", "conflicting"]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "url", "licence"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "minLength": 1 },
+        "licence": { "type": "string", "minLength": 1 },
+        "objectId": { "type": "string" },
+        "objectVersion": { "type": "string" }
+      }
+    },
+    "retrievedAt": { "type": "string", "minLength": 1 },
+    "lastEditedAt": { "type": "string" },
+    "lastConfirmedAt": { "type": "string" },
+    "matchConfidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}
