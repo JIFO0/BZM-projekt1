@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@krakow-bez-barier/core": "*",
+    "@krakow-bez-barier/sources": "*",
     "@react-navigation/native": "^7.1.33",
     "expo": "~55.0.31",
     "expo-constants": "~55.0.17",

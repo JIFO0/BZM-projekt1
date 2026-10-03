@@ -49,3 +49,8 @@ app-example
 # generated native folders
 /ios
 /android
+
+# GraphHopper cache and osm files
+backend/data/graph-cache/
+backend/data/*.osm.pbf
+backend/data/*.pbf

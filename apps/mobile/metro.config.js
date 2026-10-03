@@ -15,4 +15,18 @@ config.watchFolders = [
   workspaceRoot,
 ];
 
+// Exclude backend directory and graphhopper data cache from Metro bundler
+const backendPattern = new RegExp(
+  `^${path.resolve(workspaceRoot, 'backend').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`
+);
+
+config.resolver.blockList = [
+  ...(Array.isArray(config.resolver.blockList)
+    ? config.resolver.blockList
+    : config.resolver.blockList
+    ? [config.resolver.blockList]
+    : []),
+  backendPattern,
+];
+
 module.exports = config;
