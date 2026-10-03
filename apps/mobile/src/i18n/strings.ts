@@ -1233,19 +1233,43 @@ export function getLocalizedFindingType(type: string, locale: Locale): string {
 
 export function getLocalizedFactValue(val: string, locale: Locale): string {
   if (!val) return '';
+
+  // Clean up any ugly raw technical tag annotations like (wheelchair=limited), wheelchair=no, etc.
+  let cleaned = val.replace(/\s*\(?wheelchair=(limited|no|yes)\)?/gi, (match, p1) => {
+    const v = p1.toLowerCase();
+    if (v === 'limited') return locale === 'pl' ? ' (ograniczona dostępność)' : locale === 'uk' ? ' (часткова доступність)' : ' (limited accessibility)';
+    if (v === 'no') return locale === 'pl' ? ' (brak dostępności)' : locale === 'uk' ? ' (недоступно)' : ' (not accessible)';
+    return locale === 'pl' ? ' (dostępne)' : locale === 'uk' ? ' (доступно)' : ' (accessible)';
+  }).trim();
+
+  // If the whole value is just raw wheelchair value or limited/no/yes:
+  const lower = cleaned.toLowerCase();
+  if (lower === 'limited' || lower === 'wheelchair=limited' || lower === '(wheelchair=limited)') {
+    return locale === 'pl' ? 'Ograniczona dostępność' : locale === 'uk' ? 'Обмежена доступність' : 'Limited accessibility';
+  }
+  if (lower === 'no' || lower === 'wheelchair=no' || lower === '(wheelchair=no)') {
+    return locale === 'pl' ? 'Brak dostępności' : locale === 'uk' ? 'Недоступно' : 'Not accessible';
+  }
+  if (lower === 'yes' || lower === 'wheelchair=yes' || lower === '(wheelchair=yes)') {
+    return locale === 'pl' ? 'Dostępne' : locale === 'uk' ? 'Доступно' : 'Accessible';
+  }
+
+  // Strip any orphan raw tag key=value strings if present
+  cleaned = cleaned.replace(/\s*\([a-z_]+=[a-z_]+\)/gi, '').trim();
+
   if (locale === 'pl') {
-    if (val === 'cobblestone') return 'Kocie łby / bruk';
-    if (val === 'asphalt') return 'Asfalt';
-    if (val === 'paving_stones') return 'Kostka brukowa';
-    if (val === 'sett') return 'Kostka kamienna';
-    if (val === 'gravel') return 'Żwir';
-    if (val === 'compacted') return 'Nawierzchnia utwardzona';
-    if (val === 'unpaved') return 'Nieutwardzona';
-    if (val === 'obecny') return 'Krawężnik obecny';
-    return val;
+    if (cleaned === 'cobblestone') return 'Kocie łby / bruk';
+    if (cleaned === 'asphalt') return 'Asfalt';
+    if (cleaned === 'paving_stones') return 'Kostka brukowa';
+    if (cleaned === 'sett') return 'Kostka kamienna';
+    if (cleaned === 'gravel') return 'Żwir';
+    if (cleaned === 'compacted') return 'Nawierzchnia utwardzona';
+    if (cleaned === 'unpaved') return 'Nieutwardzona';
+    if (cleaned === 'obecny') return 'Krawężnik obecny';
+    return cleaned;
   }
   if (locale === 'uk') {
-    let result = val;
+    let result = cleaned;
     result = result.replace(/traffic_signals=yes/gi, 'світлофор');
     result = result.replace(/tactile_paving=yes/gi, 'тактильна плитка');
     result = result.replace(/sygnalizacja/gi, 'світлофор');
@@ -1257,7 +1281,7 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
     result = result.replace(/^cobblestone$/gi, 'Бруківка');
     result = result.replace(/^asphalt$/gi, 'Асфальт');
     result = result.replace(/^paving_stones$/gi, 'Бруківка плитка');
-    result = result.replace(/^sett$/gi, 'Кам’яна бруківка');
+    result = result.replace(/^sett$/gi, 'Кам’яна бrukівка');
     result = result.replace(/^gravel$/gi, 'Гравій');
     result = result.replace(/^compacted$/gi, 'Ущільнене покриття');
     result = result.replace(/^unpaved$/gi, 'Неущільнене');
@@ -1265,7 +1289,7 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
     return result;
   }
   // English
-  let result = val;
+  let result = cleaned;
   result = result.replace(/traffic_signals=yes/gi, 'traffic signals');
   result = result.replace(/tactile_paving=yes/gi, 'tactile paving');
   result = result.replace(/sygnalizacja/gi, 'traffic signals');

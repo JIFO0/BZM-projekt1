@@ -11,6 +11,7 @@ import { WebView } from 'react-native-webview';
 
 import { useSession } from '@/state/session';
 import { city } from '@/config/city';
+import { getLocalizedFactValue } from '@/i18n/strings';
 
 export interface MapViewProps {
   route?: WalkingRoute | null;
@@ -208,7 +209,12 @@ export function MapView({
           ? locale === 'pl' ? 'Nachylenie' : locale === 'uk' ? 'Нахил' : 'Incline'
           : f.type === 'width'
           ? locale === 'pl' ? 'Szerokość' : locale === 'uk' ? 'Ширина' : 'Width'
+          : f.type === 'wheelchair'
+          ? locale === 'pl' ? 'Dostępność dla wózków' : locale === 'uk' ? 'Доступність' : 'Accessibility'
           : f.type;
+
+      const localizedVal = getLocalizedFactValue(f.fact.value, locale);
+      const cleanVal = localizedVal.replace(/\s*\(?wheelchair=[a-z_]+\)?/gi, '').trim();
 
       return {
         index: i + 1,
@@ -216,7 +222,7 @@ export function MapView({
         lat: f.fact.subject.lat,
         lon: f.fact.subject.lon,
         title: `#${i + 1}${distLabel}: ${typeLabel}`,
-        value: f.fact.value,
+        value: cleanVal || localizedVal || f.fact.value,
         severity: f.severity,
         color,
       };
@@ -580,10 +586,19 @@ export function MapView({
           '</svg>';
       }
       if (type === 'surface') {
-        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
-          '<rect x="2" y="5" width="9" height="6" rx="1.5" />' +
-          '<rect x="13" y="5" width="9" height="6" rx="1.5" />' +
-          '<rect x="7.5" y="13" width="9" height="6" rx="1.5" />' +
+        // Nawierzchnia / droga: perspektywa jezdni z krawędziami i linią przerywaną
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M4 21L8 3" />' +
+          '<path d="M20 21L16 3" />' +
+          '<line x1="12" y1="4" x2="12" y2="7" stroke-width="2" />' +
+          '<line x1="12" y1="11" x2="12" y2="14" stroke-width="2" />' +
+          '<line x1="12" y1="18" x2="12" y2="21" stroke-width="2" />' +
+          '</svg>';
+      }
+      if (type === 'wheelchair') {
+        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<circle cx="12" cy="5" r="2.5" />' +
+          '<path d="M9 19a5 5 0 1 0 5-5H9v-5h4" />' +
           '</svg>';
       }
       if (type === 'incline') {

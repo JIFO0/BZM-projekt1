@@ -160,22 +160,22 @@ export function evaluateFactSeverity(
         severity: thresholds.stepsAreBlocker ? 'blocker' : 'warning',
         type: 'wheelchair',
         evidence: thresholds.stepsAreBlocker
-          ? 'Obiekt oznaczony jako niedostępny dla wózka (wheelchair=no)'
-          : 'Obiekt oznaczony jako niedostępny dla wózka (wheelchair=no) — ostrzeżenie dla tego profilu',
+          ? 'Niedostępne dla wózka'
+          : 'Ograniczenie dostępności dla wózka',
       };
     }
     if (val === 'limited' || val.includes('limited')) {
       return {
         severity: 'warning',
         type: 'wheelchair',
-        evidence: 'Dostępność dla wózka ograniczona (wheelchair=limited)',
+        evidence: 'Ograniczona dostępność dla wózka',
       };
     }
     if (val === 'yes') {
       return {
         severity: 'ok',
         type: 'wheelchair',
-        evidence: 'Oznaczenie wheelchair=yes',
+        evidence: 'Dostępne dla wózka',
       };
     }
   }
