@@ -120,7 +120,7 @@ const pl = {
 
   // Kraków Municipal & Gov branding
   krakowOfficialHeader: 'Oficjalny System Dostępności Przestrzennej',
-  krakowGovSub: 'Urząd Miasta Krakowa • Wydział Polityki Społecznej i Zdrowia',
+  krakowGovSub: 'Projekt drużyny Burza z Mózgów',
   krakowCityBadge: 'Miasto Kraków',
   wcagBadge: 'Standard WCAG 2.2 AAA',
   krakowMunicipalFooter:
@@ -322,7 +322,7 @@ const en: typeof pl = {
 
   // Kraków Municipal & Gov branding
   krakowOfficialHeader: 'Official Spatial Accessibility System',
-  krakowGovSub: 'City of Kraków • Dept. of Social Policy and Health',
+  krakowGovSub: 'Projekt drużyny Burza z Mózgów',
   krakowCityBadge: 'City of Kraków',
   wcagBadge: 'WCAG 2.2 AAA Standard',
   krakowMunicipalFooter:
