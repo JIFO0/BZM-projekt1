@@ -4,6 +4,7 @@ import {
   analyzePlace,
   analyzeRoute,
   DEMO_SNAPSHOT,
+  parseCoordinates,
   type AccessibilityBundle,
   type BarrierThresholds,
   type Fact,
@@ -18,7 +19,9 @@ import {
   GraphHopperRoutingProvider,
   MapyGeocodingProvider,
   MapyRoutingProvider,
+  OsmNominatimGeocodingProvider,
   OsmOverpassProvider,
+  OsmRoutingProvider,
 } from '@krakow-bez-barier/sources';
 
 function getMapyApiKey(): string {
@@ -40,6 +43,11 @@ const osmOverpass = new OsmOverpassProvider({
   stalenessMonths: city.stalenessMonths,
   timeoutMs: 4000,
 });
+const osmNominatim = new OsmNominatimGeocodingProvider({
+  userAgent: city.overpass.userAgent,
+});
+const osmRouting = new OsmRoutingProvider();
+
 
 export type RouteVariantId = 'accessible' | 'shortest';
 
@@ -115,18 +123,49 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
         });
         routed = true;
       } catch {
-        // Fall back to sample below
+        // Fall back to OSM routing below
       }
     }
 
-    // 3. Graceful fallback on API error (R12)
+    // 3. Fall back to OpenStreetMap (OSRM foot router)
+    if (!routed && !debugState.simulateMapyDown) {
+      try {
+        walkingRoute = await osmRouting.route({
+          start: start.position,
+          end: end.position,
+          profileId,
+          thresholds: params.thresholds,
+        });
+        routed = true;
+        fallbackNotice = 'Trasa wyznaczona na podstawie danych OpenStreetMap.';
+      } catch {
+        // Fall back below
+      }
+    }
+
+    // 4. Graceful fallback on API error (R12)
     if (!routed) {
-      const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
-      walkingRoute = sampleRoute.walkingRoute;
-      isSample = true;
-      fallbackNotice = debugState.simulateMapyDown
-        ? 'Symulacja awarii Mapy.com API (HTTP 429). Załadowano trasę z lokalnego snapshotu demo.'
-        : 'Zewnętrzny routing niedostępny. Załadowano trasę zapasową z pamięci urządzenia.';
+      const isCustom =
+        Math.abs(start.position.lat - DEMO_SNAPSHOT.routes[0]!.start.position.lat) > 0.0005 ||
+        Math.abs(start.position.lon - DEMO_SNAPSHOT.routes[0]!.start.position.lon) > 0.0005 ||
+        Math.abs(end.position.lat - DEMO_SNAPSHOT.routes[0]!.end.position.lat) > 0.0005 ||
+        Math.abs(end.position.lon - DEMO_SNAPSHOT.routes[0]!.end.position.lon) > 0.0005;
+
+      if (isCustom) {
+        walkingRoute = await osmRouting.route({
+          start: start.position,
+          end: end.position,
+          profileId,
+        });
+        fallbackNotice = 'Trasa bezpośrednia (połączenie punktów A i B na mapie).';
+      } else {
+        const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
+        walkingRoute = sampleRoute.walkingRoute;
+        isSample = true;
+        fallbackNotice = debugState.simulateMapyDown
+          ? 'Symulacja awarii Mapy.com API (HTTP 429). Załadowano trasę z lokalnego snapshotu demo.'
+          : 'Zewnętrzny routing niedostępny. Załadowano trasę zapasową z pamięci urządzenia.';
+      }
     }
   }
 
@@ -593,54 +632,75 @@ export const DEFAULT_PRESET_PLACES: PlaceHit[] = [
     category: 'sport',
     tags: ['♿ Referencyjny bez barier', '⚡ Pętla indukcyjna', '🚻 Pełna dostępność', '🛡️ KSDK'],
   },
-  {
-    id: 'sug-2',
-    name: 'Zamek Królewski na Wawelu',
-    label: 'Wawel 5, Kraków • Wzgórze Wawelskie, trasa z podjazdami',
-    position: { lon: 19.9354, lat: 50.0544 },
-    kind: 'poi',
-    category: 'culture',
-    tags: ['⚠️ Strome podejście', '♿ Trasy z asystą'],
-  },
-  {
-    id: 'sug-3',
-    name: 'Plac Nowy (Kazimierz)',
-    label: 'Plac Nowy, Kraków • Okrąglak, nawierzchnia brukowa',
-    position: { lon: 19.9449, lat: 50.0519 },
-    kind: 'poi',
-    category: 'culture',
-    tags: ['⚠️ Bruk zabytkowy'],
-  },
-  {
-    id: 'sug-5',
-    name: 'Planty (Poczta Główna)',
-    label: 'ul. Westerplatte / Wielopole, Kraków • Płaski asfaltowy trakt spacerowy',
-    position: { lon: 19.9423, lat: 50.0592 },
-    kind: 'poi',
-    category: 'transit',
-    tags: ['♿ Gładki asfalt', '🌳 Cień i ławki'],
-  },
 ];
 
-export async function suggestPlaces(query: string, lang: 'pl' | 'en'): Promise<PlaceHit[]> {
-  const trimmed = query.trim().toLowerCase();
+export const DEFAULT_DEMO_LOCATIONS: PlaceHit[] = DEFAULT_PRESET_PLACES;
+
+export async function suggestPlaces(
+  query: string,
+  lang: 'pl' | 'en' | 'uk' = 'pl',
+): Promise<PlaceHit[]> {
+  const trimmed = query.trim();
   if (!trimmed) {
     return DEFAULT_PRESET_PLACES;
   }
 
-  const localMatches = DEFAULT_PRESET_PLACES.filter(
-    (p) => p.name.toLowerCase().includes(trimmed) || p.label.toLowerCase().includes(trimmed),
-  );
-
-  if (!hasValidMapyKey()) {
-    return localMatches;
+  // 1. Direct coordinate check (lat, lon or lon, lat)
+  const coords = parseCoordinates(trimmed);
+  if (coords) {
+    return [
+      {
+        id: `coord-${coords.lat.toFixed(5)}-${coords.lon.toFixed(5)}`,
+        name: `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`,
+        label: `Współrzędne GPS: ${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`,
+        position: coords,
+        kind: 'coordinate',
+      },
+    ];
   }
 
+  // 2. OpenStreetMap Nominatim geocoder
   try {
-    const mapyGeocode = new MapyGeocodingProvider({ apiKey: getMapyApiKey() });
-    const remote = await mapyGeocode.suggest(query, lang);
-    return [...localMatches, ...remote.filter((r) => !localMatches.some((m) => m.name === r.name))];
+    const osmHits = await osmNominatim.suggest(trimmed, lang);
+    if (osmHits.length > 0) {
+      return osmHits;
+    }
   } catch {
-    return localMatches;
+    // Continue to fallback
+  }
+
+  // 3. Fall back to Mapy.com if API key is present
+  if (hasValidMapyKey()) {
+    try {
+      const mapyGeocode = new MapyGeocodingProvider({ apiKey: getMapyApiKey() });
+      const mapyHits = await mapyGeocode.suggest(trimmed, lang === 'uk' ? 'pl' : lang);
+      if (mapyHits.length > 0) {
+        return mapyHits;
+      }
+    } catch {
+      // Continue to local filter
+    }
+  }
+
+  // 4. Local fallback filter for preset places
+  const qLower = trimmed.toLowerCase();
+  const matched = DEFAULT_PRESET_PLACES.filter(
+    (loc) =>
+      loc.name.toLowerCase().includes(qLower) ||
+      loc.label.toLowerCase().includes(qLower) ||
+      (loc.tags && loc.tags.some((t) => t.toLowerCase().includes(qLower))),
+  );
+  return matched;
+}
+
+export async function reverseGeocodeLocation(
+  lat: number,
+  lon: number,
+  lang: 'pl' | 'en' | 'uk' = 'pl',
+): Promise<PlaceHit | null> {
+  try {
+    return await osmNominatim.reverseGeocode(lat, lon, lang);
+  } catch {
+    return null;
   }
 }

@@ -11,7 +11,7 @@ import { router } from 'expo-router';
 import { Globe, PersonArmsSpread, ArrowLeft } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
-import { t } from '@/i18n/strings';
+import { t, type Locale } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -140,10 +140,11 @@ export function KrakowHeader({
       {/* 2. Language Toggle */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={
-          locale === 'pl' ? 'Switch language to English' : 'Przełącz język na polski'
-        }
-        onPress={() => setLocale(locale === 'pl' ? 'en' : 'pl')}
+        accessibilityLabel={`${t(locale, 'switchLanguage')}: ${locale.toUpperCase()}`}
+        onPress={() => {
+          const nextLocale: Record<Locale, Locale> = { pl: 'en', en: 'uk', uk: 'pl' };
+          setLocale(nextLocale[locale]);
+        }}
         style={[
           styles.secondaryBtn,
           {

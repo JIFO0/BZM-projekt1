@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,12 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Footprints,
   Buildings,
-  MapPin,
   MagnifyingGlass,
   Warning,
   Lightning,
   Clock,
   Target,
+  ArrowsDownUp,
 } from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
@@ -28,6 +27,7 @@ import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
+import { LocationPicker } from '@/components/LocationPicker';
 import { t } from '@/i18n/strings';
 import { inspectPlace, planAndAnalyzeRoute } from '@/services/api';
 import { useSession } from '@/state/session';
@@ -70,20 +70,25 @@ export default function SearchScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
 
+  const handleSwapPoints = () => {
+    const prevFromQuery = fromQuery;
+    const prevFromPos = fromPos;
+    setFromQuery(toQuery);
+    setFromPos(toPos);
+    setToQuery(prevFromQuery);
+    setToPos(prevFromPos);
+  };
+
   const handleUseMyLocation = async () => {
-    if (userLocation) {
-      setFromQuery('Moja lokalizacja');
-      setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
-      return;
-    }
     const result = await fetchUserLocation();
-    if (result) {
-      setFromQuery(result.address || 'Moja lokalizacja');
-      setFromPos({ lon: result.lon, lat: result.lat });
+    const loc = result || userLocation;
+    if (loc) {
+      setFromQuery(result?.address || t(locale, 'myLocationShort'));
+      setFromPos({ lon: loc.lon, lat: loc.lat });
     } else {
       Alert.alert(
-        'Lokalizacja niedostępna',
-        'Nie udało się pobrać Twojej obecnej lokalizacji. Upewnij się, że masz włączony GPS i przyznane uprawnienia.',
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableDesc'),
       );
     }
   };
@@ -112,7 +117,14 @@ export default function SearchScreen() {
       }
       router.push('/route' as any);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Wystąpił błąd podczas analizowania trasy.');
+      setErrorMsg(
+        err.message ||
+          (locale === 'pl'
+            ? 'Wystąpił błąd podczas analizowania trasy.'
+            : locale === 'uk'
+              ? 'Сталася помилка під час аналізу маршруту.'
+              : 'An error occurred while analyzing the route.')
+      );
     } finally {
       setLoading(false);
     }
@@ -126,7 +138,14 @@ export default function SearchScreen() {
       setActivePlaceReport(result.report);
       router.push('/place' as any);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Wystąpił błąd podczas sprawdzania miejsca.');
+      setErrorMsg(
+        err.message ||
+          (locale === 'pl'
+            ? 'Wystąpił błąd podczas sprawdzania miejsca.'
+            : locale === 'uk'
+              ? 'Сталася помилка під час перевірки місця.'
+              : 'An error occurred while checking place.')
+      );
     } finally {
       setLoading(false);
     }
@@ -266,76 +285,54 @@ export default function SearchScreen() {
           <GovCard variant="default">
             <View style={styles.formSection}>
               {/* Point A */}
-              <View style={styles.field}>
-                <View style={styles.fieldHeader}>
-                  <Text style={[styles.label, { color: colors.text, fontSize: fontSize(15) }]}>
-                    {t(locale, 'from')}
-                  </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(locale, 'myLocation')}
-                    onPress={handleUseMyLocation}
-                    style={styles.locationBtn}
-                  >
-                    <View style={styles.inlineRow}>
-                      <MapPin size={15} color={colors.accent} weight="bold" />
-                      <Text
-                        style={[
-                          styles.linkText,
-                          {
-                            color: colors.accent,
-                            fontSize: fontSize(13),
-                            textDecorationLine: highlightLinks ? 'underline' : 'none',
-                          },
-                        ]}
-                      >
-                        {t(locale, 'myLocation')}
-                      </Text>
-                    </View>
-                  </Pressable>
-                </View>
-                <TextInput
-                  value={fromQuery}
-                  onChangeText={setFromQuery}
-                  placeholder={t(locale, 'fromPlaceholder')}
-                  placeholderTextColor={colors.muted}
+              <LocationPicker
+                label={t(locale, 'from')}
+                badge="A"
+                badgeColor="#005CA9"
+                point={{ name: fromQuery, position: fromPos }}
+                onChangePoint={(p) => {
+                  setFromQuery(p.name);
+                  setFromPos(p.position);
+                }}
+                placeholder={t(locale, 'fromPlaceholder')}
+                showMyLocation
+                onUseMyLocation={handleUseMyLocation}
+              />
+
+              {/* Swap Button */}
+              <View style={styles.swapBtnRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(locale, 'swapPoints')}
+                  onPress={handleSwapPoints}
                   style={[
-                    styles.input,
+                    styles.swapBtn,
                     {
-                      color: colors.text,
-                      borderColor: colors.border,
                       backgroundColor: colors.background,
-                      minHeight: increasedSpacing ? 56 : spacing.touch,
-                      fontSize: fontSize(15),
-                      borderWidth: isHighContrast ? 2.5 : 1.5,
+                      borderColor: colors.border,
+                      borderWidth: isHighContrast ? 2 : 1,
                     },
                   ]}
-                />
+                >
+                  <ArrowsDownUp size={15} weight="bold" color={colors.accent} />
+                  <Text style={[styles.swapBtnText, { color: colors.accent, fontSize: fontSize(12) }]}>
+                    {t(locale, 'swapPoints')}
+                  </Text>
+                </Pressable>
               </View>
 
               {/* Point B */}
-              <View style={styles.field}>
-                <Text style={[styles.label, { color: colors.text, fontSize: fontSize(15) }]}>
-                  {t(locale, 'to')}
-                </Text>
-                <TextInput
-                  value={toQuery}
-                  onChangeText={setToQuery}
-                  placeholder={t(locale, 'toPlaceholder')}
-                  placeholderTextColor={colors.muted}
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      borderColor: colors.border,
-                      backgroundColor: colors.background,
-                      minHeight: increasedSpacing ? 56 : spacing.touch,
-                      fontSize: fontSize(15),
-                      borderWidth: isHighContrast ? 2.5 : 1.5,
-                    },
-                  ]}
-                />
-              </View>
+              <LocationPicker
+                label={t(locale, 'to')}
+                badge="B"
+                badgeColor="#D32F2F"
+                point={{ name: toQuery, position: toPos }}
+                onChangePoint={(p) => {
+                  setToQuery(p.name);
+                  setToPos(p.position);
+                }}
+                placeholder={t(locale, 'toPlaceholder')}
+              />
 
               <GovButton
                 title={t(locale, 'searchButton')}
@@ -349,28 +346,15 @@ export default function SearchScreen() {
         ) : (
           <GovCard variant="default">
             <View style={styles.formSection}>
-              <View style={styles.field}>
-                <Text style={[styles.label, { color: colors.text, fontSize: fontSize(15) }]}>
-                  {t(locale, 'placeLabel')}
-                </Text>
-                <TextInput
-                  value={placeQuery}
-                  onChangeText={setPlaceQuery}
-                  placeholder={t(locale, 'placePlaceholder')}
-                  placeholderTextColor={colors.muted}
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.text,
-                      borderColor: colors.border,
-                      backgroundColor: colors.background,
-                      minHeight: increasedSpacing ? 56 : spacing.touch,
-                      fontSize: fontSize(15),
-                      borderWidth: isHighContrast ? 2.5 : 1.5,
-                    },
-                  ]}
-                />
-              </View>
+              <LocationPicker
+                label={t(locale, 'placeLabel')}
+                point={{ name: placeQuery, position: placePos }}
+                onChangePoint={(p) => {
+                  setPlaceQuery(p.name);
+                  setPlacePos(p.position);
+                }}
+                placeholder={t(locale, 'placePlaceholder')}
+              />
 
               <GovButton
                 title={t(locale, 'searchPlaceButton')}
@@ -406,37 +390,41 @@ export default function SearchScreen() {
             </Text>
           </View>
           <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13.5) }]}>
-            Kliknij gotowy scenariusz, aby przetestować bez wpisywania:
+            {locale === 'pl'
+              ? 'Kliknij gotowy scenariusz, aby przetestować bez wpisywania:'
+              : locale === 'uk'
+                ? 'Натисніть готовий сценарій, щоб протестувати без введення:'
+                : 'Click a preset scenario to test without typing:'}
           </Text>
 
           <View style={styles.scenariosList}>
             <GovButton
               variant="outline"
-              title={`Trasa: ${t(locale, 'demoRoute1')}`}
+              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute1')}`}
               icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(0)}
             />
             <GovButton
               variant="outline"
-              title={`Trasa: ${t(locale, 'demoRoute2')}`}
+              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute2')}`}
               icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(1)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce: ${t(locale, 'demoPlace1')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace1')}`}
               icon={<Buildings size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(0)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce (R7 Sprzeczne): ${t(locale, 'demoPlace2')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace2')}`}
               icon={<Lightning size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(1)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce (R8 Przedawnione): ${t(locale, 'demoPlace3')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace3')}`}
               icon={<Clock size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(2)}
             />
@@ -525,5 +513,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  swapBtnRow: {
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  swapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  swapBtnText: {
+    fontWeight: '700',
   },
 });

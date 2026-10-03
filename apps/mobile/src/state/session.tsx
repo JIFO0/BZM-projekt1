@@ -11,12 +11,22 @@ import {
   type RouteReport,
   type WalkingRoute,
 } from '@krakow-bez-barier/core';
-import { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from 'react';
 import type { RouteVariant, RouteVariantId } from '@/services/api';
 
 import type { Locale } from '@/i18n/strings';
 import {
   getCurrentUserLocation,
+  watchUserLocation,
   type UserCoordinates,
   type UserLocationResult,
 } from '@/services/location';
@@ -342,6 +352,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // User GPS location state
   const [userLocation, setUserLocation] = useState<UserCoordinates | null>(null);
   const [isLocating, setIsLocating] = useState<boolean>(false);
+  const locationWatcherRef = useRef<(() => void) | null>(null);
+
+  const startWatchingLocation = useCallback(async () => {
+    if (locationWatcherRef.current) return;
+    try {
+      const unsub = await watchUserLocation((loc) => {
+        setUserLocation({ lat: loc.lat, lon: loc.lon });
+      });
+      if (unsub) {
+        locationWatcherRef.current = unsub;
+      }
+    } catch (err) {
+      console.warn('[Session] Failed to start location watch:', err);
+    }
+  }, []);
 
   const fetchUserLocation = useCallback(async (): Promise<UserLocationResult | null> => {
     setIsLocating(true);
@@ -349,12 +374,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const res = await getCurrentUserLocation();
       if (res) {
         setUserLocation({ lat: res.lat, lon: res.lon });
+        void startWatchingLocation();
       }
       return res;
     } finally {
       setIsLocating(false);
     }
-  }, []);
+  }, [startWatchingLocation]);
+
+  useEffect(() => {
+    void startWatchingLocation();
+    return () => {
+      if (locationWatcherRef.current) {
+        locationWatcherRef.current();
+        locationWatcherRef.current = null;
+      }
+    };
+  }, [startWatchingLocation]);
 
   // Advanced Public-Sector Accessibility State (WCAG 2.2 AAA)
   const [contrastMode, setContrastMode] = useState<ContrastMode>('standard-light');

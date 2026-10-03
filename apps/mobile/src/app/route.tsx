@@ -72,10 +72,10 @@ export default function RouteScreen() {
         <View style={styles.emptyContainer}>
           <GovCard variant="warning">
             <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
-              Brak aktywnego raportu trasy.
+              {t(locale, 'noActiveRouteReport')}
             </Text>
             <GovButton
-              title="Wróć do wyszukiwania"
+              title={t(locale, 'backToSearch')}
               icon={<ArrowLeft size={18} color="#fff" weight="bold" />}
               variant="primary"
               onPress={() => {
@@ -112,16 +112,41 @@ export default function RouteScreen() {
 
   // Plain-text narrative for Voice / Share (WCAG D5 / WOW)
   const generateNarrative = () => {
-    let narrative = `Raport barier dla trasy o długości ${report.lengthMetres} metrów. `;
-    narrative += `Wykryto ${blockers.length} blokad, ${warnings.length} ostrzeżeń oraz ${unknownItems.length} elementów o nieznanym stanie. `;
-    narrative += `Najdłuższy odcinek bez danych wynosi ${report.longestUnknownStretchMetres} metrów. `;
-    if (showNoBarriersSentence) {
-      narrative += 'Nie znaleziono przeszkód w dostępnych danych. ';
+    let narrative = '';
+    if (locale === 'pl') {
+      narrative = `Raport barier dla trasy o długości ${report.lengthMetres} metrów. `;
+      narrative += `Wykryto ${blockers.length} blokad, ${warnings.length} ostrzeżeń oraz ${unknownItems.length} elementów o nieznanym stanie. `;
+      narrative += `Najdłuższy odcinek bez danych wynosi ${report.longestUnknownStretchMetres} metrów. `;
+      if (showNoBarriersSentence) {
+        narrative += 'Nie znaleziono przeszkód w dostępnych danych. ';
+      }
+      narrative += 'Główne punkty na trasie: ';
+      report.findings.forEach((f, idx) => {
+        narrative += `Punkt ${idx + 1}, po ${f.distanceFromStartMetres} metrach: ${f.type}, ${f.fact.value}. `;
+      });
+    } else if (locale === 'uk') {
+      narrative = `Звіт про бар’єри для маршруту довжиною ${report.lengthMetres} метрів. `;
+      narrative += `Виявлено ${blockers.length} блокад, ${warnings.length} попереджень та ${unknownItems.length} елементів із невідомим станом. `;
+      narrative += `Найдовша ділянка без даних становить ${report.longestUnknownStretchMetres} метрів. `;
+      if (showNoBarriersSentence) {
+        narrative += 'У наявних даних перешкод не знайдено. ';
+      }
+      narrative += 'Основні точки на маршруті: ';
+      report.findings.forEach((f, idx) => {
+        narrative += `Точка ${idx + 1}, через ${f.distanceFromStartMetres} метрів: ${f.type}, ${f.fact.value}. `;
+      });
+    } else {
+      narrative = `Barrier report for route of distance ${report.lengthMetres} metres. `;
+      narrative += `Detected ${blockers.length} blockers, ${warnings.length} warnings and ${unknownItems.length} items with unknown status. `;
+      narrative += `Longest stretch without data is ${report.longestUnknownStretchMetres} metres. `;
+      if (showNoBarriersSentence) {
+        narrative += 'No barriers found in available data. ';
+      }
+      narrative += 'Key waypoints along route: ';
+      report.findings.forEach((f, idx) => {
+        narrative += `Point ${idx + 1}, after ${f.distanceFromStartMetres} metres: ${f.type}, ${f.fact.value}. `;
+      });
     }
-    narrative += 'Główne punkty na trasie: ';
-    report.findings.forEach((f, idx) => {
-      narrative += `Punkt ${idx + 1}, po ${f.distanceFromStartMetres} metrach: ${f.type}, ${f.fact.value}. `;
-    });
     return narrative;
   };
 
@@ -130,11 +155,11 @@ export default function RouteScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        title: 'Kraków bez barier - Raport trasy',
+        title: `${t(locale, 'appName')} - ${t(locale, 'routeReportTitle')}`,
         message: generateNarrative(),
       });
     } catch {
-      Alert.alert('Błąd', 'Nie udało się udostępnić raportu.');
+      Alert.alert(t(locale, 'errorTitle'), t(locale, 'routeErrorMsg'));
     }
   };
 
@@ -315,7 +340,7 @@ export default function RouteScreen() {
               ]}
             >
               <Text style={[styles.cityTagText, { color: colors.accent, fontSize: fontSize(11) }]}>
-                KRAKÓW TRASA
+                {t(locale, 'krakowRouteTag')}
               </Text>
             </View>
           </View>
@@ -421,7 +446,7 @@ export default function RouteScreen() {
               <View style={styles.inlineBadgeLabel}>
                 <CheckCircle size={15} color={colors.okText} weight="bold" />
                 <Text style={[styles.countText, { color: colors.okText, fontSize: fontSize(12) }]}>
-                  Udogodnienia
+                  {t(locale, 'facilitiesCount')}
                 </Text>
               </View>
             </View>
@@ -445,7 +470,7 @@ export default function RouteScreen() {
               </Text>
             </View>
             <Text style={[styles.highlightValue, { color: colors.accent, fontSize: fontSize(14.5) }]}>
-              {report.longestUnknownStretchMetres} metrów ciągłego braku danych
+              {report.longestUnknownStretchMetres} {t(locale, 'metresContinuousNoData')}
             </Text>
           </View>
 
@@ -531,13 +556,13 @@ export default function RouteScreen() {
             </Text>
           </View>
           <Text style={[styles.metaText, { color: colors.muted, fontSize: fontSize(13.5) }]}>
-            Uporządkowane rosnąco według odległości od startu:
+            {t(locale, 'orderedByDistance')}
           </Text>
 
           {report.findings.length === 0 ? (
             <GovCard variant="default">
               <Text style={[styles.metaText, { color: colors.text, fontSize: fontSize(14) }]}>
-                Brak zarejestrowanych elementów w OpenStreetMap w korytarzu tej trasy.
+                {t(locale, 'noElementsInCorridor')}
               </Text>
             </GovCard>
           ) : (

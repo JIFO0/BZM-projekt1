@@ -45,7 +45,7 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
           </View>
 
           <Text style={[styles.desc, { color: colors.muted, fontSize: fontSize(13) }]}>
-            Symulacja stanów awaryjnych i brzegowych wymaganych przez regulamin HackYeah (R7, R8, R12):
+            {t(locale, 'debugDesc')}
           </Text>
 
           {/* Overpass simulation */}

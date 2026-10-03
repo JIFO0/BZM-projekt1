@@ -6,6 +6,7 @@ import {
 import { router, Stack } from 'expo-router';
 import {
   ArrowRight,
+  ArrowsDownUp,
   Buildings,
   CaretDown,
   CaretUp,
@@ -42,9 +43,10 @@ import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { KrakowHeader } from '@/components/KrakowHeader';
+import { LocationPicker } from '@/components/LocationPicker';
 import { MapView } from '@/components/MapView';
 import { t } from '@/i18n/strings';
-import { DEFAULT_PRESET_PLACES, inspectPlace, planAndAnalyzeRoute } from '@/services/api';
+import { DEFAULT_PRESET_PLACES, inspectPlace, planAndAnalyzeRoute, reverseGeocodeLocation } from '@/services/api';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -54,36 +56,42 @@ const ROAD_TYPE_OPTIONS = [
     nameKey: 'surfaceCobblestone' as const,
     descPl: 'Bruk i kocie łby, trudne do przejazdu',
     descEn: 'Cobblestone and historic paving',
+    descUk: 'Бруківка та кругляк, важко проїхати',
   },
   {
     id: 'gravel',
     nameKey: 'surfaceGravel' as const,
     descPl: 'Gruby żwir i szuter, utrudniający toczenie się kół',
     descEn: 'Coarse gravel hindering wheel rolling',
+    descUk: 'Грубий гравій та щебінь, що ускладнює рух коліс',
   },
   {
     id: 'sand',
     nameKey: 'surfaceSand' as const,
     descPl: 'Sypki piasek grzęznący dla wózków',
     descEn: 'Loose sand causing wheels to sink',
+    descUk: 'Сипкий пісок, у якому загрузають візки',
   },
   {
     id: 'dirt',
     nameKey: 'surfaceDirt' as const,
     descPl: 'Drogi gruntowe i ziemne, błotniste po deszczu',
     descEn: 'Dirt and soil tracks, muddy in rain',
+    descUk: 'Ґрунтові дороги, багнисті після дощу',
   },
   {
     id: 'unpaved',
     nameKey: 'surfaceUnpaved' as const,
     descPl: 'Wszelkie nawierzchnie nieutwardzone',
     descEn: 'Any general unpaved terrain',
+    descUk: 'Будь-які невимощені поверхні',
   },
   {
     id: 'compacted',
     nameKey: 'surfaceCompacted' as const,
     descPl: 'Nawierzchnia szutrowa utwardzona / ubita',
     descEn: 'Compacted gravel or stabilized surface',
+    descUk: 'Утрамбований щебінь або стабілізоване покриття',
   },
 ];
 
@@ -169,6 +177,9 @@ export default function MapHomeScreen() {
   const [reportDesc, setReportDesc] = useState('');
   const [reportSuccess, setReportSuccess] = useState(false);
 
+  // Interactive map picking target
+  const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | null>(null);
+
   // Loading & Audio state
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [loadingPlace, setLoadingPlace] = useState(false);
@@ -202,23 +213,24 @@ export default function MapHomeScreen() {
   // 1. Locate Me / Reset Map
   const handleCenterKrakow = () => {
     setMapCenter({ lat: 50.0619, lon: 19.9373 });
-    setStatusMessage('Wycentrowano mapę na Rynku Głównym w Krakowie.');
+    setStatusMessage(t(locale, 'toastCenteredKrakow'));
     setTimeout(() => setStatusMessage(null), 3000);
   };
 
   const handleLocateUser = async () => {
-    setStatusMessage('Pobieranie Twojej lokalizacji GPS...');
+    setStatusMessage(t(locale, 'gpsFetching'));
     const result = await fetchUserLocation();
-    if (result) {
-      setMapCenter({ lat: result.lat, lon: result.lon });
-      setStatusMessage('Wycentrowano mapę na Twojej lokalizacji.');
+    const loc = result || userLocation;
+    if (loc) {
+      setMapCenter({ lat: loc.lat, lon: loc.lon });
+      setStatusMessage(t(locale, 'gpsCenteredSuccess'));
       setTimeout(() => setStatusMessage(null), 3000);
     } else {
       Alert.alert(
-        'Lokalizacja niedostępna',
-        'Nie udało się pobrać Twojej obecnej lokalizacji. Upewnij się, że masz włączony GPS i przyznane uprawnienia.',
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableDesc'),
         [
-          { text: 'Centrum Krakowa', onPress: handleCenterKrakow },
+          { text: t(locale, 'btnCenterKrakowAction'), onPress: handleCenterKrakow },
           { text: 'OK', style: 'cancel' },
         ],
       );
@@ -227,40 +239,73 @@ export default function MapHomeScreen() {
   };
 
   const handleUseMyLocation = async () => {
-    if (userLocation) {
-      setFromQuery('Moja lokalizacja');
-      setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
-      setMapCenter({ lat: userLocation.lat, lon: userLocation.lon });
-      setStatusMessage('Ustawiono punkt startowy na Twoją lokalizację.');
-      setTimeout(() => setStatusMessage(null), 2500);
-      return;
-    }
-
-    setStatusMessage('Pobieranie Twojej lokalizacji GPS...');
+    setStatusMessage(t(locale, 'gpsFetching'));
     const result = await fetchUserLocation();
-    if (result) {
-      setFromQuery(result.address || 'Moja lokalizacja');
-      setFromPos({ lon: result.lon, lat: result.lat });
-      setMapCenter({ lat: result.lat, lon: result.lon });
-      setStatusMessage('Ustawiono punkt startowy na Twoją lokalizację.');
+    const loc = result || userLocation;
+    if (loc) {
+      setFromQuery(result?.address || t(locale, 'myLocationShort'));
+      setFromPos({ lon: loc.lon, lat: loc.lat });
+      setMapCenter({ lat: loc.lat, lon: loc.lon });
+      setStatusMessage(t(locale, 'gpsStartPointSet'));
       setTimeout(() => setStatusMessage(null), 2500);
     } else {
       Alert.alert(
-        'Lokalizacja niedostępna',
-        'Nie udało się pobrać Twojej lokalizacji GPS. Wpisz adres początkowy ręcznie lub wybierz Centrum Krakowa.',
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableSearchDesc'),
         [
           {
-            text: 'Centrum Krakowa',
+            text: t(locale, 'btnCenterKrakowAction'),
             onPress: () => {
-              setFromQuery('Rynek Główny');
+              setFromQuery(t(locale, 'rynekGlowny'));
               setFromPos({ lon: 19.9373, lat: 50.0619 });
               setMapCenter({ lat: 50.0619, lon: 19.9373 });
             },
           },
-          { text: 'Anuluj', style: 'cancel' },
+          { text: t(locale, 'cancel'), style: 'cancel' },
         ],
       );
       setStatusMessage(null);
+    }
+  };
+
+  // Swap Points (A ⇄ B)
+  const handleSwapPoints = () => {
+    const prevFromQuery = fromQuery;
+    const prevFromPos = fromPos;
+    setFromQuery(toQuery);
+    setFromPos(toPos);
+    setToQuery(prevFromQuery);
+    setToPos(prevFromPos);
+  };
+
+  // Interactive Map Click Handler
+  const handleMapClick = async (coords: { lat: number; lon: number }) => {
+    if (!pickingTarget) return;
+
+    let name = `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`;
+    try {
+      const rev = await reverseGeocodeLocation(coords.lat, coords.lon, locale);
+      if (rev?.name) name = rev.name;
+    } catch {}
+
+    if (pickingTarget === 'start') {
+      setFromPos(coords);
+      setFromQuery(name);
+      setPickingTarget(null);
+      setStatusMessage(`${t(locale, 'pointA')}: ${name}`);
+      setTimeout(() => setStatusMessage(null), 3000);
+    } else if (pickingTarget === 'end') {
+      setToPos(coords);
+      setToQuery(name);
+      setPickingTarget(null);
+      setStatusMessage(`${t(locale, 'pointB')}: ${name}`);
+      setTimeout(() => setStatusMessage(null), 3000);
+    } else if (pickingTarget === 'place') {
+      setPlacePos(coords);
+      setPlaceQuery(name);
+      setPickingTarget(null);
+      setStatusMessage(`${t(locale, 'placeLabel')}: ${name}`);
+      setTimeout(() => setStatusMessage(null), 3000);
     }
   };
 
@@ -296,7 +341,7 @@ export default function MapHomeScreen() {
         });
       }
     } catch (err: any) {
-      Alert.alert('Błąd wyznaczania trasy', err.message || 'Nie udało się obliczyć trasy.');
+      Alert.alert(t(locale, 'routeErrorTitle'), err.message || t(locale, 'routeErrorMsg'));
     } finally {
       setLoadingRoute(false);
     }
@@ -313,7 +358,7 @@ export default function MapHomeScreen() {
       setActiveTab('place');
       setMapCenter({ lat: placePos.lat, lon: placePos.lon });
     } catch (err: any) {
-      Alert.alert('Błąd sprawdzania obiektu', err.message || 'Nie udało się pobrać danych.');
+      Alert.alert(t(locale, 'placeErrorTitle'), err.message || t(locale, 'placeErrorMsg'));
     } finally {
       setLoadingPlace(false);
     }
@@ -353,7 +398,7 @@ export default function MapHomeScreen() {
         });
       }
     } catch (err: any) {
-      Alert.alert('Błąd', err.message || 'Nie udało się załadować trasy demo.');
+      Alert.alert(t(locale, 'errorTitle'), err.message || t(locale, 'routeErrorMsg'));
     } finally {
       setLoadingRoute(false);
     }
@@ -373,7 +418,7 @@ export default function MapHomeScreen() {
       setActivePlaceReport(result.report);
       setMapCenter({ lat: placeData.position.lat, lon: placeData.position.lon });
     } catch (err: any) {
-      Alert.alert('Błąd', err.message || 'Nie udało się załadować obiektu demo.');
+      Alert.alert(t(locale, 'errorTitle'), err.message || t(locale, 'placeErrorMsg'));
     } finally {
       setLoadingPlace(false);
     }
@@ -440,7 +485,7 @@ export default function MapHomeScreen() {
   // Submit local report
   const handleSubmitLocalReport = () => {
     if (!reportDesc.trim()) {
-      Alert.alert('Uwaga', 'Wpisz opis przeszkody przed zapisem.');
+      Alert.alert(t(locale, 'warningTitle'), t(locale, 'reportDescRequired'));
       return;
     }
     addLocalReport(reportDesc.trim());
@@ -469,27 +514,37 @@ export default function MapHomeScreen() {
           findings={activeRouteReport?.findings || []}
           center={mapCenter}
           userLocation={userLocation}
-          startLocation={
-            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-              ? { name: fromQuery, lat: activeWalkingRoute.coordinates[0]![1], lon: activeWalkingRoute.coordinates[0]![0] }
-              : undefined
-          }
-          endLocation={
-            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-              ? {
-                  name: toQuery,
-                  lat: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1],
-                  lon: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0],
-                }
-              : undefined
-          }
+          startLocation={{
+            name: fromQuery,
+            lat:
+              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+                ? activeWalkingRoute.coordinates[0]![1]
+                : fromPos.lat,
+            lon:
+              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+                ? activeWalkingRoute.coordinates[0]![0]
+                : fromPos.lon,
+          }}
+          endLocation={{
+            name: toQuery,
+            lat:
+              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+                ? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1]
+                : toPos.lat,
+            lon:
+              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+                ? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0]
+                : toPos.lon,
+          }}
+          onMapClick={handleMapClick}
+          isPickingMode={pickingTarget !== null}
         />
 
         {/* Floating Map Action Buttons (Apple / Google Maps style) */}
         <View style={styles.floatingControlsRight}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Pokaż moją obecną lokalizację"
+            accessibilityLabel={t(locale, 'accessibilityShowMyLocation')}
             onPress={handleLocateUser}
             style={[
               styles.floatingBtn,
@@ -509,7 +564,7 @@ export default function MapHomeScreen() {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Zmień profil poruszania się"
+            accessibilityLabel={t(locale, 'btnChangeProfile')}
             onPress={() => {
               setActiveTab('profile');
               setPopupExpanded(true);
@@ -529,7 +584,7 @@ export default function MapHomeScreen() {
           {activeWalkingRoute ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Wyczyść aktywną trasę"
+              accessibilityLabel={t(locale, 'btnClearRoute')}
               onPress={handleClearRoute}
               style={[
                 styles.floatingBtn,
@@ -549,7 +604,7 @@ export default function MapHomeScreen() {
         {activeWalkingRoute && activeRouteReport ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Pokaż podsumowanie aktywnej trasy"
+            accessibilityLabel={t(locale, 'btnShowRouteSummary')}
             onPress={() => {
               setActiveTab('route');
               setPopupExpanded(true);
@@ -566,7 +621,7 @@ export default function MapHomeScreen() {
             <Path size={18} weight="bold" color={colors.accent} />
             <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
               {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
-              {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length} blokad
+              {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length} {t(locale, 'severityBlocker').toLowerCase()}
             </Text>
             <CaretUp size={16} weight="bold" color={colors.accent} />
           </Pressable>
@@ -599,7 +654,7 @@ export default function MapHomeScreen() {
         {/* Drag Handle Bar / Tap to toggle */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={popupExpanded ? 'Zwiń dolne menu' : 'Rozwiń dolne menu wyszukiwania'}
+          accessibilityLabel={popupExpanded ? t(locale, 'collapseMenu') : t(locale, 'expandMenu')}
           onPress={() => setPopupExpanded(!popupExpanded)}
           style={styles.sheetHandleRow}
         >
@@ -618,7 +673,7 @@ export default function MapHomeScreen() {
             </View>
             <View style={styles.sheetToggleBtn}>
               <Text style={[styles.toggleText, { color: colors.muted, fontSize: fontSize(12) }]}>
-                {popupExpanded ? 'Ukryj menu' : 'Rozwiń menu'}
+                {popupExpanded ? t(locale, 'hideMenu') : t(locale, 'expandMenu')}
               </Text>
               {popupExpanded ? (
                 <CaretDown size={14} weight="bold" color={colors.accent} />
@@ -649,7 +704,7 @@ export default function MapHomeScreen() {
             >
               <MagnifyingGlass size={18} weight="bold" color={colors.accent} />
               <Text style={[styles.peekSearchPlaceholder, { color: colors.muted, fontSize: fontSize(14) }]}>
-                Dokąd w Krakowie? Szukaj trasy lub miejsca...
+                {t(locale, 'searchPlaceholderUnified')}
               </Text>
             </Pressable>
 
@@ -694,7 +749,7 @@ export default function MapHomeScreen() {
               >
                 <SlidersHorizontal size={14} weight="bold" color={colors.accent} />
                 <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  Nawierzchnie ({blockedList.length})
+                  {t(locale, 'surfacesChip')} ({blockedList.length})
                 </Text>
               </Pressable>
             </ScrollView>
@@ -737,7 +792,7 @@ export default function MapHomeScreen() {
                     },
                   ]}
                 >
-                  Trasa
+                  {t(locale, 'tabRoute')}
                 </Text>
               </Pressable>
 
@@ -764,7 +819,7 @@ export default function MapHomeScreen() {
                     },
                   ]}
                 >
-                  Obiekt
+                  {t(locale, 'tabPlace')}
                 </Text>
               </Pressable>
 
@@ -791,7 +846,7 @@ export default function MapHomeScreen() {
                     },
                   ]}
                 >
-                  Profil
+                  {t(locale, 'tabProfile')}
                 </Text>
               </Pressable>
 
@@ -818,7 +873,7 @@ export default function MapHomeScreen() {
                     },
                   ]}
                 >
-                  Zgłoś
+                  {t(locale, 'tabReport')}
                 </Text>
               </Pressable>
             </View>
@@ -834,64 +889,61 @@ export default function MapHomeScreen() {
               {/* TAB 1: TRASA (ROUTE PLANNING & ANALYSIS) */}
               {activeTab === 'route' ? (
                 <View style={styles.formSection}>
-                  {/* Origin */}
-                  <View style={styles.fieldBox}>
-                    <View style={styles.fieldHeader}>
-                      <Text style={[styles.fieldLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                        {t(locale, 'from')}
-                      </Text>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Użyj mojej bieżącej lokalizacji"
-                        onPress={handleUseMyLocation}
-                        style={styles.myLocationPill}
-                      >
-                        <NavigationArrow size={12} weight="bold" color={colors.accent} />
-                        <Text style={[styles.myLocationText, { color: colors.accent, fontSize: fontSize(12) }]}>
-                          Moja lokalizacja
-                        </Text>
-                      </Pressable>
-                    </View>
-                    <TextInput
-                      value={fromQuery}
-                      onChangeText={setFromQuery}
-                      placeholder={t(locale, 'fromPlaceholder')}
-                      placeholderTextColor={colors.muted}
+                  {/* Point A (Start) */}
+                  <LocationPicker
+                    label={t(locale, 'from')}
+                    badge="A"
+                    badgeColor="#005CA9"
+                    point={{ name: fromQuery, position: fromPos }}
+                    onChangePoint={(p) => {
+                      setFromQuery(p.name);
+                      setFromPos(p.position);
+                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                    }}
+                    placeholder={t(locale, 'fromPlaceholder')}
+                    showMyLocation
+                    onUseMyLocation={handleUseMyLocation}
+                    onPickOnMap={() => setPickingTarget(pickingTarget === 'start' ? null : 'start')}
+                    isPickingOnMap={pickingTarget === 'start'}
+                  />
+
+                  {/* Swap Points Button (A ⇄ B) */}
+                  <View style={styles.swapBtnRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t(locale, 'swapPoints')}
+                      onPress={handleSwapPoints}
                       style={[
-                        styles.input,
+                        styles.swapBtn,
                         {
-                          color: colors.text,
-                          borderColor: colors.border,
                           backgroundColor: colors.background,
-                          fontSize: fontSize(14.5),
+                          borderColor: colors.border,
                           borderWidth: isHighContrast ? 2 : 1,
                         },
                       ]}
-                    />
+                    >
+                      <ArrowsDownUp size={15} weight="bold" color={colors.accent} />
+                      <Text style={[styles.swapBtnText, { color: colors.accent, fontSize: fontSize(12) }]}>
+                        {t(locale, 'swapPoints')}
+                      </Text>
+                    </Pressable>
                   </View>
 
-                  {/* Destination */}
-                  <View style={styles.fieldBox}>
-                    <Text style={[styles.fieldLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                      {t(locale, 'to')}
-                    </Text>
-                    <TextInput
-                      value={toQuery}
-                      onChangeText={setToQuery}
-                      placeholder={t(locale, 'toPlaceholder')}
-                      placeholderTextColor={colors.muted}
-                      style={[
-                        styles.input,
-                        {
-                          color: colors.text,
-                          borderColor: colors.border,
-                          backgroundColor: colors.background,
-                          fontSize: fontSize(14.5),
-                          borderWidth: isHighContrast ? 2 : 1,
-                        },
-                      ]}
-                    />
-                  </View>
+                  {/* Point B (Destination) */}
+                  <LocationPicker
+                    label={t(locale, 'to')}
+                    badge="B"
+                    badgeColor="#D32F2F"
+                    point={{ name: toQuery, position: toPos }}
+                    onChangePoint={(p) => {
+                      setToQuery(p.name);
+                      setToPos(p.position);
+                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                    }}
+                    placeholder={t(locale, 'toPlaceholder')}
+                    onPickOnMap={() => setPickingTarget(pickingTarget === 'end' ? null : 'end')}
+                    isPickingOnMap={pickingTarget === 'end'}
+                  />
 
                   {/* Plan Route Action */}
                   <GovButton
@@ -1037,7 +1089,7 @@ export default function MapHomeScreen() {
 
                       <View style={styles.cardHeaderRow}>
                         <Text style={[styles.resultTitle, { color: colors.text, fontSize: fontSize(16) }]}>
-                          Podsumowanie trasy:
+                          {t(locale, 'summaryCardTitle')}:
                         </Text>
                         <Text style={[styles.metricVal, { color: colors.accent, fontSize: fontSize(15) }]}>
                           {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 60) / 60)} min
@@ -1051,7 +1103,7 @@ export default function MapHomeScreen() {
                             {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length}
                           </Text>
                           <Text style={[styles.barrierMiniLabel, { color: colors.blockerText, fontSize: fontSize(11) }]}>
-                            Blokady
+                            {t(locale, 'severityBlocker')}
                           </Text>
                         </View>
 
@@ -1060,7 +1112,7 @@ export default function MapHomeScreen() {
                             {activeRouteReport.findings.filter((f) => f.severity === 'warning').length}
                           </Text>
                           <Text style={[styles.barrierMiniLabel, { color: colors.warningText, fontSize: fontSize(11) }]}>
-                            Ostrzeżenia
+                            {t(locale, 'severityWarning')}
                           </Text>
                         </View>
 
@@ -1069,14 +1121,14 @@ export default function MapHomeScreen() {
                             {activeRouteReport.findings.filter((f) => f.severity === 'ok').length}
                           </Text>
                           <Text style={[styles.barrierMiniLabel, { color: colors.okText, fontSize: fontSize(11) }]}>
-                            Udogodnienia
+                            {t(locale, 'facilitiesCount')}
                           </Text>
                         </View>
                       </View>
 
                       <View style={styles.routeActionRow}>
                         <GovButton
-                          title="Pokaż pełny raport i manewry"
+                          title={t(locale, 'showFullReportAndManeuvers')}
                           icon={<ArrowRight size={16} weight="bold" color={colors.accent} />}
                           variant="outline"
                           onPress={() => router.push('/route')}
@@ -1088,7 +1140,7 @@ export default function MapHomeScreen() {
                   {/* Fast Demo Scenarios */}
                   <View style={styles.demoSection}>
                     <Text style={[styles.demoSectionTitle, { color: colors.muted, fontSize: fontSize(12.5) }]}>
-                      SZYBKIE TRASY DEMO (KRAKÓW):
+                      {t(locale, 'fastDemoRoutes')}
                     </Text>
                     <View style={styles.demoButtonsRow}>
                       <GovButton
@@ -1113,28 +1165,18 @@ export default function MapHomeScreen() {
               {/* TAB 2: OBIEKT (PLACE INSPECTION & EXTENDED PUBLIC CATALOG) */}
               {activeTab === 'place' ? (
                 <View style={styles.formSection}>
-                  {/* Dynamic Custom Search */}
-                  <View style={styles.fieldBox}>
-                    <Text style={[styles.fieldLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                      {t(locale, 'placeLabel')} (lub dowolny punkt w Krakowie):
-                    </Text>
-                    <TextInput
-                      value={placeQuery}
-                      onChangeText={setPlaceQuery}
-                      placeholder={t(locale, 'placePlaceholder')}
-                      placeholderTextColor={colors.muted}
-                      style={[
-                        styles.input,
-                        {
-                          color: colors.text,
-                          borderColor: colors.border,
-                          backgroundColor: colors.background,
-                          fontSize: fontSize(14.5),
-                          borderWidth: isHighContrast ? 2 : 1,
-                        },
-                      ]}
-                    />
-                  </View>
+                  <LocationPicker
+                    label={t(locale, 'placeLabel')}
+                    point={{ name: placeQuery, position: placePos }}
+                    onChangePoint={(p) => {
+                      setPlaceQuery(p.name);
+                      setPlacePos(p.position);
+                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                    }}
+                    placeholder={t(locale, 'placePlaceholder')}
+                    onPickOnMap={() => setPickingTarget(pickingTarget === 'place' ? null : 'place')}
+                    isPickingOnMap={pickingTarget === 'place'}
+                  />
 
                   <GovButton
                     title={t(locale, 'searchPlaceButton')}
@@ -1374,7 +1416,7 @@ export default function MapHomeScreen() {
               {activeTab === 'profile' ? (
                 <View style={styles.formSection}>
                   <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
-                    Wybierz profil mobilności:
+                    {t(locale, 'selectProfile')}
                   </Text>
 
                   {/* Profile Cards */}
@@ -1418,7 +1460,7 @@ export default function MapHomeScreen() {
                   {/* Blocked Road Types */}
                   <GovCard variant="default">
                     <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
-                      Blokowane nawierzchnie (omijane na trasie):
+                      {t(locale, 'blockedRoadTypesTitle')}
                     </Text>
 
                     <View style={styles.roadChipsWrap}>
@@ -1463,12 +1505,12 @@ export default function MapHomeScreen() {
                   {/* Detailed Thresholds */}
                   <GovCard variant="accent">
                     <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
-                      Szczegółowe progi barier ({profileId === 'wheelchair' ? 'Wózek inwalidzki' : 'Profil własny'}):
+                      {t(locale, 'customThresholdsTitle')} ({profileId === 'wheelchair' ? t(locale, 'wheelchair') : profileId === 'custom' ? t(locale, 'custom') : profileId}):
                     </Text>
 
                     <View style={styles.thresholdRow}>
                       <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                        Maksymalny krawężnik: <Text style={{ fontWeight: '800' }}>{activeThresholds.maxKerbMillimetres} mm</Text>
+                        {t(locale, 'maxKerb')} <Text style={{ fontWeight: '800' }}>{activeThresholds.maxKerbMillimetres} mm</Text>
                       </Text>
                       <View style={styles.stepBtnRow}>
                         <GovButton
@@ -1492,63 +1534,63 @@ export default function MapHomeScreen() {
                           style={styles.smallStepBtn}
                         />
                       </View>
-                        <View style={styles.presetChipsRow}>
-                          {[20, 30, 50, 80, 140].map((kVal) => {
-                            const isSelected = activeThresholds.maxKerbMillimetres === kVal;
-                            return (
-                              <Pressable
-                                key={kVal}
-                                accessibilityRole="button"
-                                onPress={() =>
-                                  updateActiveThresholds({
-                                    maxKerbMillimetres: kVal,
-                                  })
-                                }
+                      <View style={styles.presetChipsRow}>
+                        {[20, 30, 50, 80, 140].map((kVal) => {
+                          const isSelected = activeThresholds.maxKerbMillimetres === kVal;
+                          return (
+                            <Pressable
+                              key={kVal}
+                              accessibilityRole="button"
+                              onPress={() =>
+                                updateActiveThresholds({
+                                  maxKerbMillimetres: kVal,
+                                })
+                              }
+                              style={[
+                                styles.presetChip,
+                                {
+                                  backgroundColor: isSelected ? colors.accent : colors.background,
+                                  borderColor: isSelected ? colors.accent : colors.border,
+                                  borderWidth: isSelected ? 2 : 1,
+                                },
+                              ]}
+                            >
+                              <Text
                                 style={[
-                                  styles.presetChip,
+                                  styles.presetChipText,
                                   {
-                                    backgroundColor: isSelected ? colors.accent : colors.background,
-                                    borderColor: isSelected ? colors.accent : colors.border,
-                                    borderWidth: isSelected ? 2 : 1,
+                                    color: isSelected ? colors.accentText : colors.text,
+                                    fontSize: fontSize(12),
+                                    fontWeight: isSelected ? '800' : '600',
                                   },
                                 ]}
                               >
-                                <Text
-                                  style={[
-                                    styles.presetChipText,
-                                    {
-                                      color: isSelected ? colors.accentText : colors.text,
-                                      fontSize: fontSize(12),
-                                      fontWeight: isSelected ? '800' : '600',
-                                    },
-                                  ]}
-                                >
-                                  {kVal} mm
-                                </Text>
-                              </Pressable>
-                            );
-                          })}
-                        </View>
+                                {kVal} mm
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
                       </View>
+                    </View>
 
-                      <View style={styles.thresholdRow}>
-                        <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                          Traktowanie stopni:{' '}
-                          <Text style={{ fontWeight: '800', color: activeThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
-                            {activeThresholds.stepsAreBlocker ? 'BLOKADA' : 'OSTRZEŻENIE'}
-                          </Text>
+                    <View style={styles.thresholdRow}>
+                      <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
+                        {t(locale, 'stepsTreatment')}{' '}
+                        <Text style={{ fontWeight: '800', color: activeThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
+                          {activeThresholds.stepsAreBlocker ? t(locale, 'blockedStatusBlocked') : t(locale, 'severityWarning')}
                         </Text>
-                        <GovButton
-                          variant="secondary"
-                          title={activeThresholds.stepsAreBlocker ? 'Zmień na: Ostrzeżenie (nie blokada)' : 'Zmień na: Blokada trasy'}
-                          onPress={() =>
-                            updateActiveThresholds({
-                              stepsAreBlocker: !activeThresholds.stepsAreBlocker,
-                            })
-                          }
-                        />
-                      </View>
-                    </GovCard>
+                      </Text>
+                      <GovButton
+                        variant="secondary"
+                        title={activeThresholds.stepsAreBlocker ? (locale === 'pl' ? 'Zmień na: Ostrzeżenie (nie blokada)' : t(locale, 'toggleStepsStatus')) : (locale === 'pl' ? 'Zmień na: Blokada trasy' : t(locale, 'toggleStepsStatus'))}
+                        onPress={() =>
+                          updateActiveThresholds({
+                            stepsAreBlocker: !activeThresholds.stepsAreBlocker,
+                          })
+                        }
+                      />
+                    </View>
+                  </GovCard>
                 </View>
               ) : null}
 
@@ -1556,13 +1598,13 @@ export default function MapHomeScreen() {
               {activeTab === 'report' ? (
                 <View style={styles.formSection}>
                   <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
-                    Zgłoś przeszkodę lub nieaktualną barierę:
+                    {t(locale, 'reportObstacleHeading')}
                   </Text>
 
                   <TextInput
                     value={reportDesc}
                     onChangeText={setReportDesc}
-                    placeholder="Opisz barierę w terenie (np. brak podjazdu, uszkodzony krawężnik)..."
+                    placeholder={t(locale, 'reportObstaclePlaceholder')}
                     placeholderTextColor={colors.muted}
                     multiline
                     numberOfLines={3}
@@ -1584,21 +1626,21 @@ export default function MapHomeScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Check size={16} weight="bold" color={colors.okText} />
                         <Text style={{ color: colors.okText, fontWeight: '700', fontSize: fontSize(13) }}>
-                          Zgłoszenie zostało zapisane w pamięci urządzenia.
+                          {t(locale, 'reportSavedSuccess')}
                         </Text>
                       </View>
                     </GovCard>
                   ) : null}
 
                   <GovButton
-                    title="Zapisz zgłoszenie lokalnie"
+                    title={t(locale, 'reportSubmit')}
                     icon={<Check size={16} weight="bold" color={colors.accentText} />}
                     variant="primary"
                     onPress={handleSubmitLocalReport}
                   />
 
                   <GovButton
-                    title="Przejdź do pełnego formularza OSM"
+                    title={t(locale, 'openFullOsmForm')}
                     icon={<ArrowRight size={16} weight="bold" color={colors.text} />}
                     variant="outline"
                     onPress={() => router.push('/report-correction')}
@@ -1607,7 +1649,7 @@ export default function MapHomeScreen() {
                   {localReports && localReports.length > 0 ? (
                     <View style={{ marginTop: 12 }}>
                       <Text style={[styles.sectionSubtitle, { color: colors.muted, fontSize: fontSize(12) }]}>
-                        ZAPISANE ZGŁOSZENIA LOKALNE ({localReports.length}):
+                        {t(locale, 'localReportsQueue')} ({localReports.length})
                       </Text>
                       {localReports.map((r) => (
                         <GovCard key={r.id} style={{ marginTop: 6 }}>
@@ -2082,5 +2124,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginTop: 4,
+  },
+  swapBtnRow: {
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  swapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  swapBtnText: {
+    fontWeight: '700',
   },
 });
