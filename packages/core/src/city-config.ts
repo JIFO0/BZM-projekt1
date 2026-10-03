@@ -76,6 +76,11 @@ function readThresholds(value: unknown, profile: ProfileId): BarrierThresholds {
 }
 
 const TILE_MAPSETS = ['basic', 'outdoor', 'aerial', 'names-overlay', 'winter'] as const;
+type TileMapset = (typeof TILE_MAPSETS)[number];
+
+function isTileMapset(value: unknown): value is TileMapset {
+  return typeof value === 'string' && (TILE_MAPSETS as readonly string[]).includes(value);
+}
 
 export function parseCityConfig(input: unknown): CityConfig {
   if (!isRecord(input)) throw new Error('City config must be an object');
@@ -106,10 +111,10 @@ export function parseCityConfig(input: unknown): CityConfig {
   if (geometryFormat !== 'geojson') {
     throw new Error('mapy.geometryFormat must be geojson');
   }
-  const tileMapset = mapy.tileMapset;
-  if (typeof tileMapset !== 'string' || !TILE_MAPSETS.includes(tileMapset as (typeof TILE_MAPSETS)[number])) {
+  if (!isTileMapset(mapy.tileMapset)) {
     throw new Error('mapy.tileMapset is not a documented Mapy.com mapset');
   }
+  const tileMapset = mapy.tileMapset;
   const language = mapy.language;
   if (language !== 'pl' && language !== 'en') {
     throw new Error('mapy.language must be pl or en');

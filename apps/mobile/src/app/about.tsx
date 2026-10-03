@@ -17,9 +17,6 @@ export default function AboutScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['bottom']}>
       <Stack.Screen options={{ title: t(locale, 'about') }} />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-          {t(locale, 'aboutTitle')}
-        </Text>
         <Text style={[styles.body, { color: colors.text }]}>{t(locale, 'aboutLead')}</Text>
         <SourceBlock
           name={MAPY_ATTRIBUTION.name}
@@ -90,7 +87,6 @@ function SourceBlock({
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.screen, gap: spacing.stack },
-  title: { fontSize: 22, fontWeight: '700' },
   body: { fontSize: 16, lineHeight: 24 },
   meta: { fontSize: 14, lineHeight: 20 },
   card: { borderWidth: 2, borderRadius: 12, padding: 12, gap: 6 },

@@ -15,9 +15,6 @@ export default function SearchScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['bottom']}>
       <Stack.Screen options={{ title: t(locale, 'searchTitle') }} />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-          {t(locale, 'searchTitle')}
-        </Text>
         <Text style={[styles.body, { color: colors.text }]}>{t(locale, 'searchLead')}</Text>
         <Field label={t(locale, 'from')} placeholder={t(locale, 'fromPlaceholder')} colors={colors} />
         <Field label={t(locale, 'to')} placeholder={t(locale, 'toPlaceholder')} colors={colors} />
@@ -61,7 +58,6 @@ function Field({
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.screen, gap: spacing.stack },
-  title: { fontSize: 22, fontWeight: '700' },
   body: { fontSize: 16, lineHeight: 24 },
   field: { gap: 6 },
   label: { fontSize: 16, fontWeight: '600' },

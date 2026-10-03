@@ -7,7 +7,11 @@ import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { darkColors, lightColors, spacing } from '@/theme/tokens';
 
-const OPTIONS: Array<{ id: ProfileId; title: 'wheelchair' | 'stroller' | 'custom'; hint: 'wheelchairHint' | 'strollerHint' | 'customHint' }> = [
+const OPTIONS: {
+  id: ProfileId;
+  title: 'wheelchair' | 'stroller' | 'custom';
+  hint: 'wheelchairHint' | 'strollerHint' | 'customHint';
+}[] = [
   { id: 'wheelchair', title: 'wheelchair', hint: 'wheelchairHint' },
   { id: 'stroller', title: 'stroller', hint: 'strollerHint' },
   { id: 'custom', title: 'custom', hint: 'customHint' },
@@ -20,7 +24,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={{ headerShown: false, title: t(locale, 'appName') }} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.topRow}>
           <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
@@ -37,13 +41,15 @@ export default function ProfileScreen() {
         </View>
         <Text style={[styles.lead, { color: colors.text }]}>{t(locale, 'profileTitle')}</Text>
         <Text style={[styles.body, { color: colors.muted }]}>{t(locale, 'profileLead')}</Text>
+        <View accessibilityRole="radiogroup" style={styles.options}>
         {OPTIONS.map((option) => {
           const selected = profileId === option.id;
           return (
             <Pressable
               key={option.id}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
+              aria-checked={selected}
               accessibilityLabel={`${t(locale, option.title)}. ${t(locale, option.hint)}`}
               onPress={() => setProfileId(option.id)}
               style={[
@@ -63,6 +69,7 @@ export default function ProfileScreen() {
             </Pressable>
           );
         })}
+        </View>
         <Text style={[styles.body, { color: colors.muted }]}>{t(locale, 'privacy')}</Text>
         <Pressable
           accessibilityRole="button"
@@ -96,6 +103,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.screen, gap: spacing.stack },
+  options: { gap: spacing.stack },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
   title: { fontSize: 22, fontWeight: '700', flexShrink: 1 },
   lead: { fontSize: 20, fontWeight: '600' },
