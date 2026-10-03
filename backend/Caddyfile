@@ -42,6 +42,25 @@ http://hopper.accessible.krakow.local {
 }
 
 # 4. Fallback for direct localhost access without /etc/hosts resolution
-http://localhost {
-    reverse_proxy frontend:80
+http://localhost, http://127.0.0.1 {
+    @options method OPTIONS
+    handle @options {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        header Access-Control-Max-Age "86400"
+        respond 204
+    }
+
+    handle /route* {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        reverse_proxy graphhopper:8989
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
 }
+

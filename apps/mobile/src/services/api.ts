@@ -33,12 +33,25 @@ function hasValidMapyKey(): boolean {
   return Boolean(key && !key.includes('replace-with') && key.trim().length > 5);
 }
 
+function resolveGraphHopperUrl(): string {
+  if (process.env.EXPO_PUBLIC_GRAPHHOPPER_URL) {
+    return process.env.EXPO_PUBLIC_GRAPHHOPPER_URL;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8989';
+    }
+    if (hostname && !hostname.endsWith('.local')) {
+      return `http://${hostname}:8989`;
+    }
+  }
+  return city.graphhopper?.apiBase || 'http://localhost:8989';
+}
+
 // Initialize providers
 const graphhopperRouting = new GraphHopperRoutingProvider({
-  apiBase:
-    process.env.EXPO_PUBLIC_GRAPHHOPPER_URL ||
-    city.graphhopper?.apiBase ||
-    'http://hopper.accessible.krakow.local',
+  apiBase: resolveGraphHopperUrl(),
 });
 const osmOverpass = new OsmOverpassProvider({
   endpoint: city.overpass.endpoint,
