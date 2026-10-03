@@ -246,6 +246,26 @@ export function mapGraphHopperPathToResult(
       });
     }
 
+    const surfacePlMap: Record<string, string> = {
+      cobblestone: 'kocie łby / bruk',
+      sett: 'kostka kamienna',
+      paving_stones: 'kostka brukowa',
+      asphalt: 'asfalt',
+      concrete: 'beton',
+      gravel: 'żwir',
+      compacted: 'ubity żwir',
+      fine_gravel: 'drobny żwir',
+      sand: 'piasek',
+      dirt: 'grunt / ziemia',
+      earth: 'ziemia',
+      ground: 'grunt',
+      grass: 'trawa',
+      unpaved: 'nieutwardzona',
+      wood: 'drewno',
+      steps: 'schody',
+    };
+    const surfacePl = surface ? surfacePlMap[surface.toLowerCase()] || surface : '';
+
     if (surfaceSeverity === 'blocker' && surface) {
       barriers.push({
         id: `barrier-surface-${segIdx}`,
@@ -253,8 +273,8 @@ export function mapGraphHopperPathToResult(
         severity: 'blocker',
         status: 'community',
         criterion: 'Nawierzchnia',
-        value: surface,
-        message: `Zablokowana nawierzchnia (${surface}) – droga zablokowana dla wybranego profilu`,
+        value: surfacePlMap[surface.toLowerCase()] || surface,
+        message: `Zablokowana nawierzchnia (${surfacePl}) – droga zablokowana dla wybranego profilu`,
         lat: centerCoord[1],
         lon: centerCoord[0],
         distanceFromStartMeters: distFromStart,
@@ -267,8 +287,8 @@ export function mapGraphHopperPathToResult(
         severity: 'warning',
         status: 'community',
         criterion: 'Nawierzchnia',
-        value: surface,
-        message: `Nawierzchnia ${surface} nie znajduje się na liście zalecanych dla profilu`,
+        value: surfacePlMap[surface.toLowerCase()] || surface,
+        message: `Nawierzchnia: ${surfacePl} nie znajduje się na liście zalecanych dla profilu`,
         lat: centerCoord[1],
         lon: centerCoord[0],
         distanceFromStartMeters: distFromStart,

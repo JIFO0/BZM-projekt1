@@ -264,7 +264,7 @@ export const SAMPLE_KRAKOW_ROUTE: AccessibleRouteResult = {
       severity: 'warning',
       status: 'community',
       criterion: 'Nawierzchnia',
-      value: 'Kocie łby (cobblestone)',
+      value: 'Kocie łby',
       message: 'Ulica Kanonicza posiada historyczną nawierzchnię brukową o wysokiej nierówności',
       lat: 50.0555,
       lon: 19.9378,

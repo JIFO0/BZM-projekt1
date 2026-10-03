@@ -13,6 +13,7 @@
     "server": "tsx ./src/index.ts server",
     "datagen": "tsx ./src/index.ts datagen",
     "build-snapshot": "tsx ./src/index.ts datagen",
+    "download-tiles": "tsx ./src/index.ts download-tiles",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -13,16 +13,16 @@ const pl = {
   blockedRoadTypesTitle: 'Blokowane typy nawierzchni i dróg',
   blockedRoadTypesSubtitle:
     'Drogi z wybranymi nawierzchniami będą omijane lub oznaczane na trasie jako blokada (brak przejazdu).',
-  surfaceCobblestone: 'Kocie łby / Bruk (cobblestone)',
-  surfaceGravel: 'Żwir / Szuter (gravel)',
-  surfaceSand: 'Piasek (sand)',
-  surfaceDirt: 'Grunt / Ziemia (dirt)',
-  surfaceUnpaved: 'Nieutwardzona (unpaved)',
-  surfaceCompacted: 'Ubity żwir (compacted)',
-  surfacePavingStones: 'Kostka / Płyty (paving stones)',
-  surfaceSteps: 'Schody piesze (steps)',
-  blockedStatusBlocked: 'Zablokowana',
-  blockedStatusAllowed: 'Dozwolona',
+  surfaceCobblestone: 'Kocie łby / Bruk',
+  surfaceGravel: 'Żwir / Szuter',
+  surfaceSand: 'Piasek',
+  surfaceDirt: 'Grunt / Ziemia',
+  surfaceUnpaved: 'Nieutwardzona',
+  surfaceCompacted: 'Ubity żwir',
+  surfacePavingStones: 'Kostka / Płyty',
+  surfaceSteps: 'Schody piesze',
+  blockedStatusBlocked: 'ZABLOKOWANA',
+  blockedStatusAllowed: 'DOZWOLONA',
   stepsAllowed: 'Dozwolone',
   continue: 'Przejdź do wyszukiwania',
   privacy:
@@ -407,7 +407,7 @@ const en: typeof pl = {
   blockedRoadTypesTitle: 'Blocked road and surface types',
   blockedRoadTypesSubtitle:
     'Ways with selected surfaces will be avoided or flagged as impassable blockers on your route.',
-  surfaceCobblestone: 'Cobblestone (kocie łby)',
+  surfaceCobblestone: 'Cobblestone',
   surfaceGravel: 'Gravel',
   surfaceSand: 'Sand',
   surfaceDirt: 'Dirt / Ground',
@@ -798,16 +798,16 @@ const uk: typeof pl = {
   blockedRoadTypesTitle: 'Заблоковані типи покриття та доріг',
   blockedRoadTypesSubtitle:
     'Дороги з вибраними покриттями будуть оминатися або позначатися на маршруті як непрохідні (блокада).',
-  surfaceCobblestone: 'Бруківка / Кругляк (cobblestone)',
-  surfaceGravel: 'Гравій / Щебінь (gravel)',
-  surfaceSand: 'Пісок (sand)',
-  surfaceDirt: 'Ґрунт / Земля (dirt)',
-  surfaceUnpaved: 'Невимощена (unpaved)',
-  surfaceCompacted: 'Утрамбований гравій (compacted)',
-  surfacePavingStones: 'Бруківка / Плитка (paving stones)',
-  surfaceSteps: 'Пішохідні сходи (steps)',
-  blockedStatusBlocked: 'Заблокована',
-  blockedStatusAllowed: 'Дозволена',
+  surfaceCobblestone: 'Бруківка / Кругляк',
+  surfaceGravel: 'Гравій / Щебінь',
+  surfaceSand: 'Пісок',
+  surfaceDirt: 'Ґрунт / Земля',
+  surfaceUnpaved: 'Невимощена',
+  surfaceCompacted: 'Утрамбований гравій',
+  surfacePavingStones: 'Бруківка / Плитка',
+  surfaceSteps: 'Пішохідні сходи',
+  blockedStatusBlocked: 'ЗАБЛОКОВАНО',
+  blockedStatusAllowed: 'ДОЗВОЛЕНО',
   stepsAllowed: 'Дозволено',
   continue: 'Перейти до пошуку',
   privacy:
@@ -1236,19 +1236,68 @@ export function getLocalizedFindingType(type: string, locale: Locale): string {
 
 export function getLocalizedFactValue(val: string, locale: Locale): string {
   if (!val) return '';
+
+  // Clean up any ugly raw technical tag annotations like (wheelchair=limited), wheelchair=no, etc.
+  let cleaned = val.replace(/\s*\(?wheelchair=(limited|no|yes)\)?/gi, (match, p1) => {
+    const v = p1.toLowerCase();
+    if (v === 'limited') return locale === 'pl' ? ' (ograniczona dostępność)' : locale === 'uk' ? ' (часткова доступність)' : ' (limited accessibility)';
+    if (v === 'no') return locale === 'pl' ? ' (brak dostępności)' : locale === 'uk' ? ' (недоступно)' : ' (not accessible)';
+    return locale === 'pl' ? ' (dostępne)' : locale === 'uk' ? ' (доступно)' : ' (accessible)';
+  }).trim();
+
+  // If the whole value is just raw wheelchair value or limited/no/yes:
+  const lower = cleaned.toLowerCase();
+  if (lower === 'limited' || lower === 'wheelchair=limited' || lower === '(wheelchair=limited)') {
+    return locale === 'pl' ? 'Ograniczona dostępność' : locale === 'uk' ? 'Обмежена доступність' : 'Limited accessibility';
+  }
+  if (lower === 'no' || lower === 'wheelchair=no' || lower === '(wheelchair=no)') {
+    return locale === 'pl' ? 'Brak dostępności' : locale === 'uk' ? 'Недоступно' : 'Not accessible';
+  }
+  if (lower === 'yes' || lower === 'wheelchair=yes' || lower === '(wheelchair=yes)') {
+    return locale === 'pl' ? 'Dostępne' : locale === 'uk' ? 'Доступно' : 'Accessible';
+  }
+
+  // Strip any orphan raw tag key=value strings if present
+  cleaned = cleaned.replace(/\s*\([a-z_]+=[a-z_]+\)/gi, '').trim();
+
   if (locale === 'pl') {
-    if (val === 'cobblestone') return 'Kocie łby / bruk';
-    if (val === 'asphalt') return 'Asfalt';
-    if (val === 'paving_stones') return 'Kostka brukowa';
-    if (val === 'sett') return 'Kostka kamienna';
-    if (val === 'gravel') return 'Żwir';
-    if (val === 'compacted') return 'Nawierzchnia utwardzona';
-    if (val === 'unpaved') return 'Nieutwardzona';
-    if (val === 'obecny') return 'Krawężnik obecny';
-    return val;
+    let result = cleaned;
+    // Direct matches
+    const lowerClean = cleaned.toLowerCase();
+    if (lowerClean === 'cobblestone') return 'Kocie łby / bruk';
+    if (lowerClean === 'sett') return 'Kostka kamienna';
+    if (lowerClean === 'paving_stones') return 'Kostka brukowa';
+    if (lowerClean === 'asphalt') return 'Asfalt';
+    if (lowerClean === 'concrete') return 'Beton';
+    if (lowerClean === 'gravel') return 'Żwir';
+    if (lowerClean === 'compacted') return 'Ubity żwir';
+    if (lowerClean === 'fine_gravel') return 'Drobny żwir';
+    if (lowerClean === 'sand') return 'Piasek';
+    if (lowerClean === 'dirt') return 'Grunt / ziemia';
+    if (lowerClean === 'earth') return 'Ziemia';
+    if (lowerClean === 'ground') return 'Grunt';
+    if (lowerClean === 'grass') return 'Trawa';
+    if (lowerClean === 'unpaved') return 'Nieutwardzona';
+    if (lowerClean === 'wood') return 'Drewno';
+    if (lowerClean === 'steps') return 'Schody';
+    if (lowerClean === 'obecny') return 'Krawężnik obecny';
+
+    // In-sentence replacements
+    result = result.replace(/\bcobblestone\b/gi, 'kocie łby / bruk');
+    result = result.replace(/\bsett\b/gi, 'kostka kamienna');
+    result = result.replace(/\bpaving_stones\b/gi, 'kostka brukowa');
+    result = result.replace(/\basphalt\b/gi, 'asfalt');
+    result = result.replace(/\bconcrete\b/gi, 'beton');
+    result = result.replace(/\bgravel\b/gi, 'żwir');
+    result = result.replace(/\bcompacted\b/gi, 'ubity żwir');
+    result = result.replace(/\bfine_gravel\b/gi, 'drobny żwir');
+    result = result.replace(/\bsand\b/gi, 'piasek');
+    result = result.replace(/\bdirt\b/gi, 'grunt / ziemia');
+    result = result.replace(/\bunpaved\b/gi, 'nieutwardzona');
+    return result;
   }
   if (locale === 'uk') {
-    let result = val;
+    let result = cleaned;
     result = result.replace(/traffic_signals=yes/gi, 'світлофор');
     result = result.replace(/tactile_paving=yes/gi, 'тактильна плитка');
     result = result.replace(/sygnalizacja/gi, 'світлофор');
@@ -1257,18 +1306,20 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
     result = result.replace(/rampa obecna/gi, 'є пандус');
     result = result.replace(/stopni/gi, 'сходинок');
     result = result.replace(/stopnie/gi, 'сходинки');
-    result = result.replace(/^cobblestone$/gi, 'Бруківка');
-    result = result.replace(/^asphalt$/gi, 'Асфальт');
-    result = result.replace(/^paving_stones$/gi, 'Бруківка плитка');
-    result = result.replace(/^sett$/gi, 'Кам’яна бруківка');
-    result = result.replace(/^gravel$/gi, 'Гравій');
-    result = result.replace(/^compacted$/gi, 'Ущільнене покриття');
-    result = result.replace(/^unpaved$/gi, 'Неущільнене');
-    result = result.replace(/^obecny$/gi, 'Бордюр наявний');
+    result = result.replace(/\bcobblestone\b/gi, 'бруківка');
+    result = result.replace(/\basphalt\b/gi, 'асфальт');
+    result = result.replace(/\bpaving_stones\b/gi, 'бруківка плитка');
+    result = result.replace(/\bsett\b/gi, 'кам’яна бруківка');
+    result = result.replace(/\bgravel\b/gi, 'гравій');
+    result = result.replace(/\bcompacted\b/gi, 'ущільнене покриття');
+    result = result.replace(/\bunpaved\b/gi, 'неущільнене');
+    result = result.replace(/\bsand\b/gi, 'пісок');
+    result = result.replace(/\bdirt\b/gi, 'ґрунт');
+    result = result.replace(/\bobecny\b/gi, 'наявний');
     return result;
   }
   // English
-  let result = val;
+  let result = cleaned;
   result = result.replace(/traffic_signals=yes/gi, 'traffic signals');
   result = result.replace(/tactile_paving=yes/gi, 'tactile paving');
   result = result.replace(/sygnalizacja/gi, 'traffic signals');
@@ -1284,6 +1335,8 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
   result = result.replace(/^gravel$/gi, 'Gravel');
   result = result.replace(/^compacted$/gi, 'Compacted surface');
   result = result.replace(/^unpaved$/gi, 'Unpaved');
+  result = result.replace(/^sand$/gi, 'Sand');
+  result = result.replace(/^dirt$/gi, 'Dirt');
   result = result.replace(/^obecny$/gi, 'Kerb present');
   return result;
 }

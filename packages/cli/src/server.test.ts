@@ -47,4 +47,13 @@ describe('Server component', () => {
       done(err);
     });
   });
+
+  test('validates parameters on GET /tiles/geoportal/:z/:row/:col', (done) => {
+    http.get(`http://127.0.0.1:${port}/tiles/geoportal/abc/xyz/def`, (res) => {
+      expect(res.statusCode).toBe(400);
+      done();
+    }).on('error', (err) => {
+      done(err);
+    });
+  });
 });
