@@ -160,25 +160,22 @@ export function LocationPicker({
           </Text>
         </View>
 
-        <View style={styles.headerActions}>
-          {showMyLocation && onUseMyLocation ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(locale, 'myLocation')}
-              onPress={onUseMyLocation}
-              style={[
-                styles.smallActionBtn,
-                { backgroundColor: colors.background, borderColor: colors.border },
-              ]}
-            >
-              <NavigationArrow size={12} weight="bold" color={colors.accent} />
-              <Text style={[styles.smallActionText, { color: colors.accent, fontSize: fontSize(11.5) }]}>
-                {t(locale, 'myLocationShort')}
-              </Text>
-            </Pressable>
-          ) : null}
-
-        </View>
+        {showMyLocation && onUseMyLocation ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(locale, 'myLocation')}
+            onPress={onUseMyLocation}
+            style={[
+              styles.smallActionBtn,
+              { backgroundColor: colors.background, borderColor: colors.border },
+            ]}
+          >
+            <NavigationArrow size={12} weight="bold" color={colors.accent} />
+            <Text style={[styles.smallActionText, { color: colors.accent, fontSize: fontSize(11.5) }]}>
+              {t(locale, 'myLocationShort')}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {/* Picking on map banner */}

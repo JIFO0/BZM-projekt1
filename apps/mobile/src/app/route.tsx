@@ -346,7 +346,7 @@ export default function RouteScreen() {
   const generateNarrative = () => {
     let narrative = '';
     if (locale === 'pl') {
-      narrative = `Raport barier dla trasy o długości ${report.lengthMetres} metrów. `;
+      narrative = `Raport barier dla trasy o długości ${(report.lengthMetres / 1000).toFixed(1)} km. `;
       narrative += `Wykryto ${blockers.length} blokad, ${warnings.length} ostrzeżeń oraz ${unknownItems.length} elementów o nieznanym stanie. `;
       narrative += `Najdłuższy odcinek bez danych wynosi ${report.longestUnknownStretchMetres} metrów. `;
       if (showNoBarriersSentence) {
@@ -359,7 +359,7 @@ export default function RouteScreen() {
         narrative += `Punkt ${idx + 1}, po ${f.distanceFromStartMetres} metrach: ${localizedCrit}, ${localizedVal}. `;
       });
     } else if (locale === 'uk') {
-      narrative = `Звіт про бар’єри для маршруту довжиною ${report.lengthMetres} метрів. `;
+      narrative = `Звіт про бар’єри для маршруту довжиною ${(report.lengthMetres / 1000).toFixed(1)} км. `;
       narrative += `Виявлено ${blockers.length} блокад, ${warnings.length} попереджень та ${unknownItems.length} елементів із невідомим станом. `;
       narrative += `Найдовша ділянка без даних становить ${report.longestUnknownStretchMetres} метрів. `;
       if (showNoBarriersSentence) {
@@ -372,7 +372,7 @@ export default function RouteScreen() {
         narrative += `Точка ${idx + 1}, через ${f.distanceFromStartMetres} метрів: ${localizedCrit}, ${localizedVal}. `;
       });
     } else {
-      narrative = `Barrier report for route of distance ${report.lengthMetres} metres. `;
+      narrative = `Barrier report for route of distance ${(report.lengthMetres / 1000).toFixed(1)} km. `;
       narrative += `Detected ${blockers.length} blockers, ${warnings.length} warnings and ${unknownItems.length} items with unknown status. `;
       narrative += `Longest stretch without data is ${report.longestUnknownStretchMetres} metres. `;
       if (showNoBarriersSentence) {
@@ -471,7 +471,7 @@ export default function RouteScreen() {
                     },
                   ]}
                 >
-                  {routeVariants.accessible.report.lengthMetres} m • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                  {(routeVariants.accessible.report.lengthMetres / 1000).toFixed(1)} km • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
                 </Text>
               </Pressable>
 
@@ -521,7 +521,7 @@ export default function RouteScreen() {
                     },
                   ]}
                 >
-                  {routeVariants.shortest.report.lengthMetres} m • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                  {(routeVariants.shortest.report.lengthMetres / 1000).toFixed(1)} km • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
                 </Text>
               </Pressable>
             </View>
@@ -594,7 +594,7 @@ export default function RouteScreen() {
               {t(locale, 'routeLength')}:
             </Text>
             <Text style={[styles.metricValue, { color: colors.text, fontSize: fontSize(15) }]}>
-              {report.lengthMetres} m
+              {(report.lengthMetres / 1000).toFixed(1)} km
             </Text>
           </View>
 

@@ -772,42 +772,6 @@ export default function MapHomeScreen() {
             )}
           </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(locale, 'btnChangeProfile')}
-            onPress={() => {
-              setActiveTab('profile');
-              setPopupExpanded(true);
-            }}
-            style={[
-              styles.floatingBtn,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderWidth: isHighContrast ? 2.5 : 1.5,
-              },
-            ]}
-          >
-            {getProfileIcon(profileId, 20)}
-          </Pressable>
-
-          {activeWalkingRoute ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(locale, 'btnClearRoute')}
-              onPress={handleClearRoute}
-              style={[
-                styles.floatingBtn,
-                {
-                  backgroundColor: colors.blockerBg,
-                  borderColor: colors.blockerBorder,
-                  borderWidth: isHighContrast ? 2.5 : 1.5,
-                },
-              ]}
-            >
-              <X size={20} weight="bold" color={colors.blockerText} />
-            </Pressable>
-          ) : null}
         </View>
 
         {/* Active Route Floating Pill (if route is active) */}
@@ -830,7 +794,7 @@ export default function MapHomeScreen() {
           >
             <Path size={18} weight="bold" color={colors.accent} />
             <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
-              {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
+              {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
               {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length} {t(locale, 'severityBlocker').toLowerCase()}
             </Text>
             <CaretUp size={16} weight="bold" color={colors.accent} />
@@ -930,11 +894,19 @@ export default function MapHomeScreen() {
           onPress={() => setPopupExpanded(!popupExpanded)}
           style={styles.sheetHandleRow}
         >
-          <CaretDown
-            size={22}
-            weight="bold"
-            color={isHighContrast ? colors.accent : colors.muted}
-          />
+          {popupExpanded ? (
+            <CaretDown
+              size={22}
+              weight="bold"
+              color={isHighContrast ? colors.accent : colors.muted}
+            />
+          ) : (
+            <CaretUp
+              size={22}
+              weight="bold"
+              color={isHighContrast ? colors.accent : colors.muted}
+            />
+          )}
           <View style={styles.sheetHandleHeader}>
             <View style={styles.sheetHeaderLeft}>
               {getProfileIcon(profileId, 16)}
@@ -942,14 +914,18 @@ export default function MapHomeScreen() {
                 {getProfileLabel(profileId)}
               </Text>
             </View>
-            {!popupExpanded ? (
-              <View style={styles.sheetToggleBtn}>
+            <View style={styles.sheetToggleBtn}>
+              {!popupExpanded ? (
                 <Text style={[styles.toggleText, { color: colors.muted, fontSize: fontSize(12) }]}>
                   {t(locale, 'expandMenu')}
                 </Text>
+              ) : null}
+              {popupExpanded ? (
+                <CaretDown size={14} weight="bold" color={colors.accent} />
+              ) : (
                 <CaretUp size={14} weight="bold" color={colors.accent} />
-              </View>
-            ) : null}
+              )}
+            </View>
           </View>
         </Pressable>
 
@@ -1176,14 +1152,14 @@ export default function MapHomeScreen() {
                     onUseMyLocation={handleUseMyLocation}
                   />
 
-                  {/* Swap Points Button (A ⇄ B) */}
+                  {/* Swap Points Button (Icon centered between destinations) and Red Clear Route Button */}
                   <View style={styles.swapBtnRow}>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={t(locale, 'swapPoints')}
                       onPress={handleSwapPoints}
                       style={[
-                        styles.swapBtn,
+                        styles.swapIconBtn,
                         {
                           backgroundColor: colors.background,
                           borderColor: colors.border,
@@ -1191,11 +1167,29 @@ export default function MapHomeScreen() {
                         },
                       ]}
                     >
-                      <ArrowsDownUp size={15} weight="bold" color={colors.accent} />
-                      <Text style={[styles.swapBtnText, { color: colors.accent, fontSize: fontSize(12) }]}>
-                        {t(locale, 'swapPoints')}
-                      </Text>
+                      <ArrowsDownUp size={18} weight="bold" color={colors.accent} />
                     </Pressable>
+
+                    {activeWalkingRoute || fromQuery || toQuery ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={t(locale, 'btnClearRoute')}
+                        onPress={handleClearRoute}
+                        style={[
+                          styles.clearRouteBtn,
+                          {
+                            backgroundColor: colors.blockerBg,
+                            borderColor: colors.blockerBorder,
+                            borderWidth: isHighContrast ? 2 : 1,
+                          },
+                        ]}
+                      >
+                        <X size={15} weight="bold" color={colors.blockerText} />
+                        <Text style={[styles.clearRouteBtnText, { color: colors.blockerText, fontSize: fontSize(12) }]}>
+                          {t(locale, 'btnClearRoute')}
+                        </Text>
+                      </Pressable>
+                    ) : null}
                   </View>
 
                   {/* Point B (Destination) */}
@@ -1274,7 +1268,7 @@ export default function MapHomeScreen() {
                                   },
                                 ]}
                               >
-                                {routeVariants.accessible.report.lengthMetres} m • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                                {(routeVariants.accessible.report.lengthMetres / 1000).toFixed(1)} km • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
                               </Text>
                             </Pressable>
 
@@ -1321,7 +1315,7 @@ export default function MapHomeScreen() {
                                   },
                                 ]}
                               >
-                                {routeVariants.shortest.report.lengthMetres} m • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                                {(routeVariants.shortest.report.lengthMetres / 1000).toFixed(1)} km • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
                               </Text>
                             </Pressable>
                           </View>
@@ -1359,7 +1353,7 @@ export default function MapHomeScreen() {
                           {t(locale, 'summaryCardTitle')}:
                         </Text>
                         <Text style={[styles.metricVal, { color: colors.accent, fontSize: fontSize(15) }]}>
-                          {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 60) / 60)} min
+                          {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 60) / 60)} min
                         </Text>
                       </View>
 
@@ -1532,100 +1526,6 @@ export default function MapHomeScreen() {
                     </GovCard>
                   ) : null}
 
-                  {/* Civic Building Catalog Header */}
-                  <View style={[styles.demoSection, { marginTop: 4 }]}>
-                    <View style={styles.fieldHeader}>
-                      <Text style={[styles.demoSectionTitle, { color: colors.accent, fontSize: fontSize(13) }]}>
-                        KATALOG OBIEKTÓW PUBLICZNYCH
-                      </Text>
-                    </View>
-
-                    {/* Building Cards List */}
-                    {DEFAULT_PRESET_PLACES.map((p) => {
-                        return (
-                          <View
-                            key={p.id}
-                            style={[
-                              styles.placeCard,
-                              {
-                                backgroundColor: colors.surface,
-                                borderColor: colors.border,
-                                borderWidth: isHighContrast ? 2 : 1,
-                              },
-                            ]}
-                          >
-                            <View style={styles.placeCardHeader}>
-                              <Text
-                                style={[
-                                  styles.placeCardTitle,
-                                  { color: colors.text, fontSize: fontSize(14.5) },
-                                ]}
-                              >
-                                {p.name}
-                              </Text>
-                            </View>
-
-                            <Text
-                              style={[
-                                styles.placeCardAddress,
-                                { color: colors.muted, fontSize: fontSize(12.5) },
-                              ]}
-                            >
-                              {p.label}
-                            </Text>
-
-                            {p.tags && p.tags.length > 0 ? (
-                              <View style={styles.placeCardTagsRow}>
-                                {p.tags.map((t, idx) => (
-                                  <View
-                                    key={idx}
-                                    style={[
-                                      styles.placeCardTag,
-                                      {
-                                        backgroundColor: t.includes('⚠️') || t.includes('❌')
-                                          ? colors.blockerBg
-                                          : colors.background,
-                                      },
-                                    ]}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.placeCardTagText,
-                                        {
-                                          color: t.includes('⚠️') || t.includes('❌')
-                                            ? colors.blockerText
-                                            : colors.text,
-                                          fontSize: fontSize(11),
-                                        },
-                                      ]}
-                                    >
-                                      {t}
-                                    </Text>
-                                  </View>
-                                ))}
-                              </View>
-                            ) : null}
-
-                            <View style={styles.placeCardActions}>
-                              <GovButton
-                                title="Sprawdź"
-                                variant="outline"
-                                icon={<Buildings size={13} weight="bold" color={colors.accent} />}
-                                onPress={() => handleSelectPresetPlace(p)}
-                                style={{ flex: 1 }}
-                              />
-                              <GovButton
-                                title="Cel trasy"
-                                variant="outline"
-                                icon={<NavigationArrow size={13} weight="bold" color={colors.text} />}
-                                onPress={() => handleSetPlaceAsDestination(p)}
-                                style={{ flex: 1 }}
-                              />
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
                   </View>
                 ) : null}
 
@@ -1729,6 +1629,13 @@ export default function MapHomeScreen() {
                       <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
                         {t(locale, 'maxKerb')}
                       </Text>
+                      <Text style={{ color: colors.muted, fontSize: fontSize(12), lineHeight: 16 }}>
+                        {locale === 'pl'
+                          ? `Aktualna dopuszczalna wysokość: ${activeThresholds.maxKerbMillimetres} mm (${(activeThresholds.maxKerbMillimetres / 10).toFixed(0)} cm). Krawężniki wyższe od tej wartości będą traktowane jako bariera blokująca trasę.`
+                          : locale === 'uk'
+                          ? `Поточна допустима висота: ${activeThresholds.maxKerbMillimetres} мм (${(activeThresholds.maxKerbMillimetres / 10).toFixed(0)} см). Вищі бордюри блокуватимуть маршрут.`
+                          : `Current allowable height: ${activeThresholds.maxKerbMillimetres} mm (${(activeThresholds.maxKerbMillimetres / 10).toFixed(0)} cm). Kerbs higher than this will block the route.`}
+                      </Text>
                       <View style={styles.stepBtnRow}>
                         <GovButton
                           variant="outline"
@@ -1760,6 +1667,15 @@ export default function MapHomeScreen() {
                             }}
                           >
                             {activeThresholds.maxKerbMillimetres} mm
+                          </Text>
+                          <Text
+                            style={{
+                              color: colors.muted,
+                              fontSize: fontSize(11),
+                              fontWeight: '600',
+                            }}
+                          >
+                            {(activeThresholds.maxKerbMillimetres / 10).toFixed(0)} cm
                           </Text>
                         </View>
                         <GovButton
@@ -2466,18 +2382,31 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   swapBtnRow: {
+    position: 'relative',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 2,
+    justifyContent: 'center',
+    marginVertical: 4,
+    minHeight: 38,
   },
-  swapBtn: {
+  swapIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearRouteBtn: {
+    position: 'absolute',
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 8,
   },
-  swapBtnText: {
+  clearRouteBtnText: {
     fontWeight: '700',
   },
 });

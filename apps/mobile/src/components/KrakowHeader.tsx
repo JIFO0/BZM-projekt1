@@ -146,7 +146,7 @@ export function KrakowHeader({
       {/* 2. Language Toggle */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${t(locale, 'switchLanguage')}: ${locale.toUpperCase()}`}
+        accessibilityLabel={`${t(locale, 'switchLanguage')}: ${locale === 'uk' ? 'UA' : locale.toUpperCase()}`}
         onPress={() => {
           const nextLocale: Record<Locale, Locale> = { pl: 'en', en: 'uk', uk: 'pl' };
           setLocale(nextLocale[locale]);
@@ -174,7 +174,7 @@ export function KrakowHeader({
             },
           ]}
         >
-          {locale.toUpperCase()}
+          {locale === 'uk' ? 'UA' : locale.toUpperCase()}
         </Text>
       </Pressable>
 

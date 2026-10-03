@@ -40,7 +40,7 @@ const pl = {
   placePlaceholder: 'np. Sukiennice, Katedra Wawelska',
   myLocation: 'Użyj mojej lokalizacji',
   searchButton: 'Nawiguj',
-  searchPlaceButton: 'Sprawdź dostępność miejsca',
+  searchPlaceButton: 'Sprawdź miejsce',
   demoScenarios: 'Przykładowe trasy testowe (Demo):',
   demoRoute1: 'Rynek Główny - Wawel (ul. Grodzka)',
   demoRoute2: 'Kazimierz (Plac Nowy) - Planty',
