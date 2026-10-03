@@ -1,0 +1,69 @@
+kraków
+działający prototyp narzędzia
+narzedzie o dostepnosci miejsc
+POTENCJAŁ DALSZEGO ROZWOJU
+DO BETTER  brak informacji, ale również sposób jej prezentowania
+jest tylko tak albo nie a chą more info
+aktualne dane wiec aktualizacja ważna
+ane wykorzystane przez rozwiązanie mogą pochodzić z otwartych źródeł, OpenStreetMap,
+informacji publikowanych przez właścicieli obiektów oraz zgłoszeń użytkowników
+wskazanie źródła danych, daty ich aktualizacji oraz poziomu ich wiarygodności. czyli nie dane z dupy koledzy
+bez konieczności ręcznego utrzymywania bazy
+danych przez Miasto 
+żeby hotele też ogły używać itd.
+nie wymagać dostępu do wewnętrznych systemów UMK lub MJO;
+ uwzględniać potrzeby wybranej grupy użytkowników;
+
+do oceny powinien zawierać:
+• opis rozwiązania i wskazanie problemu, który rozwiązuje;
+• prototyp lub demonstrację działania rozwiązania;
+• informację o grupie docelowej i sposobie wykorzystania rozwiązania;
+• opis źródeł danych oraz sposobu oceny ich aktualności i wiarygodności;
+• propozycję modelu biznesowego i możliwości dalszego rozwoju rozwiązania;
+• prezentację projektu w formacie PDF (maksymalnie 10 slajdów);
+• film prezentujący działanie projektu, umieszczony w dostępnym, otwartym repozytorium
+(maksymalnie 3 minuty).
+Dodatkowo projekt może zawierać repozytorium kodu, zrzuty ekranu, link do demonstracji oraz
+inne materiały związane z projektem.
+Rozwiązanie może mieć dowolną formę techniczną, np. aplikacji internetowej lub
+mobilnej, pod warunkiem że umożliwia demonstrację
+Interfejs należy projektować z uwzględnieniem dostępności cyfrowej, przyjmując WCAG
+2.2 na poziomie AA jako cel rozwoju rozwiązania. Już w prototypie należy zadbać
+zwłaszcza o obsługę klawiaturą i czytnikiem ekranu, czytelność treści, odpowiedni
+kontrast oraz tekstową alternatywę dla informacji przedstawianych wyłącznie na mapie.
+Ocena prototypu powinna uwzględniać wykaz funkcji już dostępnych oraz elementów
+wymagających dalszych prac. 
+Należy przedstawić propozycję uruchomienia i dalszego utrzymania rozwiązania poza
+infrastrukturą UMK, w tym wskazać podmiot odpowiedzialny za hosting, aktualizacje,
+bezpieczeństwo, obsługę zgłoszeń i koszty działania. Prototyp nie musi być dostępny
+jako stała usługa po hackathonie, ale przyjęty model powinien umożliwiać jego dalszy
+rozwój. 
+Należy opisać podstawowe zasady ochrony danych i bezpieczeństwa, w szczególności
+zakres zbieranych danych użytkowników, sposób ochrony zgłoszeń i kont, jeżeli są
+przewidziane, oraz korzystanie z bezpiecznych połączeń. Projekt nie powinien wymagać
+podawania informacji o niepełnosprawności, jeżeli do dopasowania wyników wystarczą
+preferencje dotyczące barier i udogodnień.
+CAN USE Portal Otwarte Dane Miasta Krakowa – zbiory danych miejskich udostępniane m.in. w
+formatach JSON, CSV i XLSX oraz przez interfejsy API, zależnie od zasobu.
+otwartedane.um.krakow.pl
+• Miejski System Informacji Przestrzennej (MSIP) – katalog danych przestrzennych
+Krakowa. Wybrane zasoby są dostępne do pobrania lub przez usługi WMS i WFS. Zakres
+danych i warunki ich wykorzystania należy sprawdzić dla konkretnego zasobu.
+msip.krakow.pl
+• Portal Otwarte Dane (dane.gov.pl) – ogólnopolski katalog danych publicznych, który
+może dostarczyć danych uzupełniających oraz zasobów przydatnych przy rozwijaniu
+rozwiązania na inne miasta. dane.gov.pl
+• OpenStreetMap – społecznościowe dane o obiektach i sieci dróg, które mogą stanowić
+podstawę mapy i wyszukiwania tras. Wykorzystanie danych wymaga przestrzegania
+warunków licencji i oznaczenia źródła. openstreetmap.org
+. Samo opublikowanie informacji w internecie
+nie oznacza jednak, że wolno ją automatycznie pobierać i wykorzystywać komercyjnie.
+ oceny:
+• Związek z wyzwaniem i użyteczność dla wskazanej grupy użytkowników, w tym łatwość
+użytkowania — 25%
+• Jakość i kompletność prototypu — 20%
+• Wiarygodność oraz sposób prezentacji i aktualizacji danych — 15%
+• Potencjał wdrożeniowy i możliwość skalowania — 20%
+• Model biznesowy, potencjał komercjalizacji i rozwoju rynkowego — 20%
+potencjał biznesowy projektu, w tym model
+biznesowy, możliwość uruchomienia i rozwoju aplikacji oraz jej potencjał rynkowy.
