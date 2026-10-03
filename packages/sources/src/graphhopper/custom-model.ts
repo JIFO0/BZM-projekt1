@@ -31,7 +31,11 @@ export function buildCustomModel(thresholds: BarrierThresholds): GraphHopperCust
   const priority: GraphHopperCustomModelStatement[] = [];
 
   // 1. Handling Steps
-  if (thresholds.stepsAreBlocker) {
+  const blockedRoads = new Set(
+    (thresholds.blockedRoadTypes ?? thresholds.blockedSurfaces ?? []).map((s) => s.toLowerCase().trim()),
+  );
+
+  if (thresholds.stepsAreBlocker || blockedRoads.has('steps')) {
     priority.push({
       if: 'road_class == STEPS',
       multiply_by: '0.0',
@@ -53,11 +57,17 @@ export function buildCustomModel(thresholds: BarrierThresholds): GraphHopperCust
   }
 
   // 3. Surface restrictions
-  // Check which known GraphHopper surfaces are disallowed for this mobility profile
+  // Check which known GraphHopper surfaces are blocked or disallowed for this mobility profile
   const normalizedAllowed = new Set(thresholds.allowedSurfaces.map((s) => s.toLowerCase().trim()));
 
   for (const [osmKey, ghEnum] of Object.entries(GRAPHHOPPER_SURFACE_ENUMS)) {
-    if (!normalizedAllowed.has(osmKey)) {
+    if (blockedRoads.has(osmKey)) {
+      // 0.0 completely avoids and blocks this surface from the route
+      priority.push({
+        if: `surface == ${ghEnum}`,
+        multiply_by: '0.0',
+      });
+    } else if (!normalizedAllowed.has(osmKey)) {
       let penalty = '0.1';
       if (osmKey === 'sand' || osmKey === 'dirt') {
         penalty = '0.05';

@@ -140,7 +140,7 @@ export function mapGraphHopperPathToResult(
     }
 
     // Segment severity aggregation
-    if (stepsSeverity === 'blocker' || widthSeverity === 'blocker') {
+    if (stepsSeverity === 'blocker' || widthSeverity === 'blocker' || surfaceSeverity === 'blocker') {
       blockerCount++;
     } else if (
       surfaceSeverity === 'warning' ||
@@ -197,7 +197,21 @@ export function mapGraphHopperPathToResult(
       });
     }
 
-    if (surfaceSeverity === 'warning' && surface) {
+    if (surfaceSeverity === 'blocker' && surface) {
+      barriers.push({
+        id: `barrier-surface-${segIdx}`,
+        type: 'surface',
+        severity: 'blocker',
+        status: 'community',
+        criterion: 'Nawierzchnia',
+        value: surface,
+        message: `Zablokowana nawierzchnia (${surface}) – droga zablokowana dla wybranego profilu`,
+        lat: centerCoord[1],
+        lon: centerCoord[0],
+        distanceFromStartMeters: distFromStart,
+        source: OSM_SOURCE,
+      });
+    } else if (surfaceSeverity === 'warning' && surface) {
       barriers.push({
         id: `barrier-surface-${segIdx}`,
         type: 'surface',

@@ -39,6 +39,9 @@ interface SessionValue {
   setProfileId: (profileId: ProfileId) => void;
   customThresholds: BarrierThresholds;
   setCustomThresholds: (thresholds: BarrierThresholds) => void;
+  activeThresholds: BarrierThresholds;
+  toggleBlockedRoadType: (roadType: string) => void;
+  setBlockedRoadTypes: (roadTypes: string[]) => void;
   debugState: DebugState;
   setDebugState: (updater: (prev: DebugState) => DebugState) => void;
   localReports: LocalReport[];
@@ -84,8 +87,80 @@ const SessionContext = createContext<SessionValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [locale, setLocale] = useState<Locale>('pl');
   const [profileId, setProfileId] = useState<ProfileId>('wheelchair');
-  const [customThresholds, setCustomThresholds] = useState<BarrierThresholds>(
-    city.profiles.wheelchair,
+  const [profileThresholds, setProfileThresholds] = useState<Record<ProfileId, BarrierThresholds>>({
+    wheelchair: { ...city.profiles.wheelchair },
+    stroller: { ...city.profiles.stroller },
+    custom: { ...city.profiles.custom },
+  });
+  const [customThresholds, setCustomThresholdsState] = useState<BarrierThresholds>(
+    city.profiles.custom || city.profiles.wheelchair,
+  );
+
+  const activeThresholds = useMemo(() => {
+    if (profileId === 'custom') return customThresholds;
+    return profileThresholds[profileId] || city.profiles[profileId];
+  }, [profileId, customThresholds, profileThresholds]);
+
+  const setCustomThresholds = useCallback((thresholds: BarrierThresholds) => {
+    setCustomThresholdsState(thresholds);
+    setProfileThresholds((prev) => ({ ...prev, custom: thresholds }));
+  }, []);
+
+  const toggleBlockedRoadType = useCallback(
+    (roadType: string) => {
+      const norm = roadType.trim().toLowerCase();
+      const currentBlocked = (
+        activeThresholds.blockedRoadTypes ??
+        activeThresholds.blockedSurfaces ??
+        []
+      ).map((s) => s.trim().toLowerCase());
+      const newBlocked = currentBlocked.includes(norm)
+        ? currentBlocked.filter((s) => s !== norm)
+        : [...currentBlocked, norm];
+
+      if (profileId === 'custom') {
+        const updated: BarrierThresholds = {
+          ...customThresholds,
+          blockedRoadTypes: newBlocked,
+          blockedSurfaces: newBlocked,
+        };
+        setCustomThresholds(updated);
+      } else {
+        setProfileThresholds((prev) => ({
+          ...prev,
+          [profileId]: {
+            ...prev[profileId],
+            blockedRoadTypes: newBlocked,
+            blockedSurfaces: newBlocked,
+          },
+        }));
+      }
+    },
+    [activeThresholds, profileId, customThresholds, setCustomThresholds],
+  );
+
+  const setBlockedRoadTypes = useCallback(
+    (roadTypes: string[]) => {
+      const newBlocked = roadTypes.map((s) => s.trim().toLowerCase());
+      if (profileId === 'custom') {
+        const updated: BarrierThresholds = {
+          ...customThresholds,
+          blockedRoadTypes: newBlocked,
+          blockedSurfaces: newBlocked,
+        };
+        setCustomThresholds(updated);
+      } else {
+        setProfileThresholds((prev) => ({
+          ...prev,
+          [profileId]: {
+            ...prev[profileId],
+            blockedRoadTypes: newBlocked,
+            blockedSurfaces: newBlocked,
+          },
+        }));
+      }
+    },
+    [profileId, customThresholds, setCustomThresholds],
   );
   const [debugState, setDebugStateInternal] = useState<DebugState>({
     simulateOverpassDown: false,
@@ -183,6 +258,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setProfileId,
       customThresholds,
       setCustomThresholds,
+      activeThresholds,
+      toggleBlockedRoadType,
+      setBlockedRoadTypes,
       debugState,
       setDebugState: (fn: (prev: DebugState) => DebugState) => setDebugStateInternal(fn),
       localReports,
@@ -223,6 +301,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       locale,
       profileId,
       customThresholds,
+      setCustomThresholds,
+      activeThresholds,
+      toggleBlockedRoadType,
+      setBlockedRoadTypes,
       debugState,
       localReports,
       activeRouteReport,

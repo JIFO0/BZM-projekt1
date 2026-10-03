@@ -37,6 +37,7 @@ export default function SearchScreen() {
     increasedSpacing,
     highlightLinks,
     dyslexicFont,
+    activeThresholds,
   } = useSession();
 
   const [activeTab, setActiveTab] = useState<'route' | 'place'>('route');
@@ -68,6 +69,7 @@ export default function SearchScreen() {
         start: { name: fromQuery, position: fromPos },
         end: { name: toQuery, position: toPos },
         profileId,
+        thresholds: activeThresholds,
         debugState,
       });
 

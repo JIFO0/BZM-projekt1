@@ -16,6 +16,8 @@ const DEFAULT_PROFILE_THRESHOLDS: Record<ProfileId, BarrierThresholds> = {
     maxInclinePercent: 6,
     stepsAreBlocker: true,
     allowedSurfaces: ['asphalt', 'concrete', 'paving_stones', 'compacted'],
+    blockedRoadTypes: ['cobblestone'],
+    blockedSurfaces: ['cobblestone'],
   },
   stroller: {
     maxKerbMillimetres: 60,
@@ -23,6 +25,8 @@ const DEFAULT_PROFILE_THRESHOLDS: Record<ProfileId, BarrierThresholds> = {
     maxInclinePercent: 8,
     stepsAreBlocker: false,
     allowedSurfaces: ['asphalt', 'concrete', 'paving_stones', 'compacted', 'fine_gravel'],
+    blockedRoadTypes: [],
+    blockedSurfaces: [],
   },
   custom: {
     maxKerbMillimetres: 30,
@@ -30,6 +34,8 @@ const DEFAULT_PROFILE_THRESHOLDS: Record<ProfileId, BarrierThresholds> = {
     maxInclinePercent: 6,
     stepsAreBlocker: true,
     allowedSurfaces: ['asphalt', 'concrete', 'paving_stones', 'compacted'],
+    blockedRoadTypes: ['cobblestone'],
+    blockedSurfaces: ['cobblestone'],
   },
 };
 
@@ -62,7 +68,10 @@ export class GraphHopperRoutingProvider implements RoutingProvider {
 
   async route(request: RouteRequest): Promise<WalkingRoute> {
     const profileThresholds =
-      this.thresholds || DEFAULT_PROFILE_THRESHOLDS[request.profileId] || DEFAULT_PROFILE_THRESHOLDS.wheelchair;
+      request.thresholds ||
+      this.thresholds ||
+      DEFAULT_PROFILE_THRESHOLDS[request.profileId] ||
+      DEFAULT_PROFILE_THRESHOLDS.wheelchair;
 
     const result = await fetchGraphHopperRoute(
       {
