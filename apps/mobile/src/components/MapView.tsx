@@ -157,11 +157,29 @@ export function MapView({
       else if (f.severity === 'ok') color = colors.okBorder;
       else if (f.severity === 'unknown') color = colors.unknownBorder;
 
+      const distLabel =
+        f.distanceFromStartMetres && f.distanceFromStartMetres > 0
+          ? ` (${f.distanceFromStartMetres} m)`
+          : '';
+
+      const typeLabel =
+        f.type === 'steps'
+          ? locale === 'pl' ? 'Schody' : locale === 'uk' ? 'Сходи' : 'Steps'
+          : f.type === 'kerb'
+          ? locale === 'pl' ? 'Krawężnik' : locale === 'uk' ? 'Бордюр' : 'Kerb'
+          : f.type === 'surface'
+          ? locale === 'pl' ? 'Nawierzchnia' : locale === 'uk' ? 'Покриття' : 'Surface'
+          : f.type === 'incline'
+          ? locale === 'pl' ? 'Nachylenie' : locale === 'uk' ? 'Нахил' : 'Incline'
+          : f.type === 'width'
+          ? locale === 'pl' ? 'Szerokość' : locale === 'uk' ? 'Ширина' : 'Width'
+          : f.type;
+
       return {
         index: i + 1,
         lat: f.fact.subject.lat,
         lon: f.fact.subject.lon,
-        title: `#${i + 1} (${f.distanceFromStartMetres} m): ${f.type}`,
+        title: `#${i + 1}${distLabel}: ${typeLabel}`,
         value: f.fact.value,
         severity: f.severity,
         color,
@@ -191,17 +209,25 @@ export function MapView({
   <style>
     body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #e5e3df; overflow: hidden; }
     .custom-marker {
-      background-color: white;
+      background: transparent !important;
+      border: none !important;
+    }
+    .custom-marker-badge {
+      background-color: #FFFFFF;
       border-radius: 50%;
-      border: 3px solid;
-      color: black;
-      font-weight: bold;
+      border-width: 3px;
+      border-style: solid;
+      font-weight: 800;
       text-align: center;
       line-height: 22px;
       font-size: 11px;
-      width: 26px !important;
-      height: 26px !important;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+      width: 28px;
+      height: 28px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.38);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
     }
     .endpoint-marker {
       background-color: #005CA9;
@@ -315,13 +341,23 @@ export function MapView({
     markers.forEach(function(m) {
       var icon = L.divIcon({
         className: 'custom-marker',
-        html: '<div style="border-color:' + m.color + '; color:' + m.color + ';">' + m.index + '</div>',
-        iconSize: [26, 26],
-        iconAnchor: [13, 13]
+        html: '<div class="custom-marker-badge" style="border-color:' + m.color + '; color:' + m.color + ';">' + m.index + '</div>',
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
       });
 
+      var statusText = m.severity === 'blocker' ? 'Blokada' : m.severity === 'warning' ? 'Ostrzeżenie' : m.severity === 'ok' ? 'Dostępne' : m.severity;
+      var statusBg = m.severity === 'blocker' ? '#fee2e2' : m.severity === 'warning' ? '#ffedd5' : m.severity === 'ok' ? '#dcfce7' : '#f1f5f9';
+      var statusColor = m.severity === 'blocker' ? '#b91c1c' : m.severity === 'warning' ? '#c2410c' : m.severity === 'ok' ? '#15803d' : '#475569';
+
+      var popupHtml = '<div style="min-width: 170px; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;">' +
+        '<div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px; color: #0f172a;">' + m.title + '</div>' +
+        '<div style="font-size: 12px; margin-bottom: 6px; color: #334155; line-height: 1.35;">' + m.value + '</div>' +
+        '<span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 700; background: ' + statusBg + '; color: ' + statusColor + ';">' + statusText + '</span>' +
+        '</div>';
+
       var marker = L.marker([m.lat, m.lon], { icon: icon }).addTo(map);
-      marker.bindPopup('<b>' + m.title + '</b><br/>' + m.value + '<br/><i>Status: ' + m.severity + '</i>');
+      marker.bindPopup(popupHtml);
     });
 
     var userMarker = null;

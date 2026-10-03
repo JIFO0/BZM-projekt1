@@ -107,6 +107,51 @@ describe('Route Analysis (T5)', () => {
   test('high kerb is blocker for wheelchair (120mm > 30mm)', () => {
     const sevWheelchair = evaluateFactSeverity(kerbFactHigh, MOCK_CONFIG.profiles.wheelchair);
     expect(sevWheelchair.severity).toBe('blocker');
+    expect(sevWheelchair.evidence).toContain('120 mm');
+    expect(sevWheelchair.evidence).toContain('30 mm');
+  });
+
+  test('explicit 10 mm kerb is 10 millimetres and follows the profile limit', () => {
+    const lowKerb: Fact = { ...kerbFactHigh, value: '10 mm' };
+    expect(evaluateFactSeverity(lowKerb, MOCK_CONFIG.profiles.wheelchair).severity).toBe('ok');
+    expect(
+      evaluateFactSeverity(lowKerb, { ...MOCK_CONFIG.profiles.wheelchair, maxKerbMillimetres: 5 })
+        .severity,
+    ).toBe('blocker');
+  });
+
+  test('OSM kerb height in metres is converted before comparing with the profile', () => {
+    const osmKerb: Fact = { ...kerbFactHigh, value: '0.12', unit: 'm' };
+    const sev = evaluateFactSeverity(osmKerb, MOCK_CONFIG.profiles.wheelchair);
+    expect(sev.severity).toBe('blocker');
+    expect(sev.evidence).toContain('120 mm');
+    const loose = evaluateFactSeverity(osmKerb, {
+      ...MOCK_CONFIG.profiles.wheelchair,
+      maxKerbMillimetres: 140,
+    });
+    expect(loose.severity).toBe('ok');
+  });
+
+  test('qualitative kerb tags use a profile comparison instead of a 10 mm default', () => {
+    const raised = evaluateFactSeverity(
+      { ...kerbFactHigh, value: 'raised' },
+      MOCK_CONFIG.profiles.wheelchair,
+    );
+    expect(raised.severity).toBe('blocker');
+    expect(raised.evidence).toContain('100 mm');
+    expect(
+      evaluateFactSeverity(
+        { ...kerbFactHigh, value: 'raised' },
+        { ...MOCK_CONFIG.profiles.wheelchair, maxKerbMillimetres: 140 },
+      ).severity,
+    ).toBe('ok');
+
+    const lowered = evaluateFactSeverity(
+      { ...kerbFactHigh, value: 'lowered' },
+      { ...MOCK_CONFIG.profiles.wheelchair, maxKerbMillimetres: 20 },
+    );
+    expect(lowered.severity).toBe('blocker');
+    expect(lowered.evidence).toContain('30 mm');
   });
 
   test('missing kerb tag stays unknown', () => {
@@ -163,5 +208,22 @@ describe('Route Analysis (T5)', () => {
     });
     expect(warningEval.severity).toBe('warning');
     expect(warningEval.evidence).toContain('Nawierzchnia utrudniająca poruszanie się: cobblestone');
+  });
+
+  test('low kerb with mm unit (20 mm) is ok for wheelchair with 30mm threshold, not blocker', () => {
+    const lowKerbFact: Fact = {
+      id: 'node/105',
+      subject: { type: 'crossing', ref: 'node/105', lat: 50.0532, lon: 19.9457 },
+      criterion: 'kerb',
+      value: '20 mm',
+      status: 'community',
+      source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+      retrievedAt: '2026-10-01T10:00:00Z',
+    };
+
+    const evalResult = evaluateFactSeverity(lowKerbFact, MOCK_CONFIG.profiles.wheelchair);
+    expect(evalResult.severity).toBe('ok');
+    expect(evalResult.evidence).toContain('20 mm');
+    expect(evalResult.evidence).not.toContain('20000 mm');
   });
 });

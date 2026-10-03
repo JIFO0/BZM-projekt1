@@ -24,7 +24,7 @@ import {
   X,
   IdentificationCard,
 } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -39,6 +39,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BarrierViewControl } from '@/components/BarrierViewControl';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
@@ -48,6 +49,7 @@ import { LocationPicker } from '@/components/LocationPicker';
 import { MapView } from '@/components/MapView';
 import { t } from '@/i18n/strings';
 import { DEFAULT_PRESET_PLACES, inspectPlace, planAndAnalyzeRoute, reverseGeocodeLocation } from '@/services/api';
+import { getAllCityBarriers } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -131,7 +133,32 @@ export default function MapHomeScreen() {
     isHighContrast,
     krakowCardUser,
     setKrakowCardModalVisible,
+    barrierViewMode,
+    setBarrierViewMode,
   } = useSession();
+
+  // All barriers across Kraków computed with active thresholds
+  const allCityBarriers = useMemo(() => {
+    return getAllCityBarriers(activeThresholds);
+  }, [activeThresholds]);
+
+  // Barriers on the active route
+  const routeBarriers = useMemo(() => {
+    return activeRouteReport?.findings || [];
+  }, [activeRouteReport]);
+
+  // Displayed findings depending on barrier view mode: none | route | all
+  const displayedFindings = useMemo(() => {
+    switch (barrierViewMode) {
+      case 'none':
+        return [];
+      case 'route':
+        return routeBarriers;
+      case 'all':
+      default:
+        return allCityBarriers;
+    }
+  }, [barrierViewMode, routeBarriers, allCityBarriers]);
 
   // Map state
   const [mapCenter, setMapCenter] = useState<{ lat: number; lon: number }>({
@@ -514,7 +541,7 @@ export default function MapHomeScreen() {
         <MapView
           fullScreen
           route={activeWalkingRoute}
-          findings={activeRouteReport?.findings || []}
+          findings={displayedFindings}
           center={mapCenter}
           userLocation={userLocation}
           startLocation={{
@@ -629,6 +656,28 @@ export default function MapHomeScreen() {
             <CaretUp size={16} weight="bold" color={colors.accent} />
           </Pressable>
         ) : null}
+
+        {/* Floating Barrier View Mode Selector (Bez barier | Na trasie | Wszystkie) */}
+        <View
+          style={[
+            styles.floatingBarrierControlWrapper,
+            { top: activeWalkingRoute && activeRouteReport ? 62 : 14 },
+          ]}
+        >
+          <BarrierViewControl
+            mode={barrierViewMode}
+            onChangeMode={(newMode) => {
+              if (newMode === 'route' && !activeWalkingRoute) {
+                setStatusMessage(t(locale, 'noActiveRouteForBarriers'));
+                setTimeout(() => setStatusMessage(null), 3500);
+              }
+              setBarrierViewMode(newMode);
+            }}
+            routeBarriersCount={routeBarriers.length}
+            allBarriersCount={allCityBarriers.length}
+            hasActiveRoute={Boolean(activeWalkingRoute)}
+          />
+        </View>
 
         {/* Status Toast Notification */}
         {statusMessage ? (
@@ -888,6 +937,8 @@ export default function MapHomeScreen() {
                 { paddingBottom: spacing.touch + 20 },
               ]}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
             >
               {/* TAB 1: TRASA (ROUTE PLANNING & ANALYSIS) */}
               {activeTab === 'route' ? (
@@ -1127,6 +1178,27 @@ export default function MapHomeScreen() {
                             {t(locale, 'facilitiesCount')}
                           </Text>
                         </View>
+                      </View>
+
+                      {/* Barrier View Mode Selection on Card */}
+                      <View style={{ marginTop: 12, marginBottom: 4 }}>
+                        <Text style={[styles.fieldLabel, { color: colors.muted, fontSize: fontSize(12), marginBottom: 6 }]}>
+                          {t(locale, 'barrierViewModeLabel')}:
+                        </Text>
+                        <BarrierViewControl
+                          compact
+                          mode={barrierViewMode}
+                          onChangeMode={(newMode) => {
+                            if (newMode === 'route' && !activeWalkingRoute) {
+                              setStatusMessage(t(locale, 'noActiveRouteForBarriers'));
+                              setTimeout(() => setStatusMessage(null), 3500);
+                            }
+                            setBarrierViewMode(newMode);
+                          }}
+                          routeBarriersCount={routeBarriers.length}
+                          allBarriersCount={allCityBarriers.length}
+                          hasActiveRoute={Boolean(activeWalkingRoute)}
+                        />
                       </View>
 
                       <View style={styles.routeActionRow}>
@@ -1772,6 +1844,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
     zIndex: 15,
+  },
+  floatingBarrierControlWrapper: {
+    position: 'absolute',
+    left: 14,
+    right: 70,
+    zIndex: 18,
   },
   routePillText: {
     flex: 1,

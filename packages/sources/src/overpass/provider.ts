@@ -80,6 +80,11 @@ export class OsmOverpassProvider implements AccessibilityDataSource {
   node["highway"="steps"](${bboxStr});
   way["highway"="steps"](${bboxStr});
   node["kerb"](${bboxStr});
+  node["kerb:height"](${bboxStr});
+  node["kerb:left"](${bboxStr});
+  node["kerb:right"](${bboxStr});
+  way["kerb"](${bboxStr});
+  way["kerb:height"](${bboxStr});
   node["barrier"="kerb"](${bboxStr});
   node["highway"="crossing"](${bboxStr});
   way["highway"="crossing"](${bboxStr});
@@ -199,14 +204,23 @@ out center tags qt;`;
           });
         }
 
-        // Kerb
-        if (tags.kerb || tags.barrier === 'kerb') {
-          const kerbVal = tags.kerb || tags['kerb:height'] || 'obecny';
+        // Kerb. Prefer a measured height (OSM unit: metres) over a qualitative tag.
+        const kerbHeight =
+          tags['kerb:height'] ||
+          tags['kerb:height:left'] ||
+          tags['kerb:height:right'];
+        const sideMeasured = [tags['kerb:left'], tags['kerb:right']].find((v) => v && /\d/.test(v));
+        const qualitative = tags.kerb || tags['kerb:left'] || tags['kerb:right'];
+        if (kerbHeight || sideMeasured || qualitative || tags.barrier === 'kerb') {
+          const measured = kerbHeight || sideMeasured;
+          const kerbVal = measured || qualitative || 'obecny';
+          const unit = measured && !/[a-z]/i.test(measured) ? 'm' : undefined;
           facts.push({
             id: `${id}-kerb`,
             subject: { type: 'crossing', ref: id, lat, lon },
             criterion: 'kerb',
-            value: kerbVal,
+            value: String(kerbVal),
+            ...(unit ? { unit } : {}),
             status: statusFromOsmTags({
               conflicting: false,
               checkDate,

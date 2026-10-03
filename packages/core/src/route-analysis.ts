@@ -21,6 +21,54 @@ export interface RouteAnalysisInput {
   isSample?: boolean;
 }
 
+/**
+ * OSM `kerb:height` is in metres (0.03 = 30 mm). Explicit mm/cm/m tokens win.
+ * A bare decimal below 3 is metres. A larger bare number is millimetres.
+ * Qualitative tags (lowered, raised) do not invent a height such as 10 mm.
+ */
+export function parseKerbHeightMillimetres(value: string, unit?: string): number | null {
+  const raw = value.trim().toLowerCase().replace(',', '.');
+  if (!raw || raw === 'brak pomiaru' || raw === 'obecny' || raw === 'yes' || raw === 'unknown') {
+    return null;
+  }
+  if (raw === 'flush' || raw === 'kerb=flush') return 0;
+
+  const mmToken = raw.match(/(\d+(?:\.\d+)?)\s*mm\b/);
+  if (mmToken) return parseFloat(mmToken[1]!);
+  const cmToken = raw.match(/(\d+(?:\.\d+)?)\s*cm\b/);
+  if (cmToken) return parseFloat(cmToken[1]!) * 10;
+  const metreToken = raw.match(/(\d+(?:\.\d+)?)\s*m\b/);
+  if (metreToken) return parseFloat(metreToken[1]!) * 1000;
+
+  const numMatch = raw.match(/(\d+(?:\.\d+)?)/);
+  if (!numMatch) return null;
+  const num = parseFloat(numMatch[1]!);
+  if (!Number.isFinite(num)) return null;
+
+  const u = (unit ?? '').trim().toLowerCase();
+  if (u === 'mm' || u === 'millimetre' || u === 'millimetres') return num;
+  if (u === 'cm') return num * 10;
+  if (u === 'm' || u === 'meter' || u === 'metre' || u === 'metres') return num * 1000;
+  if (num < 3) return num * 1000;
+  return num;
+}
+
+function parseWidthMetres(value: string): number | null {
+  const raw = value.trim().toLowerCase().replace(',', '.');
+  const cm = raw.match(/(\d+(?:\.\d+)?)\s*cm\b/);
+  if (cm) return parseFloat(cm[1]!) / 100;
+  const mm = raw.match(/(\d+(?:\.\d+)?)\s*mm\b/);
+  if (mm) return parseFloat(mm[1]!) / 1000;
+  const metres = raw.match(/(\d+(?:\.\d+)?)\s*m\b/);
+  if (metres) return parseFloat(metres[1]!);
+  const numMatch = raw.match(/(\d+(?:\.\d+)?)/);
+  if (!numMatch) return null;
+  const num = parseFloat(numMatch[1]!);
+  if (!Number.isFinite(num)) return null;
+  if (num > 15) return num / 100;
+  return num;
+}
+
 /** Determine finding type and evaluate severity based on fact criterion and value. */
 export function evaluateFactSeverity(
   fact: Fact,
@@ -40,27 +88,24 @@ export function evaluateFactSeverity(
     return { severity, type: 'steps', evidence };
   }
 
-  if (crit === 'kerb' || crit === 'kerb:height') {
-    const mmMatch = fact.value.match(/(\d+(\.\d+)?)/);
-    let mm: number | null = null;
-    if (mmMatch) {
-      const num = parseFloat(mmMatch[1]!);
-      // If unit is cm or metres, normalize to mm
-      if (fact.unit === 'cm' || val.includes('cm')) mm = num * 10;
-      else if (fact.unit === 'm' || val.includes('m')) mm = num * 1000;
-      else mm = num;
-    } else if (val === 'flush') {
-      mm = 0;
-    } else if (val === 'lowered') {
-      mm = 30;
-    } else if (val === 'raised') {
-      mm = 120;
+  if (crit === 'kerb' || crit === 'kerb:height' || crit.startsWith('kerb:')) {
+    const qualitative = val.replace(/^kerb=/, '').trim();
+    if (qualitative === 'raised' || qualitative === 'lowered' || qualitative === 'rolled') {
+      const assumed = qualitative === 'raised' ? 100 : 30;
+      const severity = evaluateKerbHeight(assumed, thresholds);
+      const label = qualitative === 'raised' ? 'podniesiony' : 'obniżony';
+      return {
+        severity,
+        type: 'kerb',
+        evidence: `Krawężnik ${label} bez pomiaru OSM — szacunek ${assumed} mm, porównywany z limitem profilu ${thresholds.maxKerbMillimetres} mm.`,
+      };
     }
+    const mm = parseKerbHeightMillimetres(fact.value, fact.unit);
     const severity = evaluateKerbHeight(mm, thresholds);
     const evidence =
       mm !== null
-        ? `Wysokość krawężnika: ${mm} mm (limit profilu: ${thresholds.maxKerbMillimetres} mm)`
-        : `Krawężnik: wartość "${fact.value}" - brak dokładnej wysokości w mm`;
+        ? `Wysokość krawężnika: ${Math.round(mm)} mm (limit profilu: ${thresholds.maxKerbMillimetres} mm)`
+        : `Krawężnik: wartość "${fact.value}" — brak wysokości, więc nie podstawiamy 10 mm. Limit profilu: ${thresholds.maxKerbMillimetres} mm`;
     return { severity, type: 'kerb', evidence };
   }
 
@@ -88,8 +133,7 @@ export function evaluateFactSeverity(
   }
 
   if (crit === 'width') {
-    const widthMatch = fact.value.match(/(\d+(\.\d+)?)/);
-    const metres = widthMatch ? parseFloat(widthMatch[1]!) : null;
+    const metres = parseWidthMetres(fact.value);
     const severity = evaluateWidth(metres, thresholds);
     const evidence =
       metres !== null
@@ -108,6 +152,32 @@ export function evaluateFactSeverity(
         hasTactile ? ', pasy dotykowe' : ''
       }`,
     };
+  }
+
+  if (crit === 'wheelchair') {
+    if (val === 'no' || val.includes('no')) {
+      return {
+        severity: thresholds.stepsAreBlocker ? 'blocker' : 'warning',
+        type: 'wheelchair',
+        evidence: thresholds.stepsAreBlocker
+          ? 'Obiekt oznaczony jako niedostępny dla wózka (wheelchair=no)'
+          : 'Obiekt oznaczony jako niedostępny dla wózka (wheelchair=no) — ostrzeżenie dla tego profilu',
+      };
+    }
+    if (val === 'limited' || val.includes('limited')) {
+      return {
+        severity: 'warning',
+        type: 'wheelchair',
+        evidence: 'Dostępność dla wózka ograniczona (wheelchair=limited)',
+      };
+    }
+    if (val === 'yes') {
+      return {
+        severity: 'ok',
+        type: 'wheelchair',
+        evidence: 'Oznaczenie wheelchair=yes',
+      };
+    }
   }
 
   if (crit === 'elevator' || crit === 'highway:elevator') {
