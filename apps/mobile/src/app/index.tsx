@@ -1,65 +1,132 @@
 import type { ProfileId } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
+import * as Speech from 'expo-speech';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
+import { GovButton } from '@/components/GovButton';
+import { GovCard } from '@/components/GovCard';
+import { GovFooter } from '@/components/GovFooter';
+import { KrakowHeader } from '@/components/KrakowHeader';
 import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
-import { darkColors, lightColors, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
 
 const OPTIONS: {
   id: ProfileId;
   title: 'wheelchair' | 'stroller' | 'custom';
   hint: 'wheelchairHint' | 'strollerHint' | 'customHint';
+  icon: string;
 }[] = [
-  { id: 'wheelchair', title: 'wheelchair', hint: 'wheelchairHint' },
-  { id: 'stroller', title: 'stroller', hint: 'strollerHint' },
-  { id: 'custom', title: 'custom', hint: 'customHint' },
+  { id: 'wheelchair', title: 'wheelchair', hint: 'wheelchairHint', icon: '♿' },
+  { id: 'stroller', title: 'stroller', hint: 'strollerHint', icon: '👶' },
+  { id: 'custom', title: 'custom', hint: 'customHint', icon: '⚙️' },
 ];
 
 export default function ProfileScreen() {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
-  const { locale, setLocale, profileId, setProfileId, customThresholds, setCustomThresholds } =
-    useSession();
+  const {
+    locale,
+    profileId,
+    setProfileId,
+    customThresholds,
+    setCustomThresholds,
+    colors,
+    fontSize,
+    isHighContrast,
+    increasedSpacing,
+    dyslexicFont,
+  } = useSession();
+
   const [debugVisible, setDebugVisible] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleReadScreen = () => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+    const narrative = `${t(locale, 'appName')}. ${t(locale, 'profileTitle')}. ${t(
+      locale,
+      'profileLead',
+    )}. Dostępne profile to: Wózek, Wózek dziecięcy oraz Profil własny. Aktualnie wybrany profil: ${
+      profileId === 'wheelchair'
+        ? 'Wózek'
+        : profileId === 'stroller'
+          ? 'Wózek dziecięcy'
+          : 'Profil własny'
+    }. Kliknij przycisk dalej, aby przejść do wyszukiwania tras w Krakowie.`;
+
+    setIsSpeaking(true);
+    Speech.speak(narrative, {
+      language: locale === 'pl' ? 'pl-PL' : 'en-US',
+      onDone: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'appName') }} />
+
+      {/* Official Kraków Gov Header with WCAG toolbar */}
+      <KrakowHeader
+        onOpenDemo={() => setDebugVisible(true)}
+        onReadScreen={handleReadScreen}
+        isSpeaking={isSpeaking}
+      />
+
       <DemoBanner />
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.topRow}>
-          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-            {t(locale, 'appName')}
-          </Text>
-          <View style={styles.actionButtons}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Panel testowy i symulacje"
-              onPress={() => setDebugVisible(true)}
-              style={[styles.smallBtn, { borderColor: colors.border, minHeight: spacing.touch }]}
-            >
-              <Text style={{ color: colors.text }}>🛠️ Demo</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(locale, 'language')}
-              onPress={() => setLocale(locale === 'pl' ? 'en' : 'pl')}
-              style={[styles.lang, { borderColor: colors.border, minHeight: spacing.touch }]}
-            >
-              <Text style={{ color: colors.text }}>{t(locale, 'language')}</Text>
-            </Pressable>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            padding: increasedSpacing ? 24 : spacing.screen,
+            gap: increasedSpacing ? 18 : spacing.stack,
+          },
+        ]}
+      >
+        {/* Welcome & Municipal Program Card */}
+        <GovCard variant="accent">
+          <View style={styles.cardHeaderRow}>
+            <Text style={[styles.krakowBadge, { color: colors.accent, fontSize: fontSize(12) }]}>
+              PROTOTYP PUBLICZNY • MIASTO KRAKÓW
+            </Text>
           </View>
-        </View>
+          <Text
+            accessibilityRole="header"
+            style={[
+              styles.leadTitle,
+              {
+                color: colors.text,
+                fontSize: fontSize(21),
+                lineHeight: fontSize(28),
+                letterSpacing: dyslexicFont ? 1.2 : 0.3,
+              },
+            ]}
+          >
+            {t(locale, 'profileTitle')}
+          </Text>
+          <Text
+            style={[
+              styles.bodyText,
+              {
+                color: colors.muted,
+                fontSize: fontSize(14.5),
+                lineHeight: fontSize(22),
+              },
+            ]}
+          >
+            {t(locale, 'profileLead')}
+          </Text>
+        </GovCard>
 
-        <Text style={[styles.lead, { color: colors.text }]}>{t(locale, 'profileTitle')}</Text>
-        <Text style={[styles.body, { color: colors.muted }]}>{t(locale, 'profileLead')}</Text>
-
-        <View accessibilityRole="radiogroup" style={styles.options}>
+        {/* Mobility Profile Radio Group */}
+        <View accessibilityRole="radiogroup" style={styles.optionsList}>
           {OPTIONS.map((option) => {
             const selected = profileId === option.id;
             return (
@@ -68,110 +135,181 @@ export default function ProfileScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ checked: selected }}
                 aria-checked={selected}
-                accessibilityLabel={`${t(locale, option.title)}. ${t(locale, option.hint)}`}
+                accessibilityLabel={`${t(locale, option.title)}. ${t(locale, option.hint)}. ${
+                  selected ? t(locale, 'selected') : ''
+                }`}
                 onPress={() => setProfileId(option.id)}
                 style={[
-                  styles.option,
+                  styles.optionCard,
                   {
                     backgroundColor: colors.surface,
                     borderColor: selected ? colors.focus : colors.border,
-                    minHeight: spacing.touch,
+                    borderWidth: selected ? 3 : isHighContrast ? 2 : 1.5,
+                    minHeight: increasedSpacing ? 70 : 58,
+                    padding: increasedSpacing ? 18 : 14,
                   },
                 ]}
               >
-                <Text style={[styles.optionTitle, { color: colors.text }]}>
-                  {t(locale, option.title)}
+                <View style={styles.optionTopRow}>
+                  <View style={styles.optionTitleRow}>
+                    <Text style={[styles.optionIcon, { fontSize: fontSize(22) }]}>
+                      {option.icon}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.optionTitle,
+                        {
+                          color: colors.text,
+                          fontSize: fontSize(17),
+                          fontWeight: selected ? '800' : '600',
+                        },
+                      ]}
+                    >
+                      {t(locale, option.title)}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.radioCircle,
+                      {
+                        borderColor: selected ? colors.focus : colors.border,
+                        backgroundColor: selected ? colors.accent : colors.surface,
+                      },
+                    ]}
+                  >
+                    {selected ? (
+                      <View
+                        style={[
+                          styles.radioInnerDot,
+                          { backgroundColor: colors.accentText },
+                        ]}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+
+                <Text
+                  style={[
+                    styles.optionHint,
+                    {
+                      color: colors.muted,
+                      fontSize: fontSize(13.5),
+                      lineHeight: fontSize(20),
+                    },
+                  ]}
+                >
+                  {t(locale, option.hint)}
                 </Text>
-                <Text style={[styles.body, { color: colors.muted }]}>{t(locale, option.hint)}</Text>
+
                 {selected ? (
-                  <Text style={[styles.selected, { color: colors.accent }]}>
-                    ✓ {t(locale, 'selected')}
-                  </Text>
+                  <View
+                    style={[
+                      styles.selectedTag,
+                      {
+                        backgroundColor: isHighContrast ? colors.background : colors.badgeBg,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.selectedText, { color: colors.accent, fontSize: fontSize(12) }]}>
+                      ✓ {t(locale, 'selected')}
+                    </Text>
+                  </View>
                 ) : null}
               </Pressable>
             );
           })}
         </View>
 
+        {/* Custom Profile Fine-tuning */}
         {profileId === 'custom' ? (
-          <View
-            style={[styles.customBox, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          >
-            <Text style={[styles.customTitle, { color: colors.text }]}>
-              Dostosuj parametry profilu własnego:
+          <GovCard variant="accent">
+            <Text
+              accessibilityRole="header"
+              style={[styles.customTitle, { color: colors.text, fontSize: fontSize(16) }]}
+            >
+              ⚙️ Dostosuj progi barier dla profilu własnego:
             </Text>
-            <Text style={[styles.body, { color: colors.text }]}>
-              • Maksymalny krawężnik: {customThresholds.maxKerbMillimetres} mm
-            </Text>
-            <View style={styles.thresholdButtonsRow}>
-              <Pressable
-                onPress={() =>
-                  setCustomThresholds({
-                    ...customThresholds,
-                    maxKerbMillimetres: Math.max(10, customThresholds.maxKerbMillimetres - 10),
-                  })
-                }
-                style={[styles.stepBtn, { borderColor: colors.border }]}
-              >
-                <Text style={{ color: colors.text }}>-10 mm</Text>
-              </Pressable>
-              <Pressable
-                onPress={() =>
-                  setCustomThresholds({
-                    ...customThresholds,
-                    maxKerbMillimetres: customThresholds.maxKerbMillimetres + 10,
-                  })
-                }
-                style={[styles.stepBtn, { borderColor: colors.border }]}
-              >
-                <Text style={{ color: colors.text }}>+10 mm</Text>
-              </Pressable>
+
+            <View style={styles.thresholdRow}>
+              <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(14.5) }]}>
+                Maksymalny krawężnik: <Text style={{ fontWeight: '800' }}>{customThresholds.maxKerbMillimetres} mm</Text>
+              </Text>
+              <View style={styles.stepBtnRow}>
+                <GovButton
+                  variant="outline"
+                  title="-10 mm"
+                  onPress={() =>
+                    setCustomThresholds({
+                      ...customThresholds,
+                      maxKerbMillimetres: Math.max(10, customThresholds.maxKerbMillimetres - 10),
+                    })
+                  }
+                  style={styles.smallStepBtn}
+                />
+                <GovButton
+                  variant="outline"
+                  title="+10 mm"
+                  onPress={() =>
+                    setCustomThresholds({
+                      ...customThresholds,
+                      maxKerbMillimetres: customThresholds.maxKerbMillimetres + 10,
+                    })
+                  }
+                  style={styles.smallStepBtn}
+                />
+              </View>
             </View>
 
-            <Text style={[styles.body, { color: colors.text }]}>
-              • Schody jako blokada: {customThresholds.stepsAreBlocker ? 'TAK (blocker)' : 'NIE (warning)'}
-            </Text>
-            <Pressable
-              onPress={() =>
-                setCustomThresholds({
-                  ...customThresholds,
-                  stepsAreBlocker: !customThresholds.stepsAreBlocker,
-                })
-              }
-              style={[styles.toggleBtn, { borderColor: colors.border }]}
-            >
-              <Text style={{ color: colors.text }}>Przełącz traktowanie stopni</Text>
-            </Pressable>
-          </View>
+            <View style={styles.thresholdRow}>
+              <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(14.5) }]}>
+                Traktowanie stopni:{' '}
+                <Text style={{ fontWeight: '800', color: customThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
+                  {customThresholds.stepsAreBlocker ? 'BLOKADA (Blocker)' : 'OSTRZEŻENIE (Warning)'}
+                </Text>
+              </Text>
+              <GovButton
+                variant="secondary"
+                title="Przełącz status schodów"
+                onPress={() =>
+                  setCustomThresholds({
+                    ...customThresholds,
+                    stepsAreBlocker: !customThresholds.stepsAreBlocker,
+                  })
+                }
+              />
+            </View>
+          </GovCard>
         ) : null}
 
-        <Text style={[styles.body, { color: colors.muted }]}>{t(locale, 'privacy')}</Text>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: profileId === null }}
-          disabled={profileId === null}
-          onPress={() => router.push('/search')}
-          style={[
-            styles.primary,
-            {
-              backgroundColor: profileId ? colors.accent : colors.border,
-              minHeight: spacing.touch,
-            },
-          ]}
-        >
-          <Text style={[styles.primaryText, { color: profileId ? colors.accentText : colors.muted }]}>
-            {t(locale, 'continue')}
+        {/* Privacy Note */}
+        <GovCard variant="default">
+          <Text style={[styles.privacyNotice, { color: colors.muted, fontSize: fontSize(12.5), lineHeight: fontSize(18) }]}>
+            🔒 <Text style={{ fontWeight: '700' }}>Prywatność i bezpieczeństwo:</Text> {t(locale, 'privacy')}
           </Text>
-        </Pressable>
+        </GovCard>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/about')}
-          style={[styles.secondary, { borderColor: colors.border, minHeight: spacing.touch }]}
-        >
-          <Text style={{ color: colors.text }}>{t(locale, 'about')}</Text>
-        </Pressable>
+        {/* Main Action Buttons */}
+        <View style={styles.actionRow}>
+          <GovButton
+            title={t(locale, 'continue')}
+            icon="➜"
+            variant="primary"
+            disabled={profileId === null}
+            onPress={() => router.push('/search')}
+          />
+
+          <GovButton
+            title={t(locale, 'about')}
+            icon="ℹ️"
+            variant="outline"
+            onPress={() => router.push('/about')}
+          />
+        </View>
+
+        {/* Official Municipal Footer */}
+        <GovFooter />
       </ScrollView>
 
       <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
@@ -181,24 +319,95 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: spacing.screen, gap: spacing.stack },
-  options: { gap: spacing.stack },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  actionButtons: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: '700', flexShrink: 1 },
-  lead: { fontSize: 20, fontWeight: '600' },
-  body: { fontSize: 15, lineHeight: 22 },
-  option: { borderWidth: 2, borderRadius: 12, padding: 12, gap: 4 },
-  optionTitle: { fontSize: 18, fontWeight: '600' },
-  selected: { fontSize: 15, fontWeight: '700', marginTop: 2 },
-  lang: { borderWidth: 2, borderRadius: 12, paddingHorizontal: 12, justifyContent: 'center' },
-  smallBtn: { borderWidth: 2, borderRadius: 12, paddingHorizontal: 10, justifyContent: 'center' },
-  primary: { borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primaryText: { fontSize: 16, fontWeight: '700' },
-  secondary: { borderWidth: 2, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  customBox: { borderWidth: 2, borderRadius: 12, padding: 12, gap: 8 },
-  customTitle: { fontSize: 16, fontWeight: '700' },
-  thresholdButtonsRow: { flexDirection: 'row', gap: 10 },
-  stepBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  toggleBtn: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'flex-start' },
+  content: {
+    padding: spacing.screen,
+    gap: spacing.stack,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  krakowBadge: {
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  leadTitle: {
+    fontWeight: '800',
+  },
+  bodyText: {
+    fontWeight: '500',
+  },
+  optionsList: {
+    gap: 12,
+  },
+  optionCard: {
+    borderRadius: 12,
+    gap: 6,
+  },
+  optionTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  optionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  optionIcon: {},
+  optionTitle: {
+    letterSpacing: 0.2,
+  },
+  optionHint: {
+    fontWeight: '500',
+  },
+  radioCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInnerDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  selectedTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  selectedText: {
+    fontWeight: '800',
+  },
+  customTitle: {
+    fontWeight: '800',
+  },
+  thresholdRow: {
+    gap: 8,
+    marginTop: 4,
+  },
+  paramLabel: {
+    fontWeight: '600',
+  },
+  stepBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  smallStepBtn: {
+    flex: 1,
+  },
+  privacyNotice: {
+    fontWeight: '500',
+  },
+  actionRow: {
+    gap: 10,
+    marginTop: 4,
+  },
 });

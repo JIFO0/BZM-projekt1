@@ -1,19 +1,21 @@
 import type { CoverageStat } from '@krakow-bez-barier/core';
-import { StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { darkColors, lightColors } from '@/theme/tokens';
+import { useSession } from '@/state/session';
 
 interface CoverageBarProps {
   stat: CoverageStat;
 }
 
 export function CoverageBar({ stat }: CoverageBarProps) {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
+  const { colors, fontSize, isHighContrast } = useSession();
 
   const pct = stat.ratio !== null ? Math.round(stat.ratio * 100) : 0;
   const ratioText =
     stat.ratio !== null ? `${pct}% (${stat.known}/${stat.total})` : 'brak punktów pomiarowych';
+
+  const fillColor =
+    pct >= 80 ? colors.okBorder : pct >= 40 ? colors.warningBorder : colors.blockerBorder;
 
   return (
     <View
@@ -22,16 +24,29 @@ export function CoverageBar({ stat }: CoverageBarProps) {
       style={styles.container}
     >
       <View style={styles.headerRow}>
-        <Text style={[styles.title, { color: colors.text }]}>{stat.criterion}</Text>
-        <Text style={[styles.ratio, { color: colors.muted }]}>{ratioText}</Text>
+        <Text style={[styles.title, { color: colors.text, fontSize: fontSize(14) }]}>
+          {stat.criterion}
+        </Text>
+        <Text style={[styles.ratio, { color: colors.muted, fontSize: fontSize(13) }]}>
+          {ratioText}
+        </Text>
       </View>
-      <View style={[styles.barBg, { backgroundColor: colors.border }]}>
+      <View
+        style={[
+          styles.barBg,
+          {
+            backgroundColor: isHighContrast ? '#333333' : colors.border,
+            borderColor: colors.border,
+            borderWidth: isHighContrast ? 1 : 0,
+          },
+        ]}
+      >
         <View
           style={[
             styles.barFill,
             {
               width: `${pct}%`,
-              backgroundColor: pct >= 80 ? colors.okBorder : pct >= 40 ? colors.warningBorder : colors.blockerBorder,
+              backgroundColor: fillColor,
             },
           ]}
         />
@@ -42,7 +57,7 @@ export function CoverageBar({ stat }: CoverageBarProps) {
 
 const styles = StyleSheet.create({
   container: {
-    gap: 4,
+    gap: 6,
     marginVertical: 4,
   },
   headerRow: {
@@ -51,20 +66,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   ratio: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   barBg: {
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   barFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
   },
 });

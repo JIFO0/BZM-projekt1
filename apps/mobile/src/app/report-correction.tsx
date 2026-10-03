@@ -1,29 +1,43 @@
 import { Stack } from 'expo-router';
 import * as Linking from 'expo-linking';
+import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DebugModal } from '@/components/DebugModal';
+import { GovButton } from '@/components/GovButton';
+import { GovCard } from '@/components/GovCard';
+import { GovFooter } from '@/components/GovFooter';
+import { KrakowHeader } from '@/components/KrakowHeader';
 import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
-import { darkColors, lightColors, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
 
 export default function ReportCorrectionScreen() {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
-  const { locale, localReports, addLocalReport, activeRouteReport } = useSession();
+  const {
+    locale,
+    localReports,
+    addLocalReport,
+    activeRouteReport,
+    colors,
+    fontSize,
+    isHighContrast,
+    increasedSpacing,
+    dyslexicFont,
+  } = useSession();
 
   const [description, setDescription] = useState('');
   const [successMsg, setSuccessMsg] = useState(false);
+  const [debugVisible, setDebugVisible] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const handleSubmitLocal = () => {
     if (!description.trim()) {
@@ -37,7 +51,6 @@ export default function ReportCorrectionScreen() {
   };
 
   const handleOpenOsmNote = async () => {
-    // Kraków Rynek coordinates as center or first finding
     let lat = 50.0619;
     let lon = 19.9373;
     if (activeRouteReport && activeRouteReport.findings.length > 0) {
@@ -53,16 +66,78 @@ export default function ReportCorrectionScreen() {
     }
   };
 
+  const handleReadScreen = () => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+    const text = `${t(locale, 'reportTitle')}. ${t(
+      locale,
+      'reportLead',
+    )}. Wpisz treść uwagi w polu formularza, a następnie kliknij przycisk Zapisz zgłoszenie lokalnie.`;
+
+    setIsSpeaking(true);
+    Speech.speak(text, {
+      language: locale === 'pl' ? 'pl-PL' : 'en-US',
+      onDone: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  };
+
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['bottom']}>
-      <Stack.Screen options={{ title: t(locale, 'reportTitle') }} />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.lead, { color: colors.text }]}>{t(locale, 'reportTitle')}</Text>
-        <Text style={[styles.body, { color: colors.muted }]}>{t(locale, 'reportLead')}</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <Stack.Screen options={{ headerShown: false, title: t(locale, 'reportTitle') }} />
+
+      <KrakowHeader
+        onOpenDemo={() => setDebugVisible(true)}
+        onReadScreen={handleReadScreen}
+        isSpeaking={isSpeaking}
+      />
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            padding: increasedSpacing ? 24 : spacing.screen,
+            gap: increasedSpacing ? 18 : spacing.stack,
+          },
+        ]}
+      >
+        <GovCard variant="accent">
+          <Text
+            accessibilityRole="header"
+            style={[
+              styles.lead,
+              {
+                color: colors.text,
+                fontSize: fontSize(21),
+                letterSpacing: dyslexicFont ? 1.2 : 0.3,
+              },
+            ]}
+          >
+            {t(locale, 'reportTitle')}
+          </Text>
+          <Text
+            style={[
+              styles.body,
+              {
+                color: colors.muted,
+                fontSize: fontSize(14.5),
+                lineHeight: fontSize(22),
+              },
+            ]}
+          >
+            {t(locale, 'reportLead')}
+          </Text>
+        </GovCard>
 
         {/* Local Submission Form */}
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
+        <GovCard variant="default">
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(16) }]}
+          >
             📝 {t(locale, 'reportObstacleDesc')}
           </Text>
           <TextInput
@@ -78,126 +153,133 @@ export default function ReportCorrectionScreen() {
                 color: colors.text,
                 borderColor: colors.border,
                 backgroundColor: colors.background,
+                fontSize: fontSize(15),
+                borderWidth: isHighContrast ? 2.5 : 1.5,
               },
             ]}
           />
 
           {successMsg ? (
-            <View
-              accessibilityRole="alert"
-              style={[styles.successBanner, { backgroundColor: colors.okBg, borderColor: colors.okBorder }]}
-            >
-              <Text style={{ color: colors.okText, fontWeight: '700' }}>
+            <GovCard variant="ok">
+              <Text style={{ color: colors.okText, fontWeight: '800', fontSize: fontSize(13.5) }}>
                 ✓ {t(locale, 'reportSavedSuccess')}
               </Text>
-            </View>
+            </GovCard>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(locale, 'reportSubmit')}
+          <GovButton
+            title={t(locale, 'reportSubmit')}
+            icon="💾"
+            variant="primary"
             onPress={handleSubmitLocal}
-            style={[styles.primaryBtn, { backgroundColor: colors.accent, minHeight: spacing.touch }]}
-          >
-            <Text style={[styles.btnText, { color: colors.accentText }]}>
-              {t(locale, 'reportSubmit')}
-            </Text>
-          </Pressable>
-        </View>
+          />
+        </GovCard>
 
         {/* OpenStreetMap Deep Link (R11) */}
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
+        <GovCard variant="default">
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(16) }]}
+          >
             🗺️ OpenStreetMap (OSM Note)
           </Text>
-          <Text style={[styles.body, { color: colors.muted }]}>
+          <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13.5), lineHeight: fontSize(20) }]}>
             {t(locale, 'osmNoteDisclaimer')}
           </Text>
 
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel={t(locale, 'openOsmNote')}
+          <GovButton
+            title={t(locale, 'openOsmNote')}
+            icon="🌐"
+            variant="outline"
             onPress={handleOpenOsmNote}
-            style={[
-              styles.secondaryBtn,
-              { borderColor: colors.accent, minHeight: spacing.touch },
-            ]}
-          >
-            <Text style={[styles.secondaryBtnText, { color: colors.accent }]}>
-              🌐 {t(locale, 'openOsmNote')}
-            </Text>
-          </Pressable>
-        </View>
+          />
+        </GovCard>
 
         {/* Local Reports Queue List */}
         <View style={styles.queueSection}>
-          <Text accessibilityRole="header" style={[styles.queueTitle, { color: colors.text }]}>
+          <Text
+            accessibilityRole="header"
+            style={[styles.queueTitle, { color: colors.text, fontSize: fontSize(17.5) }]}
+          >
             📋 {t(locale, 'localReportsQueue')} ({localReports.length})
           </Text>
 
           {localReports.length === 0 ? (
-            <Text style={[styles.body, { color: colors.muted }]}>{t(locale, 'noLocalReports')}</Text>
+            <GovCard variant="default">
+              <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(14) }]}>
+                {t(locale, 'noLocalReports')}
+              </Text>
+            </GovCard>
           ) : (
             localReports.map((report) => (
-              <View
-                key={report.id}
-                style={[
-                  styles.reportItem,
-                  { backgroundColor: colors.surface, borderColor: colors.warningBorder },
-                ]}
-              >
+              <GovCard key={report.id} variant="warning">
                 <View style={styles.itemHeader}>
-                  <Text style={[styles.statusBadge, { color: colors.warningText }]}>
+                  <Text style={[styles.statusBadge, { color: colors.warningText, fontSize: fontSize(13) }]}>
                     ⚠️ Zgłoszenie lokalne (niezweryfikowane)
                   </Text>
-                  <Text style={[styles.itemDate, { color: colors.muted }]}>
+                  <Text style={[styles.itemDate, { color: colors.muted, fontSize: fontSize(12) }]}>
                     {report.createdAt.slice(0, 10)}
                   </Text>
                 </View>
-                <Text style={[styles.itemText, { color: colors.text }]}>{report.description}</Text>
-              </View>
+                <Text style={[styles.itemText, { color: colors.text, fontSize: fontSize(14) }]}>
+                  {report.description}
+                </Text>
+              </GovCard>
             ))
           )}
         </View>
+
+        <GovFooter />
       </ScrollView>
+
+      <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: spacing.screen, gap: spacing.stack },
-  lead: { fontSize: 20, fontWeight: '700' },
-  body: { fontSize: 14, lineHeight: 20 },
-  card: { borderWidth: 2, borderRadius: 12, padding: 14, gap: 10 },
-  cardTitle: { fontSize: 16, fontWeight: '700' },
+  content: {
+    padding: spacing.screen,
+    gap: spacing.stack,
+  },
+  lead: {
+    fontWeight: '800',
+  },
+  body: {
+    fontWeight: '500',
+  },
+  cardTitle: {
+    fontWeight: '800',
+  },
   input: {
-    borderWidth: 1.5,
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 15,
+    borderRadius: 10,
+    padding: 12,
     textAlignVertical: 'top',
-    minHeight: 80,
+    minHeight: 90,
   },
-  primaryBtn: {
-    borderRadius: 10,
+  queueSection: {
+    gap: 10,
+    marginTop: 6,
+  },
+  queueTitle: {
+    fontWeight: '800',
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
   },
-  btnText: { fontSize: 15, fontWeight: '700' },
-  secondaryBtn: {
-    borderWidth: 2,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+  statusBadge: {
+    fontWeight: '800',
+    flex: 1,
   },
-  secondaryBtnText: { fontSize: 15, fontWeight: '700' },
-  successBanner: { borderWidth: 1.5, borderRadius: 8, padding: 10 },
-  queueSection: { gap: 8, marginTop: 8 },
-  queueTitle: { fontSize: 17, fontWeight: '700' },
-  reportItem: { borderWidth: 1.5, borderRadius: 10, padding: 12, gap: 6 },
-  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statusBadge: { fontSize: 13, fontWeight: '700' },
-  itemDate: { fontSize: 12 },
-  itemText: { fontSize: 14, lineHeight: 20 },
+  itemDate: {
+    fontWeight: '600',
+  },
+  itemText: {
+    lineHeight: 20,
+    fontWeight: '600',
+  },
 });

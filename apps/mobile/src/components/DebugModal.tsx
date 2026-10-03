@@ -1,8 +1,8 @@
-import { Modal, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { t, type Locale } from '@/i18n/strings';
 import { useSession } from '@/state/session';
-import { darkColors, lightColors, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
 
 interface DebugModalProps {
   visible: boolean;
@@ -11,18 +11,25 @@ interface DebugModalProps {
 }
 
 export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
-  const { debugState, setDebugState } = useSession();
+  const { colors, fontSize, isHighContrast, debugState, setDebugState } = useSession();
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View
-          style={[styles.modalBox, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[
+            styles.modalBox,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: isHighContrast ? 2.5 : 1.5,
+            },
+          ]}
         >
-          <Text style={[styles.title, { color: colors.text }]}>{t(locale, 'debugPanel')}</Text>
-          <Text style={[styles.desc, { color: colors.muted }]}>
+          <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
+            🛠️ {t(locale, 'debugPanel')}
+          </Text>
+          <Text style={[styles.desc, { color: colors.muted, fontSize: fontSize(13) }]}>
             Symulacja stanów awaryjnych i brzegowych wymaganych przez regulamin HackYeah (R7, R8, R12):
           </Text>
 
@@ -41,10 +48,11 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
                 borderColor: debugState.simulateOverpassDown ? colors.blockerBorder : colors.border,
                 backgroundColor: debugState.simulateOverpassDown ? colors.blockerBg : colors.background,
                 minHeight: spacing.touch,
+                borderWidth: isHighContrast ? 2 : 1.5,
               },
             ]}
           >
-            <Text style={[styles.rowText, { color: colors.text }]}>
+            <Text style={[styles.rowText, { color: colors.text, fontSize: fontSize(14) }]}>
               {debugState.simulateOverpassDown ? '☒ ' : '☐ '}
               {t(locale, 'simulateOverpassFail')}
             </Text>
@@ -65,10 +73,11 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
                 borderColor: debugState.simulateMapyDown ? colors.warningBorder : colors.border,
                 backgroundColor: debugState.simulateMapyDown ? colors.warningBg : colors.background,
                 minHeight: spacing.touch,
+                borderWidth: isHighContrast ? 2 : 1.5,
               },
             ]}
           >
-            <Text style={[styles.rowText, { color: colors.text }]}>
+            <Text style={[styles.rowText, { color: colors.text, fontSize: fontSize(14) }]}>
               {debugState.simulateMapyDown ? '☒ ' : '☐ '}
               {t(locale, 'simulateMapyFail')}
             </Text>
@@ -89,10 +98,11 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
                 borderColor: debugState.simulateOffline ? colors.accent : colors.border,
                 backgroundColor: debugState.simulateOffline ? colors.infoBg : colors.background,
                 minHeight: spacing.touch,
+                borderWidth: isHighContrast ? 2 : 1.5,
               },
             ]}
           >
-            <Text style={[styles.rowText, { color: colors.text }]}>
+            <Text style={[styles.rowText, { color: colors.text, fontSize: fontSize(14) }]}>
               {debugState.simulateOffline ? '☒ ' : '☐ '}
               {t(locale, 'simulateOffline')}
             </Text>
@@ -108,9 +118,16 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
                 simulateOffline: false,
               }))
             }
-            style={[styles.resetButton, { borderColor: colors.border, minHeight: spacing.touch }]}
+            style={[
+              styles.resetButton,
+              {
+                borderColor: colors.border,
+                minHeight: spacing.touch,
+                borderWidth: isHighContrast ? 2 : 1.5,
+              },
+            ]}
           >
-            <Text style={[styles.resetText, { color: colors.text }]}>
+            <Text style={[styles.resetText, { color: colors.text, fontSize: fontSize(13.5) }]}>
               {t(locale, 'resetSimulation')}
             </Text>
           </Pressable>
@@ -119,9 +136,15 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
             accessibilityRole="button"
             accessibilityLabel={t(locale, 'close')}
             onPress={onClose}
-            style={[styles.closeButton, { backgroundColor: colors.accent, minHeight: spacing.touch }]}
+            style={[
+              styles.closeButton,
+              {
+                backgroundColor: colors.accent,
+                minHeight: spacing.touch,
+              },
+            ]}
           >
-            <Text style={[styles.closeText, { color: colors.accentText }]}>
+            <Text style={[styles.closeText, { color: colors.accentText, fontSize: fontSize(14) }]}>
               {t(locale, 'close')}
             </Text>
           </Pressable>
@@ -134,54 +157,45 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     padding: 20,
   },
   modalBox: {
-    borderWidth: 2,
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
     gap: 12,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   desc: {
-    fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   row: {
-    borderWidth: 1.5,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    padding: 12,
+    borderRadius: 10,
     justifyContent: 'center',
   },
   rowText: {
-    fontSize: 14,
     fontWeight: '600',
   },
   resetButton: {
-    borderWidth: 1.5,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    padding: 10,
   },
   resetText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   closeButton: {
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    padding: 12,
   },
   closeText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });

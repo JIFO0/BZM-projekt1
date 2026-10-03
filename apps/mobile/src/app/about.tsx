@@ -6,143 +6,262 @@ import {
   OSM_ODBL_URL,
 } from '@krakow-bez-barier/core';
 import { Stack } from 'expo-router';
-import { ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import * as Speech from 'expo-speech';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DebugModal } from '@/components/DebugModal';
+import { GovCard } from '@/components/GovCard';
+import { GovFooter } from '@/components/GovFooter';
+import { KrakowHeader } from '@/components/KrakowHeader';
 import { city } from '@/config/city';
 import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
-import { darkColors, lightColors, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
 
 export default function AboutScreen() {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
-  const { locale } = useSession();
+  const {
+    locale,
+    colors,
+    fontSize,
+    increasedSpacing,
+    dyslexicFont,
+  } = useSession();
+
+  const [debugVisible, setDebugVisible] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const handleReadScreen = () => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+    const text = `${t(locale, 'aboutTitle')}. ${t(
+      locale,
+      'aboutLead',
+    )}. Źródła danych: Mapy.com dla tras pieszych i geokodowania, OpenStreetMap ODbL dla geometrii barier. Wbudowany snapshot offline wersji ${
+      DEMO_SNAPSHOT.snapshotVersion
+    }. Prywatność: brak kont, brak logowania, 100% lokalne przetwarzanie na urządzeniu.`;
+
+    setIsSpeaking(true);
+    Speech.speak(text, {
+      language: locale === 'pl' ? 'pl-PL' : 'en-US',
+      onDone: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['bottom']}>
-      <Stack.Screen options={{ title: t(locale, 'about') }} />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.lead, { color: colors.text }]}>{t(locale, 'aboutTitle')}</Text>
-        <Text style={[styles.body, { color: colors.muted }]}>{t(locale, 'aboutLead')}</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <Stack.Screen options={{ headerShown: false, title: t(locale, 'about') }} />
+
+      <KrakowHeader
+        onOpenDemo={() => setDebugVisible(true)}
+        onReadScreen={handleReadScreen}
+        isSpeaking={isSpeaking}
+      />
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            padding: increasedSpacing ? 24 : spacing.screen,
+            gap: increasedSpacing ? 18 : spacing.stack,
+          },
+        ]}
+      >
+        <GovCard variant="accent">
+          <Text
+            accessibilityRole="header"
+            style={[
+              styles.lead,
+              {
+                color: colors.text,
+                fontSize: fontSize(21),
+                letterSpacing: dyslexicFont ? 1.2 : 0.3,
+              },
+            ]}
+          >
+            {t(locale, 'aboutTitle')}
+          </Text>
+          <Text
+            style={[
+              styles.body,
+              {
+                color: colors.muted,
+                fontSize: fontSize(14.5),
+                lineHeight: fontSize(22),
+              },
+            ]}
+          >
+            {t(locale, 'aboutLead')}
+          </Text>
+        </GovCard>
 
         {/* Mapy.com source */}
-        <SourceBlock
-          name={MAPY_ATTRIBUTION.name}
-          uses={t(locale, 'mapyUses')}
-          licence={MAPY_ATTRIBUTION.licence}
-          credit={MAPY_ATTRIBUTION.attribution}
-          url={MAPY_LOGO.copyrightHref}
-          colors={colors}
-          creditLabel={t(locale, 'copyrightLabel')}
-        />
+        <GovCard variant="default">
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+          >
+            🗺️ {MAPY_ATTRIBUTION.name}
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
+            {t(locale, 'mapyUses')}
+          </Text>
+          <Text style={[styles.meta, { color: colors.muted, fontSize: fontSize(12.5) }]}>
+            Licencja: {MAPY_ATTRIBUTION.licence}
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
+            {t(locale, 'copyrightLabel')}: {MAPY_ATTRIBUTION.attribution}
+          </Text>
+          <Text style={[styles.meta, { color: colors.muted, fontSize: fontSize(12) }]}>
+            {MAPY_LOGO.copyrightHref}
+          </Text>
+        </GovCard>
 
         {/* Mapy Logo text attribution required by M4 */}
-        <View style={[styles.logoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.meta, { color: colors.muted }]}>
+        <GovCard variant="default">
+          <Text style={[styles.meta, { color: colors.muted, fontSize: fontSize(12) }]}>
             {t(locale, 'logoLabel')}:
           </Text>
-          <Text style={[styles.logoText, { color: '#C62828' }]}>
+          <Text style={[styles.logoText, { color: '#C62828', fontSize: fontSize(18) }]}>
             mapy.cz / api.mapy.com
           </Text>
-        </View>
+        </GovCard>
 
         {/* OSM source */}
-        <SourceBlock
-          name={OSM_ATTRIBUTION.name}
-          uses={t(locale, 'osmUses')}
-          licence={`${OSM_ATTRIBUTION.licence} (${OSM_ODBL_URL})`}
-          credit={OSM_ATTRIBUTION.attribution}
-          url={OSM_ATTRIBUTION.url}
-          colors={colors}
-          creditLabel={t(locale, 'copyrightLabel')}
-        />
+        <GovCard variant="default">
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+          >
+            🌐 {OSM_ATTRIBUTION.name}
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
+            {t(locale, 'osmUses')}
+          </Text>
+          <Text style={[styles.meta, { color: colors.muted, fontSize: fontSize(12.5) }]}>
+            Licencja: {`${OSM_ATTRIBUTION.licence} (${OSM_ODBL_URL})`}
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
+            {t(locale, 'copyrightLabel')}: {OSM_ATTRIBUTION.attribution}
+          </Text>
+          <Text style={[styles.meta, { color: colors.muted, fontSize: fontSize(12) }]}>
+            {OSM_ATTRIBUTION.url}
+          </Text>
+        </GovCard>
+
+        {/* Deklaracja Dostępności Gov */}
+        <GovCard variant="accent">
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+          >
+            🏛️ Deklaracja Dostępności Cyfrowej (WCAG 2.2 AAA & EAA)
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14), lineHeight: fontSize(21) }]}>
+            System został zaprojektowany z myślą o pełnej dostępności cyfrowej i architektonicznej zgodnie z:
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
+            • Standardem WCAG 2.2 (poziomy AA oraz wybrane kryteria AAA: kontrast &gt; 7:1, rozmiar celów dotykowych min. 48–56 px).
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
+            • Europejskim Aktem o Dostępności (Directive 2019/882 / EAA).
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
+            • Ustawą z dnia 4 kwietnia 2019 r. o dostępności cyfrowej stron internetowych i aplikacji mobilnych podmiotów publicznych.
+          </Text>
+        </GovCard>
 
         {/* Demo snapshot info */}
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>📦 Wbudowany snapshot offline</Text>
-          <Text style={[styles.body, { color: colors.text }]}>
+        <GovCard variant="default">
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+          >
+            📦 Wbudowany snapshot offline
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
             Wersja: {DEMO_SNAPSHOT.snapshotVersion} ({DEMO_SNAPSHOT.label})
           </Text>
-          <Text style={[styles.meta, { color: colors.muted }]}>
+          <Text style={[styles.meta, { color: colors.muted, fontSize: fontSize(12.5) }]}>
             Data wygenerowania: {DEMO_SNAPSHOT.generatedAt.slice(0, 10)}
           </Text>
-          <Text style={[styles.body, { color: colors.text }]}>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
             Obszar: {DEMO_SNAPSHOT.demoArea}
           </Text>
-        </View>
+        </GovCard>
 
         {/* Demo Area */}
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>{t(locale, 'demoArea')}</Text>
-          <Text style={[styles.body, { color: colors.text }]}>{city.demoArea.label}</Text>
+        <GovCard variant="default">
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+          >
+            📍 {t(locale, 'demoArea')}
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
+            {city.demoArea.label}
+          </Text>
           {city.demoArea.provisional ? (
-            <Text style={[styles.body, { color: colors.muted }]}>{t(locale, 'provisional')}</Text>
+            <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13) }]}>
+              {t(locale, 'provisional')}
+            </Text>
           ) : null}
-        </View>
+        </GovCard>
 
         {/* Privacy Summary (P1-P5) */}
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>🔒 Prywatność i ochrona danych (P1–P5)</Text>
-          <Text style={[styles.body, { color: colors.text }]}>
+        <GovCard variant="default">
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+          >
+            🔒 Prywatność i ochrona danych (P1–P5)
+          </Text>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
             • Brak kont użytkowników, brak logowania, brak baz danych w chmurze.
           </Text>
-          <Text style={[styles.body, { color: colors.text }]}>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
             • Brak systemów analitycznych, śledzących i reklamowych SDK.
           </Text>
-          <Text style={[styles.body, { color: colors.text }]}>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
             • Wybór profilu oraz zgłoszenia korekt zapisywane są wyłącznie lokalnie na Twoim urządzeniu.
           </Text>
-          <Text style={[styles.body, { color: colors.text }]}>
+          <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
             • Zapytania sieciowe zawierają wyłącznie współrzędne trasy (przesyłane do Mapy.com i Overpass API) bez jakichkolwiek danych osobowych.
           </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
+        </GovCard>
 
-function SourceBlock({
-  name,
-  uses,
-  licence,
-  credit,
-  url,
-  creditLabel,
-  colors,
-}: {
-  name: string;
-  uses: string;
-  licence: string;
-  credit: string;
-  url: string;
-  creditLabel: string;
-  colors: typeof lightColors;
-}) {
-  return (
-    <View
-      accessibilityRole="summary"
-      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
-    >
-      <Text style={[styles.cardTitle, { color: colors.text }]}>{name}</Text>
-      <Text style={[styles.body, { color: colors.text }]}>{uses}</Text>
-      <Text style={[styles.meta, { color: colors.muted }]}>Licencja: {licence}</Text>
-      <Text style={[styles.body, { color: colors.text }]}>
-        {creditLabel}: {credit}
-      </Text>
-      <Text style={[styles.meta, { color: colors.muted }]}>{url}</Text>
-    </View>
+        <GovFooter />
+      </ScrollView>
+
+      <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: spacing.screen, gap: spacing.stack },
-  lead: { fontSize: 20, fontWeight: '800' },
-  body: { fontSize: 15, lineHeight: 22 },
-  meta: { fontSize: 13, lineHeight: 18 },
-  card: { borderWidth: 2, borderRadius: 12, padding: 14, gap: 6 },
-  cardTitle: { fontSize: 17, fontWeight: '700' },
-  logoCard: { borderWidth: 1.5, borderRadius: 10, padding: 10, gap: 4 },
-  logoText: { fontSize: 18, fontWeight: '900' },
+  content: {
+    padding: spacing.screen,
+    gap: spacing.stack,
+  },
+  lead: {
+    fontWeight: '800',
+  },
+  body: {
+    fontWeight: '500',
+  },
+  meta: {
+    fontWeight: '500',
+  },
+  cardTitle: {
+    fontWeight: '800',
+  },
+  logoText: {
+    fontWeight: '900',
+  },
 });

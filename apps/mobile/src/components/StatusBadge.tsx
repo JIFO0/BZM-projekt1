@@ -1,18 +1,21 @@
 import type { FactStatus, Severity } from '@krakow-bez-barier/core';
-import { StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { t, type Locale } from '@/i18n/strings';
-import { darkColors, lightColors } from '@/theme/tokens';
+import { useSession } from '@/state/session';
 
 interface StatusBadgeProps {
   status?: FactStatus;
   severity?: Severity;
-  locale: Locale;
+  locale?: Locale;
 }
 
-export function StatusBadge({ status, severity, locale }: StatusBadgeProps) {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
+export function StatusBadge({ status, severity, locale: propsLocale }: StatusBadgeProps) {
+  const session = useSession();
+  const colors = session.colors;
+  const isHighContrast = session.isHighContrast;
+  const fontSize = session.fontSize;
+  const locale = propsLocale || session.locale;
 
   // Determine badge styling and label
   let icon = 'ℹ️';
@@ -110,10 +113,17 @@ export function StatusBadge({ status, severity, locale }: StatusBadgeProps) {
     <View
       accessibilityRole="text"
       accessibilityLabel={`Status: ${label}`}
-      style={[styles.badge, { backgroundColor: bg, borderColor: border }]}
+      style={[
+        styles.badge,
+        {
+          backgroundColor: bg,
+          borderColor: border,
+          borderWidth: isHighContrast ? 2.5 : 1.5,
+        },
+      ]}
     >
-      <Text style={styles.icon}>{icon}</Text>
-      <Text style={[styles.text, { color: text }]}>{label}</Text>
+      <Text style={[styles.icon, { fontSize: fontSize(13) }]}>{icon}</Text>
+      <Text style={[styles.text, { color: text, fontSize: fontSize(13) }]}>{label}</Text>
     </View>
   );
 }
@@ -126,14 +136,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    borderWidth: 1.5,
     alignSelf: 'flex-start',
   },
   icon: {
-    fontSize: 14,
+    fontSize: 13,
   },
   text: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });

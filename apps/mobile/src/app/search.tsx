@@ -1,28 +1,29 @@
 import { DEMO_SNAPSHOT, type LonLat } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
+import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
+import { GovButton } from '@/components/GovButton';
+import { GovCard } from '@/components/GovCard';
+import { GovFooter } from '@/components/GovFooter';
+import { KrakowHeader } from '@/components/KrakowHeader';
 import { t } from '@/i18n/strings';
 import { inspectPlace, planAndAnalyzeRoute } from '@/services/api';
 import { useSession } from '@/state/session';
-import { darkColors, lightColors, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
 
 export default function SearchScreen() {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
   const {
     locale,
     profileId,
@@ -30,6 +31,12 @@ export default function SearchScreen() {
     setActiveRouteReport,
     setActiveWalkingRoute,
     setActivePlaceReport,
+    colors,
+    fontSize,
+    isHighContrast,
+    increasedSpacing,
+    highlightLinks,
+    dyslexicFont,
   } = useSession();
 
   const [activeTab, setActiveTab] = useState<'route' | 'place'>('route');
@@ -45,6 +52,7 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const handleUseMyLocation = () => {
     // Explicit user tap as required by P3
@@ -105,29 +113,78 @@ export default function SearchScreen() {
     setActiveTab('place');
   };
 
+  const handleReadScreen = () => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+    const text = `${t(locale, 'searchTitle')}. ${t(locale, 'searchLead')}. ${
+      activeTab === 'route'
+        ? `Aktywna zakładka: Trasa piesza A do B. Punkt początkowy: ${fromQuery}. Punkt docelowy: ${toQuery}. Naciśnij przycisk Analizuj trasę, aby sprawdzić bariery.`
+        : `Aktywna zakładka: Dostępność obiektu. Szukany obiekt: ${placeQuery}. Naciśnij przycisk Sprawdź dostępność miejsca.`
+    }`;
+
+    setIsSpeaking(true);
+    Speech.speak(text, {
+      language: locale === 'pl' ? 'pl-PL' : 'en-US',
+      onDone: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  };
+
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['bottom']}>
-      <Stack.Screen
-        options={{
-          title: t(locale, 'searchTitle'),
-          headerRight: () => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Panel testowy"
-              onPress={() => setDebugVisible(true)}
-              style={styles.headerBtn}
-            >
-              <Text style={{ color: colors.text, fontWeight: '700' }}>🛠️ Demo</Text>
-            </Pressable>
-          ),
-        }}
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <Stack.Screen options={{ headerShown: false, title: t(locale, 'searchTitle') }} />
+
+      <KrakowHeader
+        onOpenDemo={() => setDebugVisible(true)}
+        onReadScreen={handleReadScreen}
+        isSpeaking={isSpeaking}
       />
+
       <DemoBanner />
-      <ScrollView contentContainerStyle={styles.content}>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            padding: increasedSpacing ? 24 : spacing.screen,
+            gap: increasedSpacing ? 18 : spacing.stack,
+          },
+        ]}
+      >
+        {/* Intro banner */}
+        <GovCard variant="accent">
+          <Text
+            accessibilityRole="header"
+            style={[
+              styles.screenTitle,
+              {
+                color: colors.text,
+                fontSize: fontSize(20),
+                letterSpacing: dyslexicFont ? 1.2 : 0.3,
+              },
+            ]}
+          >
+            {t(locale, 'searchTitle')}
+          </Text>
+          <Text style={[styles.leadText, { color: colors.muted, fontSize: fontSize(14) }]}>
+            {t(locale, 'searchLead')}
+          </Text>
+        </GovCard>
+
         {/* Tab switcher */}
         <View
           accessibilityRole="tablist"
-          style={[styles.tabs, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[
+            styles.tabs,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: isHighContrast ? 2.5 : 1.5,
+            },
+          ]}
         >
           <Pressable
             accessibilityRole="tab"
@@ -136,15 +193,20 @@ export default function SearchScreen() {
             style={[
               styles.tab,
               activeTab === 'route' && { backgroundColor: colors.accent },
+              { minHeight: increasedSpacing ? 54 : 46 },
             ]}
           >
             <Text
               style={[
                 styles.tabText,
-                { color: activeTab === 'route' ? colors.accentText : colors.text },
+                {
+                  color: activeTab === 'route' ? colors.accentText : colors.text,
+                  fontSize: fontSize(14.5),
+                  textDecorationLine: highlightLinks && activeTab === 'route' ? 'underline' : 'none',
+                },
               ]}
             >
-              {t(locale, 'routeTab')}
+              🚶 {t(locale, 'routeTab')}
             </Text>
           </Pressable>
 
@@ -155,199 +217,197 @@ export default function SearchScreen() {
             style={[
               styles.tab,
               activeTab === 'place' && { backgroundColor: colors.accent },
+              { minHeight: increasedSpacing ? 54 : 46 },
             ]}
           >
             <Text
               style={[
                 styles.tabText,
-                { color: activeTab === 'place' ? colors.accentText : colors.text },
+                {
+                  color: activeTab === 'place' ? colors.accentText : colors.text,
+                  fontSize: fontSize(14.5),
+                  textDecorationLine: highlightLinks && activeTab === 'place' ? 'underline' : 'none',
+                },
               ]}
             >
-              {t(locale, 'placeTab')}
+              🏢 {t(locale, 'placeTab')}
             </Text>
           </Pressable>
         </View>
 
         {activeTab === 'route' ? (
-          <View style={styles.formSection}>
-            <View style={styles.field}>
-              <View style={styles.fieldHeader}>
-                <Text style={[styles.label, { color: colors.text }]}>{t(locale, 'from')}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(locale, 'myLocation')}
-                  onPress={handleUseMyLocation}
-                >
-                  <Text style={[styles.linkText, { color: colors.accent }]}>
-                    📍 {t(locale, 'myLocation')}
+          <GovCard variant="default">
+            <View style={styles.formSection}>
+              {/* Point A */}
+              <View style={styles.field}>
+                <View style={styles.fieldHeader}>
+                  <Text style={[styles.label, { color: colors.text, fontSize: fontSize(15) }]}>
+                    {t(locale, 'from')}
                   </Text>
-                </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(locale, 'myLocation')}
+                    onPress={handleUseMyLocation}
+                    style={styles.locationBtn}
+                  >
+                    <Text
+                      style={[
+                        styles.linkText,
+                        {
+                          color: colors.accent,
+                          fontSize: fontSize(13),
+                          textDecorationLine: highlightLinks ? 'underline' : 'none',
+                        },
+                      ]}
+                    >
+                      📍 {t(locale, 'myLocation')}
+                    </Text>
+                  </Pressable>
+                </View>
+                <TextInput
+                  value={fromQuery}
+                  onChangeText={setFromQuery}
+                  placeholder={t(locale, 'fromPlaceholder')}
+                  placeholderTextColor={colors.muted}
+                  style={[
+                    styles.input,
+                    {
+                      color: colors.text,
+                      borderColor: colors.border,
+                      backgroundColor: colors.background,
+                      minHeight: increasedSpacing ? 56 : spacing.touch,
+                      fontSize: fontSize(15),
+                      borderWidth: isHighContrast ? 2.5 : 1.5,
+                    },
+                  ]}
+                />
               </View>
-              <TextInput
-                value={fromQuery}
-                onChangeText={setFromQuery}
-                placeholder={t(locale, 'fromPlaceholder')}
-                placeholderTextColor={colors.muted}
-                style={[
-                  styles.input,
-                  {
-                    color: colors.text,
-                    borderColor: colors.border,
-                    backgroundColor: colors.surface,
-                    minHeight: spacing.touch,
-                  },
-                ]}
-              />
-            </View>
 
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.text }]}>{t(locale, 'to')}</Text>
-              <TextInput
-                value={toQuery}
-                onChangeText={setToQuery}
-                placeholder={t(locale, 'toPlaceholder')}
-                placeholderTextColor={colors.muted}
-                style={[
-                  styles.input,
-                  {
-                    color: colors.text,
-                    borderColor: colors.border,
-                    backgroundColor: colors.surface,
-                    minHeight: spacing.touch,
-                  },
-                ]}
-              />
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(locale, 'searchButton')}
-              disabled={loading}
-              onPress={handleAnalyzeRoute}
-              style={[
-                styles.primaryBtn,
-                { backgroundColor: colors.accent, minHeight: spacing.touch },
-              ]}
-            >
-              {loading ? (
-                <ActivityIndicator color={colors.accentText} />
-              ) : (
-                <Text style={[styles.primaryBtnText, { color: colors.accentText }]}>
-                  🔍 {t(locale, 'searchButton')}
+              {/* Point B */}
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.text, fontSize: fontSize(15) }]}>
+                  {t(locale, 'to')}
                 </Text>
-              )}
-            </Pressable>
-          </View>
+                <TextInput
+                  value={toQuery}
+                  onChangeText={setToQuery}
+                  placeholder={t(locale, 'toPlaceholder')}
+                  placeholderTextColor={colors.muted}
+                  style={[
+                    styles.input,
+                    {
+                      color: colors.text,
+                      borderColor: colors.border,
+                      backgroundColor: colors.background,
+                      minHeight: increasedSpacing ? 56 : spacing.touch,
+                      fontSize: fontSize(15),
+                      borderWidth: isHighContrast ? 2.5 : 1.5,
+                    },
+                  ]}
+                />
+              </View>
+
+              <GovButton
+                title={t(locale, 'searchButton')}
+                icon="🔍"
+                variant="primary"
+                loading={loading}
+                onPress={handleAnalyzeRoute}
+              />
+            </View>
+          </GovCard>
         ) : (
-          <View style={styles.formSection}>
-            <View style={styles.field}>
-              <Text style={[styles.label, { color: colors.text }]}>{t(locale, 'placeLabel')}</Text>
-              <TextInput
-                value={placeQuery}
-                onChangeText={setPlaceQuery}
-                placeholder={t(locale, 'placePlaceholder')}
-                placeholderTextColor={colors.muted}
-                style={[
-                  styles.input,
-                  {
-                    color: colors.text,
-                    borderColor: colors.border,
-                    backgroundColor: colors.surface,
-                    minHeight: spacing.touch,
-                  },
-                ]}
+          <GovCard variant="default">
+            <View style={styles.formSection}>
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.text, fontSize: fontSize(15) }]}>
+                  {t(locale, 'placeLabel')}
+                </Text>
+                <TextInput
+                  value={placeQuery}
+                  onChangeText={setPlaceQuery}
+                  placeholder={t(locale, 'placePlaceholder')}
+                  placeholderTextColor={colors.muted}
+                  style={[
+                    styles.input,
+                    {
+                      color: colors.text,
+                      borderColor: colors.border,
+                      backgroundColor: colors.background,
+                      minHeight: increasedSpacing ? 56 : spacing.touch,
+                      fontSize: fontSize(15),
+                      borderWidth: isHighContrast ? 2.5 : 1.5,
+                    },
+                  ]}
+                />
+              </View>
+
+              <GovButton
+                title={t(locale, 'searchPlaceButton')}
+                icon="🏢"
+                variant="primary"
+                loading={loading}
+                onPress={handleInspectPlace}
               />
             </View>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(locale, 'searchPlaceButton')}
-              disabled={loading}
-              onPress={handleInspectPlace}
-              style={[
-                styles.primaryBtn,
-                { backgroundColor: colors.accent, minHeight: spacing.touch },
-              ]}
-            >
-              {loading ? (
-                <ActivityIndicator color={colors.accentText} />
-              ) : (
-                <Text style={[styles.primaryBtnText, { color: colors.accentText }]}>
-                  🏢 {t(locale, 'searchPlaceButton')}
-                </Text>
-              )}
-            </Pressable>
-          </View>
+          </GovCard>
         )}
 
         {errorMsg ? (
-          <View
-            accessibilityRole="alert"
-            style={[styles.errorCard, { backgroundColor: colors.blockerBg, borderColor: colors.blockerBorder }]}
-          >
-            <Text style={{ color: colors.blockerText, fontWeight: '700' }}>{errorMsg}</Text>
-          </View>
+          <GovCard variant="blocker">
+            <Text style={{ color: colors.blockerText, fontWeight: '800', fontSize: fontSize(14) }}>
+              ⚠️ {errorMsg}
+            </Text>
+          </GovCard>
         ) : null}
 
         {/* Demo Fast Triggers */}
-        <View style={[styles.demoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.demoTitle, { color: colors.text }]}>
+        <GovCard variant="accent">
+          <Text
+            accessibilityRole="header"
+            style={[styles.demoTitle, { color: colors.text, fontSize: fontSize(16) }]}
+          >
             🎯 {t(locale, 'demoScenarios')}
           </Text>
-          <Text style={[styles.body, { color: colors.muted }]}>
+          <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13.5) }]}>
             Kliknij gotowy scenariusz, aby przetestować bez wpisywania:
           </Text>
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => loadDemoRoute(0)}
-            style={[styles.scenarioBtn, { borderColor: colors.border }]}
-          >
-            <Text style={[styles.scenarioText, { color: colors.text }]}>
-              🚶 Trasa 1: {t(locale, 'demoRoute1')}
-            </Text>
-          </Pressable>
+          <View style={styles.scenariosList}>
+            <GovButton
+              variant="outline"
+              title={`Trasa: ${t(locale, 'demoRoute1')}`}
+              icon="🚶"
+              onPress={() => loadDemoRoute(0)}
+            />
+            <GovButton
+              variant="outline"
+              title={`Trasa: ${t(locale, 'demoRoute2')}`}
+              icon="🚶"
+              onPress={() => loadDemoRoute(1)}
+            />
+            <GovButton
+              variant="outline"
+              title={`Miejsce: ${t(locale, 'demoPlace1')}`}
+              icon="🏛️"
+              onPress={() => loadDemoPlace(0)}
+            />
+            <GovButton
+              variant="outline"
+              title={`Miejsce (R7 Sprzeczne): ${t(locale, 'demoPlace2')}`}
+              icon="⚡"
+              onPress={() => loadDemoPlace(1)}
+            />
+            <GovButton
+              variant="outline"
+              title={`Miejsce (R8 Przedawnione): ${t(locale, 'demoPlace3')}`}
+              icon="⏰"
+              onPress={() => loadDemoPlace(2)}
+            />
+          </View>
+        </GovCard>
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => loadDemoRoute(1)}
-            style={[styles.scenarioBtn, { borderColor: colors.border }]}
-          >
-            <Text style={[styles.scenarioText, { color: colors.text }]}>
-              🚶 Trasa 2: {t(locale, 'demoRoute2')}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => loadDemoPlace(0)}
-            style={[styles.scenarioBtn, { borderColor: colors.border }]}
-          >
-            <Text style={[styles.scenarioText, { color: colors.text }]}>
-              🏛️ Obiekt 1: {t(locale, 'demoPlace1')}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => loadDemoPlace(1)}
-            style={[styles.scenarioBtn, { borderColor: colors.conflictingBorder }]}
-          >
-            <Text style={[styles.scenarioText, { color: colors.conflictingBorder }]}>
-              ⚡ Obiekt 2 (R7): {t(locale, 'demoPlace2')}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => loadDemoPlace(2)}
-            style={[styles.scenarioBtn, { borderColor: colors.warningBorder }]}
-          >
-            <Text style={[styles.scenarioText, { color: colors.warningBorder }]}>
-              ⏰ Obiekt 3 (R8): {t(locale, 'demoPlace3')}
-            </Text>
-          </Pressable>
-        </View>
+        <GovFooter />
       </ScrollView>
 
       <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
@@ -357,23 +417,67 @@ export default function SearchScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: spacing.screen, gap: spacing.stack },
-  headerBtn: { paddingHorizontal: 10, paddingVertical: 4 },
-  tabs: { flexDirection: 'row', borderWidth: 2, borderRadius: 12, padding: 4, gap: 4 },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  tabText: { fontSize: 15, fontWeight: '700' },
-  formSection: { gap: 14 },
-  field: { gap: 6 },
-  fieldHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { fontSize: 16, fontWeight: '700' },
-  linkText: { fontSize: 14, fontWeight: '600' },
-  input: { borderWidth: 2, borderRadius: 12, paddingHorizontal: 12, fontSize: 16 },
-  primaryBtn: { borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  primaryBtnText: { fontSize: 16, fontWeight: '700' },
-  errorCard: { borderWidth: 2, borderRadius: 12, padding: 12 },
-  demoCard: { borderWidth: 2, borderRadius: 12, padding: 14, gap: 8, marginTop: 10 },
-  demoTitle: { fontSize: 16, fontWeight: '700' },
-  body: { fontSize: 14, lineHeight: 20 },
-  scenarioBtn: { borderWidth: 1.5, borderRadius: 8, padding: 10 },
-  scenarioText: { fontSize: 14, fontWeight: '600' },
+  content: {
+    padding: spacing.screen,
+    gap: spacing.stack,
+  },
+  screenTitle: {
+    fontWeight: '800',
+  },
+  leadText: {
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  tabs: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabText: {
+    fontWeight: '800',
+  },
+  formSection: {
+    gap: 14,
+  },
+  field: {
+    gap: 6,
+  },
+  fieldHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  label: {
+    fontWeight: '700',
+  },
+  locationBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  linkText: {
+    fontWeight: '700',
+  },
+  input: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+  },
+  demoTitle: {
+    fontWeight: '800',
+  },
+  body: {
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  scenariosList: {
+    gap: 8,
+    marginTop: 4,
+  },
 });

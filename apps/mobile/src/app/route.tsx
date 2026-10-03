@@ -7,45 +7,60 @@ import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import {
   Alert,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoverageBar } from '@/components/CoverageBar';
+import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
+import { GovButton } from '@/components/GovButton';
+import { GovCard } from '@/components/GovCard';
+import { GovFooter } from '@/components/GovFooter';
+import { KrakowHeader } from '@/components/KrakowHeader';
 import { MapView } from '@/components/MapView';
 import { RouteFindingRow } from '@/components/RouteFindingRow';
 import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
-import { darkColors, lightColors, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
 
 export default function RouteScreen() {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
-  const { locale, activeRouteReport, activeWalkingRoute } = useSession();
+  const {
+    locale,
+    activeRouteReport,
+    activeWalkingRoute,
+    colors,
+    fontSize,
+    isHighContrast,
+    increasedSpacing,
+    dyslexicFont,
+  } = useSession();
 
   const [showMap, setShowMap] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [debugVisible, setDebugVisible] = useState(false);
 
   if (!activeRouteReport) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-        <Stack.Screen options={{ title: t(locale, 'routeReportTitle') }} />
-        <View style={styles.content}>
-          <Text style={[styles.title, { color: colors.text }]}>Brak aktywnego raportu trasy.</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.back()}
-            style={[styles.primaryBtn, { backgroundColor: colors.accent }]}
-          >
-            <Text style={{ color: colors.accentText, fontWeight: '700' }}>Wróć do wyszukiwania</Text>
-          </Pressable>
+        <Stack.Screen options={{ headerShown: false, title: t(locale, 'routeReportTitle') }} />
+        <KrakowHeader onOpenDemo={() => setDebugVisible(true)} />
+        <View style={styles.emptyContainer}>
+          <GovCard variant="warning">
+            <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
+              Brak aktywnego raportu trasy.
+            </Text>
+            <GovButton
+              title="Wróć do wyszukiwania"
+              icon="←"
+              variant="primary"
+              onPress={() => router.back()}
+            />
+          </GovCard>
         </View>
       </SafeAreaView>
     );
@@ -110,28 +125,72 @@ export default function RouteScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['bottom']}>
-      <Stack.Screen options={{ title: t(locale, 'routeReportTitle') }} />
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <Stack.Screen options={{ headerShown: false, title: t(locale, 'routeReportTitle') }} />
+
+      <KrakowHeader
+        onOpenDemo={() => setDebugVisible(true)}
+        onReadScreen={handleSpeechToggle}
+        isSpeaking={isSpeaking}
+      />
+
       <DemoBanner isSample={report.isSample} />
-      <ScrollView contentContainerStyle={styles.content}>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            padding: increasedSpacing ? 24 : spacing.screen,
+            gap: increasedSpacing ? 18 : spacing.stack,
+          },
+        ]}
+      >
         {/* SUMMARY CARD (R10) */}
-        <View
-          accessibilityRole="summary"
-          style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-        >
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            📊 {t(locale, 'summaryCardTitle')}
-          </Text>
+        <GovCard variant="accent">
+          <View style={styles.cardHeaderRow}>
+            <Text
+              accessibilityRole="header"
+              style={[
+                styles.cardTitle,
+                {
+                  color: colors.text,
+                  fontSize: fontSize(19),
+                  letterSpacing: dyslexicFont ? 1.2 : 0.3,
+                },
+              ]}
+            >
+              📊 {t(locale, 'summaryCardTitle')}
+            </Text>
+            <View
+              style={[
+                styles.cityTag,
+                {
+                  backgroundColor: isHighContrast ? colors.background : colors.badgeBg,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.cityTagText, { color: colors.accent, fontSize: fontSize(11) }]}>
+                KRAKÓW TRASA
+              </Text>
+            </View>
+          </View>
 
           <View style={styles.metricRow}>
-            <Text style={[styles.metricLabel, { color: colors.muted }]}>{t(locale, 'routeLength')}:</Text>
-            <Text style={[styles.metricValue, { color: colors.text }]}>{report.lengthMetres} m</Text>
+            <Text style={[styles.metricLabel, { color: colors.muted, fontSize: fontSize(14.5) }]}>
+              {t(locale, 'routeLength')}:
+            </Text>
+            <Text style={[styles.metricValue, { color: colors.text, fontSize: fontSize(15) }]}>
+              {report.lengthMetres} m
+            </Text>
           </View>
 
           {activeWalkingRoute?.durationSeconds ? (
             <View style={styles.metricRow}>
-              <Text style={[styles.metricLabel, { color: colors.muted }]}>{t(locale, 'routeDuration')}:</Text>
-              <Text style={[styles.metricValue, { color: colors.text }]}>
+              <Text style={[styles.metricLabel, { color: colors.muted, fontSize: fontSize(14.5) }]}>
+                {t(locale, 'routeDuration')}:
+              </Text>
+              <Text style={[styles.metricValue, { color: colors.text, fontSize: fontSize(15) }]}>
                 {Math.round(activeWalkingRoute.durationSeconds / 60)} min
               </Text>
             </View>
@@ -140,56 +199,99 @@ export default function RouteScreen() {
           {/* Counts of barriers by severity */}
           <View style={styles.countsGrid}>
             <View
-              style={[styles.countBadge, { backgroundColor: colors.blockerBg, borderColor: colors.blockerBorder }]}
+              style={[
+                styles.countBadge,
+                {
+                  backgroundColor: colors.blockerBg,
+                  borderColor: colors.blockerBorder,
+                  borderWidth: isHighContrast ? 2.5 : 1.5,
+                },
+              ]}
             >
-              <Text style={[styles.countNumber, { color: colors.blockerText }]}>{blockers.length}</Text>
-              <Text style={[styles.countText, { color: colors.blockerText }]}>
+              <Text style={[styles.countNumber, { color: colors.blockerText, fontSize: fontSize(22) }]}>
+                {blockers.length}
+              </Text>
+              <Text style={[styles.countText, { color: colors.blockerText, fontSize: fontSize(12) }]}>
                 ⛔ {t(locale, 'blockersCount')}
               </Text>
             </View>
 
             <View
-              style={[styles.countBadge, { backgroundColor: colors.warningBg, borderColor: colors.warningBorder }]}
+              style={[
+                styles.countBadge,
+                {
+                  backgroundColor: colors.warningBg,
+                  borderColor: colors.warningBorder,
+                  borderWidth: isHighContrast ? 2.5 : 1.5,
+                },
+              ]}
             >
-              <Text style={[styles.countNumber, { color: colors.warningText }]}>{warnings.length}</Text>
-              <Text style={[styles.countText, { color: colors.warningText }]}>
+              <Text style={[styles.countNumber, { color: colors.warningText, fontSize: fontSize(22) }]}>
+                {warnings.length}
+              </Text>
+              <Text style={[styles.countText, { color: colors.warningText, fontSize: fontSize(12) }]}>
                 ⚠️ {t(locale, 'warningsCount')}
               </Text>
             </View>
 
             <View
-              style={[styles.countBadge, { backgroundColor: colors.unknownBg, borderColor: colors.unknownBorder }]}
+              style={[
+                styles.countBadge,
+                {
+                  backgroundColor: colors.unknownBg,
+                  borderColor: colors.unknownBorder,
+                  borderWidth: isHighContrast ? 2.5 : 1.5,
+                },
+              ]}
             >
-              <Text style={[styles.countNumber, { color: colors.unknownText }]}>{unknownItems.length}</Text>
-              <Text style={[styles.countText, { color: colors.unknownText }]}>
+              <Text style={[styles.countNumber, { color: colors.unknownText, fontSize: fontSize(22) }]}>
+                {unknownItems.length}
+              </Text>
+              <Text style={[styles.countText, { color: colors.unknownText, fontSize: fontSize(12) }]}>
                 ❓ {t(locale, 'unknownCount')}
               </Text>
             </View>
 
             <View
-              style={[styles.countBadge, { backgroundColor: colors.okBg, borderColor: colors.okBorder }]}
+              style={[
+                styles.countBadge,
+                {
+                  backgroundColor: colors.okBg,
+                  borderColor: colors.okBorder,
+                  borderWidth: isHighContrast ? 2.5 : 1.5,
+                },
+              ]}
             >
-              <Text style={[styles.countNumber, { color: colors.okText }]}>
+              <Text style={[styles.countNumber, { color: colors.okText, fontSize: fontSize(22) }]}>
                 {okItems.length + infoItems.length}
               </Text>
-              <Text style={[styles.countText, { color: colors.okText }]}>
+              <Text style={[styles.countText, { color: colors.okText, fontSize: fontSize(12) }]}>
                 ✅ Udogodnienia
               </Text>
             </View>
           </View>
 
           {/* Longest stretch with no data (R9) */}
-          <View style={[styles.highlightBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <Text style={[styles.highlightTitle, { color: colors.text }]}>
+          <View
+            style={[
+              styles.highlightBox,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+                borderWidth: isHighContrast ? 2 : 1.5,
+              },
+            ]}
+          >
+            <Text style={[styles.highlightTitle, { color: colors.text, fontSize: fontSize(14) }]}>
               📏 {t(locale, 'longestUnknownStretch')}:
             </Text>
-            <Text style={[styles.highlightValue, { color: colors.accent }]}>
+            <Text style={[styles.highlightValue, { color: colors.accent, fontSize: fontSize(14.5) }]}>
               {report.longestUnknownStretchMetres} metrów ciągłego braku danych
             </Text>
           </View>
 
           {/* Coverage stats (R9) */}
-          <Text style={[styles.subTitle, { color: colors.text, marginTop: 6 }]}>
+          <Text style={[styles.subTitle, { color: colors.text, fontSize: fontSize(15.5), marginTop: 6 }]}>
             📈 {t(locale, 'dataCoverage')}:
           </Text>
           {report.coverage.map((stat, i) => (
@@ -202,7 +304,7 @@ export default function RouteScreen() {
               accessibilityRole="alert"
               style={[styles.bannerAlert, { backgroundColor: colors.okBg, borderColor: colors.okBorder }]}
             >
-              <Text style={[styles.bannerAlertText, { color: colors.okText }]}>
+              <Text style={[styles.bannerAlertText, { color: colors.okText, fontSize: fontSize(13.5) }]}>
                 ✓ {t(locale, 'noBarriersFound')}
               </Text>
             </View>
@@ -211,85 +313,66 @@ export default function RouteScreen() {
               accessibilityRole="text"
               style={[styles.bannerAlert, { backgroundColor: colors.infoBg, borderColor: colors.infoBorder }]}
             >
-              <Text style={[styles.bannerAlertText, { color: colors.infoText }]}>
+              <Text style={[styles.bannerAlertText, { color: colors.infoText, fontSize: fontSize(13.5) }]}>
                 ℹ️ {t(locale, 'caveatNotice')}
               </Text>
             </View>
           )}
 
-          {/* WOW Action Buttons */}
+          {/* Audio & Share buttons */}
           <View style={styles.actionRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isSpeaking ? t(locale, 'stopSpeech') : t(locale, 'readAloud')}
+            <GovButton
+              title={isSpeaking ? t(locale, 'stopSpeech') : t(locale, 'readAloud')}
+              icon={isSpeaking ? '⏹️' : '🔊'}
+              variant={isSpeaking ? 'danger' : 'primary'}
               onPress={handleSpeechToggle}
-              style={[
-                styles.actionBtn,
-                {
-                  backgroundColor: isSpeaking ? colors.warningBg : colors.accent,
-                  borderColor: isSpeaking ? colors.warningBorder : colors.accent,
-                },
-              ]}
-            >
-              <Text style={[styles.actionBtnText, { color: isSpeaking ? colors.warningText : colors.accentText }]}>
-                {isSpeaking ? '⏹️ ' + t(locale, 'stopSpeech') : '🔊 ' + t(locale, 'readAloud')}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(locale, 'shareSummary')}
+              style={{ flex: 1 }}
+            />
+            <GovButton
+              title={t(locale, 'shareSummary')}
+              icon="📤"
+              variant="outline"
               onPress={handleShare}
-              style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            >
-              <Text style={[styles.actionBtnText, { color: colors.text }]}>
-                📤 {t(locale, 'shareSummary')}
-              </Text>
-            </Pressable>
+              style={{ flex: 1 }}
+            />
           </View>
 
-          <Pressable
-            accessibilityRole="button"
+          <GovButton
+            title={t(locale, 'reportCorrection')}
+            icon="✍️"
+            variant="secondary"
             onPress={() => router.push('/report-correction' as any)}
-            style={[styles.reportBtn, { borderColor: colors.border }]}
-          >
-            <Text style={{ color: colors.accent, fontWeight: '700' }}>
-              ✍️ {t(locale, 'reportCorrection')}
-            </Text>
-          </Pressable>
-        </View>
+          />
+        </GovCard>
 
         {/* MAP TOGGLE AND COMPONENT */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={showMap ? t(locale, 'hideMap') : t(locale, 'showMap')}
+        <GovButton
+          title={showMap ? t(locale, 'hideMap') : t(locale, 'showMap')}
+          icon="🗺️"
+          variant="outline"
           onPress={() => setShowMap(!showMap)}
-          style={[styles.toggleMapBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
-        >
-          <Text style={[styles.toggleMapText, { color: colors.text }]}>
-            🗺️ {showMap ? t(locale, 'hideMap') : t(locale, 'showMap')}
-          </Text>
-        </Pressable>
+        />
 
-        {showMap ? (
-          <MapView route={activeWalkingRoute} findings={report.findings} />
-        ) : null}
+        {showMap ? <MapView route={activeWalkingRoute} findings={report.findings} /> : null}
 
         {/* ORDERED FINDINGS LIST (R3, R5, R6) */}
         <View style={styles.findingsSection}>
-          <Text accessibilityRole="header" style={[styles.sectionTitle, { color: colors.text }]}>
+          <Text
+            accessibilityRole="header"
+            style={[styles.sectionTitle, { color: colors.text, fontSize: fontSize(18) }]}
+          >
             📋 {t(locale, 'findingsListTitle')} ({report.findings.length})
           </Text>
-          <Text style={[styles.metaText, { color: colors.muted }]}>
+          <Text style={[styles.metaText, { color: colors.muted, fontSize: fontSize(13.5) }]}>
             Uporządkowane rosnąco według odległości od startu:
           </Text>
 
           {report.findings.length === 0 ? (
-            <View style={[styles.emptyBox, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-              <Text style={[styles.metaText, { color: colors.text }]}>
+            <GovCard variant="default">
+              <Text style={[styles.metaText, { color: colors.text, fontSize: fontSize(14) }]}>
                 Brak zarejestrowanych elementów w OpenStreetMap w korytarzu tej trasy.
               </Text>
-            </View>
+            </GovCard>
           ) : (
             report.findings.map((finding: RouteFinding, index: number) => (
               <RouteFindingRow
@@ -301,25 +384,55 @@ export default function RouteScreen() {
             ))
           )}
         </View>
+
+        <GovFooter />
       </ScrollView>
+
+      <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: spacing.screen, gap: spacing.stack },
-  summaryCard: {
-    borderWidth: 2,
-    borderRadius: 14,
-    padding: 16,
-    gap: 10,
+  emptyContainer: {
+    padding: 20,
   },
-  cardTitle: { fontSize: 19, fontWeight: '800' },
-  subTitle: { fontSize: 16, fontWeight: '700' },
-  metricRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  metricLabel: { fontSize: 15, fontWeight: '600' },
-  metricValue: { fontSize: 15, fontWeight: '700' },
+  content: {
+    padding: spacing.screen,
+    gap: spacing.stack,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontWeight: '800',
+  },
+  cityTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  cityTagText: {
+    fontWeight: '800',
+  },
+  subTitle: {
+    fontWeight: '700',
+  },
+  metricRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontWeight: '600',
+  },
+  metricValue: {
+    fontWeight: '800',
+  },
   countsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -329,64 +442,56 @@ const styles = StyleSheet.create({
   countBadge: {
     flex: 1,
     minWidth: '45%',
-    borderWidth: 1.5,
     borderRadius: 10,
     padding: 10,
     alignItems: 'center',
     gap: 2,
   },
-  countNumber: { fontSize: 22, fontWeight: '900' },
-  countText: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  countNumber: {
+    fontWeight: '900',
+  },
+  countText: {
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   highlightBox: {
-    borderWidth: 1.5,
     borderRadius: 10,
     padding: 10,
     gap: 4,
   },
-  highlightTitle: { fontSize: 14, fontWeight: '700' },
-  highlightValue: { fontSize: 15, fontWeight: '700' },
+  highlightTitle: {
+    fontWeight: '700',
+  },
+  highlightValue: {
+    fontWeight: '800',
+  },
   bannerAlert: {
     borderWidth: 1.5,
     borderRadius: 8,
     padding: 10,
     marginTop: 4,
   },
-  bannerAlertText: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  bannerAlertText: {
+    lineHeight: 18,
+    fontWeight: '600',
+  },
   actionRow: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 6,
   },
-  actionBtn: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: spacing.touch,
+  findingsSection: {
+    gap: 8,
+    marginTop: 8,
   },
-  actionBtnText: { fontSize: 14, fontWeight: '700' },
-  reportBtn: {
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
+  sectionTitle: {
+    fontWeight: '800',
   },
-  toggleMapBtn: {
-    borderWidth: 2,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    minHeight: spacing.touch,
+  metaText: {
+    lineHeight: 20,
+    fontWeight: '500',
   },
-  toggleMapText: { fontSize: 15, fontWeight: '700' },
-  findingsSection: { gap: 8, marginTop: 8 },
-  sectionTitle: { fontSize: 18, fontWeight: '800' },
-  metaText: { fontSize: 14, lineHeight: 20 },
-  emptyBox: { borderWidth: 1.5, borderRadius: 10, padding: 14 },
-  primaryBtn: { borderRadius: 10, padding: 14, alignItems: 'center' },
-  title: { fontSize: 18, fontWeight: '700' },
+  title: {
+    fontWeight: '700',
+  },
 });

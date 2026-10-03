@@ -7,7 +7,7 @@ interface DemoBannerProps {
 }
 
 export function DemoBanner({ isSample }: DemoBannerProps) {
-  const { debugState } = useSession();
+  const { debugState, fontSize, isHighContrast, colors } = useSession();
 
   const isSimulating =
     debugState.simulateOverpassDown || debugState.simulateMapyDown || debugState.simulateOffline;
@@ -27,13 +27,29 @@ export function DemoBanner({ isSample }: DemoBannerProps) {
     text = 'DANE PRZYKŁADOWE (Offline Demo Snapshot Kraków)';
   }
 
+  const bgColor = isHighContrast
+    ? colors.surface
+    : isSimulating
+      ? '#B71C1C'
+      : '#D97706';
+  const textColor = isHighContrast ? colors.text : '#FFFFFF';
+
   return (
     <View
       accessibilityRole="alert"
       accessibilityLabel={text}
-      style={[styles.banner, { backgroundColor: isSimulating ? '#B71C1C' : '#E65100' }]}
+      style={[
+        styles.banner,
+        {
+          backgroundColor: bgColor,
+          borderColor: isHighContrast ? colors.border : 'transparent',
+          borderWidth: isHighContrast ? 2 : 0,
+        },
+      ]}
     >
-      <Text style={styles.text}>⚠️ {text}</Text>
+      <Text style={[styles.text, { color: textColor, fontSize: fontSize(12.5) }]}>
+        ⚠️ {text}
+      </Text>
     </View>
   );
 }
@@ -46,9 +62,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   text: {
-    color: '#FFFFFF',
-    fontSize: 13,
     fontWeight: '800',
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
 });

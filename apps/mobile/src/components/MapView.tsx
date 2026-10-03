@@ -7,6 +7,8 @@ import {
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { useSession } from '@/state/session';
+
 interface MapViewProps {
   route?: WalkingRoute | null;
   findings?: RouteFinding[];
@@ -15,7 +17,8 @@ interface MapViewProps {
 }
 
 export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProps) {
-  // Determine center from route or findings or default to Krakow Rynek
+  const { colors, isHighContrast } = useSession();
+
   let defaultLat = 50.0619;
   let defaultLon = 19.9373;
 
@@ -31,11 +34,11 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
   const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
 
   const markersData = findings.map((f, i) => {
-    let color = '#0277BD';
-    if (f.severity === 'blocker') color = '#C62828';
-    else if (f.severity === 'warning') color = '#E65100';
-    else if (f.severity === 'ok') color = '#2E7D32';
-    else if (f.severity === 'unknown') color = '#546E7A';
+    let color = colors.infoBorder;
+    if (f.severity === 'blocker') color = colors.blockerBorder;
+    else if (f.severity === 'warning') color = colors.warningBorder;
+    else if (f.severity === 'ok') color = colors.okBorder;
+    else if (f.severity === 'unknown') color = colors.unknownBorder;
 
     return {
       index: i + 1,
@@ -69,7 +72,7 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
       font-size: 11px;
       width: 26px !important;
       height: 26px !important;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
     }
     .leaflet-control-attribution {
       font-size: 10px !important;
@@ -86,17 +89,15 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
       attributionControl: true
     }).setView([${defaultLat}, ${defaultLon}], ${zoom});
 
-    // Tile Layer with OSM and Mapy attribution
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '${OSM_ATTRIBUTION.attribution} | Routing & Geocoding: ${MAPY_ATTRIBUTION.name}'
+      attribution: '${OSM_ATTRIBUTION.attribution} | ${MAPY_ATTRIBUTION.name}'
     }).addTo(map);
 
     var routeCoords = ${JSON.stringify(routeGeoJsonCoords)};
     if (routeCoords.length > 0) {
-      // Solid polyline with contrast border
-      var routeLineBg = L.polyline(routeCoords, { color: '#FFFFFF', weight: 8, opacity: 0.9 }).addTo(map);
-      var routeLine = L.polyline(routeCoords, { color: '#0E3A4D', weight: 5, opacity: 0.95 }).addTo(map);
+      var routeLineBg = L.polyline(routeCoords, { color: '#FFFFFF', weight: 8, opacity: 0.95 }).addTo(map);
+      var routeLine = L.polyline(routeCoords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(map);
       map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
     }
 
@@ -118,7 +119,15 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
   `;
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          borderColor: colors.border,
+          borderWidth: isHighContrast ? 2.5 : 1.5,
+        },
+      ]}
+    >
       <WebView
         originWhitelist={['*']}
         source={{ html: htmlContent }}
@@ -132,11 +141,9 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
 
 const styles = StyleSheet.create({
   container: {
-    height: 280,
+    height: 290,
     borderRadius: 12,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#C9C2B4',
     marginVertical: 8,
   },
   webview: {

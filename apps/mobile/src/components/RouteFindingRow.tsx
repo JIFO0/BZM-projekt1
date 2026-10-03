@@ -1,9 +1,10 @@
 import { dateLabel, type RouteFinding } from '@krakow-bez-barier/core';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { t, type Locale } from '@/i18n/strings';
-import { darkColors, lightColors, spacing } from '@/theme/tokens';
+import { useSession } from '@/state/session';
+import { spacing } from '@/theme/tokens';
 import { StatusBadge } from './StatusBadge';
 
 interface RouteFindingRowProps {
@@ -13,8 +14,7 @@ interface RouteFindingRowProps {
 }
 
 export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps) {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
+  const { colors, fontSize, isHighContrast, highlightLinks } = useSession();
   const [expanded, setExpanded] = useState(false);
 
   const { fact, severity, distanceFromStartMetres, type } = finding;
@@ -36,6 +36,13 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
     fact.criterion
   }, ${fact.value}. Status: ${severity}. Źródło: ${fact.source.name}, ${dateText}.`;
 
+  const borderColor =
+    severity === 'blocker'
+      ? colors.blockerBorder
+      : severity === 'warning'
+        ? colors.warningBorder
+        : colors.border;
+
   return (
     <View
       accessibilityRole="text"
@@ -44,65 +51,85 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
         styles.card,
         {
           backgroundColor: colors.surface,
-          borderColor:
-            severity === 'blocker'
-              ? colors.blockerBorder
-              : severity === 'warning'
-                ? colors.warningBorder
-                : colors.border,
+          borderColor,
+          borderWidth: isHighContrast ? 2.5 : 1.5,
         },
       ]}
     >
       <View style={styles.topRow}>
         <View style={styles.distanceBadge}>
-          <Text style={[styles.indexText, { color: colors.accent }]}>#{index + 1}</Text>
-          <Text style={[styles.distanceText, { color: colors.text }]}>
+          <Text style={[styles.indexText, { color: colors.accent, fontSize: fontSize(15) }]}>
+            #{index + 1}
+          </Text>
+          <Text style={[styles.distanceText, { color: colors.text, fontSize: fontSize(14) }]}>
             Po {distanceFromStartMetres} m
           </Text>
         </View>
         <StatusBadge severity={severity} locale={locale} />
       </View>
 
-      <Text style={[styles.valueText, { color: colors.text }]}>{finding.fact.value}</Text>
+      <Text style={[styles.valueText, { color: colors.text, fontSize: fontSize(16) }]}>
+        {finding.fact.value}
+      </Text>
 
-      <Text style={[styles.evidenceText, { color: colors.muted }]}>
+      <Text style={[styles.evidenceText, { color: colors.muted, fontSize: fontSize(13) }]}>
         Kryterium: {fact.criterion} • {type}
       </Text>
 
-      <View style={styles.sourceRow}>
-        <Text style={[styles.sourceText, { color: colors.muted }]}>
+      <View style={[styles.sourceRow, { borderTopColor: colors.border }]}>
+        <Text style={[styles.sourceText, { color: colors.muted, fontSize: fontSize(12.5) }]}>
           Źródło: {fact.source.name} ({dateText})
         </Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${t(locale, 'whyThisStatus')}, punkt ${index + 1}`}
           onPress={() => setExpanded(!expanded)}
-          style={[styles.expandButton, { minHeight: spacing.touch }]}
+          style={[styles.expandButton, { minHeight: spacing.touch - 10 }]}
         >
-          <Text style={[styles.expandText, { color: colors.accent }]}>
+          <Text
+            style={[
+              styles.expandText,
+              {
+                color: colors.accent,
+                fontSize: fontSize(13),
+                textDecorationLine: highlightLinks ? 'underline' : 'none',
+              },
+            ]}
+          >
             {expanded ? 'Ukryj szczegóły ▲' : 'Dlaczego ten status? ▼'}
           </Text>
         </Pressable>
       </View>
 
       {expanded ? (
-        <View style={[styles.detailsBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          <Text style={[styles.detailTitle, { color: colors.text }]}>Szczegóły dowodowe z OpenStreetMap:</Text>
-          <Text style={[styles.detailItem, { color: colors.text }]}>
+        <View
+          style={[
+            styles.detailsBox,
+            {
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+              borderWidth: isHighContrast ? 1.5 : 1,
+            },
+          ]}
+        >
+          <Text style={[styles.detailTitle, { color: colors.text, fontSize: fontSize(13.5) }]}>
+            Szczegóły dowodowe z OpenStreetMap:
+          </Text>
+          <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
             • Identyfikator obiektu: {fact.source.objectId ?? fact.subject.ref}
           </Text>
-          <Text style={[styles.detailItem, { color: colors.text }]}>
+          <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
             • Status wiarygodności: {fact.status}
           </Text>
-          <Text style={[styles.detailItem, { color: colors.text }]}>
+          <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
             • Licencja danych: {fact.source.licence}
           </Text>
           {fact.matchConfidence !== undefined ? (
-            <Text style={[styles.detailItem, { color: colors.text }]}>
+            <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
               • Pewność dopasowania geometrycznego: {Math.round(fact.matchConfidence * 100)}%
             </Text>
           ) : null}
-          <Text style={[styles.detailItem, { color: colors.muted }]}>
+          <Text style={[styles.detailItem, { color: colors.muted, fontSize: fontSize(12) }]}>
             URL źródła: {fact.source.url}
           </Text>
         </View>
@@ -113,7 +140,6 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: 2,
     borderRadius: 12,
     padding: 14,
     gap: 8,
@@ -123,6 +149,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
   distanceBadge: {
     flexDirection: 'row',
@@ -130,53 +157,46 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   indexText: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   distanceText: {
-    fontSize: 15,
     fontWeight: '700',
   },
   valueText: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 22,
   },
   evidenceText: {
-    fontSize: 14,
+    fontWeight: '500',
   },
   sourceRow: {
     flexDirection: 'column',
     gap: 4,
     marginTop: 4,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    paddingTop: 6,
+    paddingTop: 8,
   },
   sourceText: {
-    fontSize: 13,
+    fontWeight: '500',
   },
   expandButton: {
     justifyContent: 'center',
   },
   expandText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   detailsBox: {
-    borderWidth: 1,
     borderRadius: 8,
     padding: 10,
     gap: 4,
     marginTop: 6,
   },
   detailTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     marginBottom: 2,
   },
   detailItem: {
-    fontSize: 13,
     lineHeight: 18,
+    fontWeight: '500',
   },
 });
