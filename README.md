@@ -67,6 +67,11 @@ cd backend
 docker compose up -d --build
 ```
 
+### Temporary solution (because the forntend is commented-out due to AWFUL build times):
+```bash
+npm install; npm run verify; cd backend; docker compose up -d --build; cd ..; npm start
+```
+
 ### Tryb deweloperski pojedynczego serwera API (bez Dockera):
 ```bash
 npm run server   # startuje lokalny serwer Hono na http://localhost:3000

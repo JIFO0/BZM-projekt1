@@ -1,15 +1,15 @@
 services:
   # 1. Expo Mobile Web Frontend (Production Caddy container)
-  frontend:
-    build:
-      context: ..
-      dockerfile: backend/Dockerfile.frontend
-    container_name: krakow-frontend
-    restart: unless-stopped
-    expose:
-      - "80"
-    networks:
-      - krakow-net
+#  frontend:
+#    build:
+#      context: ..
+#      dockerfile: backend/Dockerfile.frontend
+#    container_name: krakow-frontend
+#    restart: unless-stopped
+#    expose:
+#      - "80"
+#    networks:
+#      - krakow-net
 
   # 2. API Backend (Hono / Node.js CLI server)
   api:
@@ -64,7 +64,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
-      - frontend
+#      - frontend
       - api
       - graphhopper
     networks:
