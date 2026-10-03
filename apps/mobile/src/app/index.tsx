@@ -257,7 +257,6 @@ export default function MapHomeScreen() {
   const [toPos, setToPos] = useState<LonLat>({ lon: 19.9354, lat: 50.0544 });
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
-  const [placeCatalogSearch, setPlaceCatalogSearch] = useState<string>('');
 
   // Report input state
   const [reportDesc, setReportDesc] = useState('');
@@ -647,18 +646,6 @@ export default function MapHomeScreen() {
       setLoadingPlace(false);
     }
   };
-
-  const catalogQuery = placeCatalogSearch.trim();
-  const filteredPlaces =
-    catalogQuery.length < 3
-      ? []
-      : DEFAULT_PRESET_PLACES.filter((p) => {
-          const q = catalogQuery.toLowerCase();
-          const matchName = p.name.toLowerCase().includes(q);
-          const matchLabel = p.label.toLowerCase().includes(q);
-          const matchTag = p.tags && p.tags.some((tag) => tag.toLowerCase().includes(q));
-          return matchName || matchLabel || matchTag;
-        });
 
   const handleSelectPresetPlace = async (p: (typeof DEFAULT_PRESET_PLACES)[number]) => {
     setPlaceQuery(p.name);
@@ -1177,7 +1164,7 @@ export default function MapHomeScreen() {
                   <LocationPicker
                     label={t(locale, 'from')}
                     badge="A"
-                    badgeColor="#005CA9"
+                    badgeColor="#1B5E20"
                     point={{ name: fromQuery, position: fromPos }}
                     onChangePoint={(p) => {
                       setFromQuery(p.name);
@@ -1550,57 +1537,11 @@ export default function MapHomeScreen() {
                     <View style={styles.fieldHeader}>
                       <Text style={[styles.demoSectionTitle, { color: colors.accent, fontSize: fontSize(13) }]}>
                         KATALOG OBIEKTÓW PUBLICZNYCH
-                        {catalogQuery.length >= 3 ? ` (${filteredPlaces.length})` : ''}
                       </Text>
                     </View>
 
-                    {/* Catalog Search & Filter Input */}
-                    <View
-                      style={[
-                        styles.catalogSearchBox,
-                        {
-                          backgroundColor: colors.background,
-                          borderColor: colors.border,
-                          borderWidth: isHighContrast ? 2 : 1,
-                        },
-                      ]}
-                    >
-                      <MagnifyingGlass size={15} color={colors.muted} weight="bold" />
-                      <TextInput
-                        value={placeCatalogSearch}
-                        onChangeText={setPlaceCatalogSearch}
-                        placeholder="Filtruj obiekty (nazwa, ulica, pętla, winda)..."
-                        placeholderTextColor={colors.muted}
-                        style={[
-                          styles.catalogSearchInput,
-                          {
-                            color: colors.text,
-                            fontSize: fontSize(13),
-                          },
-                        ]}
-                      />
-                      {placeCatalogSearch ? (
-                        <Pressable onPress={() => setPlaceCatalogSearch('')} hitSlop={8}>
-                          <X size={15} color={colors.muted} weight="bold" />
-                        </Pressable>
-                      ) : null}
-                    </View>
-
-                    {/* Filtered Building Cards List */}
-                    {catalogQuery.length < 3 ? (
-                      <GovCard variant="default">
-                        <Text style={{ color: colors.muted, fontSize: fontSize(13) }}>
-                          Wpisz co najmniej 3 litery, aby zobaczyć obiekty.
-                        </Text>
-                      </GovCard>
-                    ) : filteredPlaces.length === 0 ? (
-                      <GovCard variant="default">
-                        <Text style={{ color: colors.muted, fontSize: fontSize(13) }}>
-                          Brak obiektów spełniających filtr „{placeCatalogSearch}”. Wpisz adres u góry, by zbadać go na żywo z OSM.
-                        </Text>
-                      </GovCard>
-                    ) : (
-                      filteredPlaces.map((p) => {
+                    {/* Building Cards List */}
+                    {DEFAULT_PRESET_PLACES.map((p) => {
                         return (
                           <View
                             key={p.id}
@@ -1683,11 +1624,10 @@ export default function MapHomeScreen() {
                             </View>
                           </View>
                         );
-                      })
-                    )}
+                      })}
+                    </View>
                   </View>
-                </View>
-              ) : null}
+                ) : null}
 
               {/* TAB 3: PROFIL I NAWIERZCHNIE (PROFILE & ROAD SURFACES) */}
               {activeTab === 'profile' ? (
@@ -2477,19 +2417,6 @@ const styles = StyleSheet.create({
   },
   placeCatChipText: {
     fontWeight: '700',
-  },
-  catalogSearchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    gap: 8,
-    marginTop: 4,
-  },
-  catalogSearchInput: {
-    flex: 1,
-    paddingVertical: 0,
   },
   placeCard: {
     borderRadius: 10,

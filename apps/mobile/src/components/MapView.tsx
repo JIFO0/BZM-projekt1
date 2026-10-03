@@ -305,7 +305,7 @@ export function MapView({
       transition: transform 0.15s ease-out;
     }
     .endpoint-marker {
-      background-color: #005CA9;
+      background-color: #1B5E20;
       color: #FFFFFF;
       border: 3px solid #FFFFFF;
       border-radius: 50%;
@@ -316,6 +316,9 @@ export function MapView({
       width: 32px !important;
       height: 32px !important;
       box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    }
+    .endpoint-marker.start {
+      background-color: #1B5E20;
     }
     .endpoint-marker.destination {
       background-color: #D32F2F;
@@ -592,7 +595,7 @@ export function MapView({
     var startPin = ${JSON.stringify(startPin)};
     if (startPin && startPin.lat && startPin.lon) {
       var startIcon = L.divIcon({
-        className: 'endpoint-marker',
+        className: 'endpoint-marker start',
         html: 'A',
         iconSize: [32, 32],
         iconAnchor: [16, 16]
