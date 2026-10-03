@@ -9,7 +9,7 @@ import {
 import { Plus, Minus, X, Prohibit, Warning } from 'phosphor-react-native';
 import type { AccessibleRouteResult, RouteBarrier } from '@krakow-bez-barier/sources';
 import { useSession } from '@/state/session';
-import type { Locale } from '@/i18n/strings';
+import { t, type Locale } from '@/i18n/strings';
 
 interface AccessibleMapProps {
   route: AccessibleRouteResult;
@@ -127,9 +127,13 @@ export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: 
     const dist = (route.distanceMeters / 1000).toFixed(1);
     const blockers = route.summary.blockerCount;
     const warnings = route.summary.warningCount;
-    return locale === 'pl'
-      ? `Interaktywna mapa trasy o długości ${dist} kilometra. Znaleziono ${blockers} barier blokujących oraz ${warnings} ostrzeżeń.`
-      : `Interactive route map of length ${dist} kilometers. Found ${blockers} blocking barriers and ${warnings} warnings.`;
+    if (locale === 'pl') {
+      return `Interaktywna mapa trasy o długości ${dist} kilometra. Znaleziono ${blockers} barier blokujących oraz ${warnings} ostrzeżeń.`;
+    }
+    if (locale === 'uk') {
+      return `Інтерактивна карта маршруту довжиною ${dist} км. Знайдено ${blockers} блокуючих перешкод та ${warnings} попереджень.`;
+    }
+    return `Interactive route map of length ${dist} kilometers. Found ${blockers} blocking barriers and ${warnings} warnings.`;
   }, [route, locale]);
 
   const startPt = coords.length > 0 ? projectPoint(coords[0][0], coords[0][1]) : null;
@@ -245,7 +249,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: 
         <View style={styles.zoomControls}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={locale === 'pl' ? 'Przybliż mapę' : 'Zoom in'}
+            accessibilityLabel={t(locale, 'zoomIn')}
             onPress={() => setZoomOffset((prev) => Math.min(prev + 1, 3))}
             style={[styles.zoomButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
@@ -253,7 +257,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: 
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={locale === 'pl' ? 'Oddal mapę' : 'Zoom out'}
+            accessibilityLabel={t(locale, 'zoomOut')}
             onPress={() => setZoomOffset((prev) => Math.max(prev - 1, -3))}
             style={[styles.zoomButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
@@ -279,7 +283,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: 
               </Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={locale === 'pl' ? 'Zamknij szczegóły' : 'Close'}
+                accessibilityLabel={t(locale, 'close')}
                 onPress={() => setSelectedBarrierId(null)}
               >
                 <X size={18} color={colors.muted} weight="bold" />
@@ -287,7 +291,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: 
             </View>
             <Text style={[styles.popupMessage, { color: colors.text }]}>{item.message}</Text>
             <Text style={[styles.popupMeta, { color: colors.muted }]}>
-              {locale === 'pl' ? 'Odległość od startu' : 'Distance from start'}: {item.distanceFromStartMeters} m | {item.status}
+              {t(locale, 'distanceFromStart')}: {item.distanceFromStartMeters} m | {item.status}
             </Text>
           </View>
         );

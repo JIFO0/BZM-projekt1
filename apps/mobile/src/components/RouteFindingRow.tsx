@@ -3,7 +3,12 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CaretDown, CaretUp } from 'phosphor-react-native';
 
-import { t, type Locale } from '@/i18n/strings';
+import {
+  getLocalizedFactValue,
+  getLocalizedFindingType,
+  t,
+  type Locale,
+} from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 import { StatusBadge } from './StatusBadge';
@@ -23,19 +28,34 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
 
   let dateText = '';
   if (dl.kind === 'confirmed' && dl.at) {
-    dateText = `potwierdzono: ${dl.at.slice(0, 10)}`;
+    dateText = `${t(locale, 'dateConfirmed')}: ${dl.at.slice(0, 10)}`;
   } else if (dl.kind === 'osm_last_edit' && dl.at) {
-    dateText = `ostatnia edycja OSM: ${dl.at.slice(0, 10)}`;
+    dateText = `${t(locale, 'dateOsmEdit')}: ${dl.at.slice(0, 10)}`;
   } else if (dl.kind === 'retrieved' && dl.at) {
-    dateText = `pobrano: ${dl.at.slice(0, 10)}`;
+    dateText = `${t(locale, 'dateRetrieved')}: ${dl.at.slice(0, 10)}`;
   } else {
-    dateText = 'brak daty weryfikacji';
+    dateText = t(locale, 'noVerificationDate');
   }
 
+  const localizedVal = getLocalizedFactValue(fact.value, locale);
+  const localizedCrit = getLocalizedFindingType(fact.criterion, locale);
+  const localizedType = getLocalizedFindingType(type, locale);
+  const localizedSeverity =
+    severity === 'blocker'
+      ? t(locale, 'severityBlocker')
+      : severity === 'warning'
+        ? t(locale, 'severityWarning')
+        : severity === 'ok'
+          ? t(locale, 'severityOk')
+          : t(locale, 'statusUnknown');
+
   // Narrative for screen readers (WCAG D1 & D5)
-  const accessibleNarrative = `Punkt ${index + 1}. Po ${distanceFromStartMetres} metrach: ${
-    fact.criterion
-  }, ${fact.value}. Status: ${severity}. Źródło: ${fact.source.name}, ${dateText}.`;
+  const accessibleNarrative =
+    locale === 'pl'
+      ? `Punkt ${index + 1}. Po ${distanceFromStartMetres} metrach: ${localizedCrit}, ${localizedVal}. Status: ${localizedSeverity}. Źródło: ${fact.source.name}, ${dateText}.`
+      : locale === 'uk'
+        ? `Пункт ${index + 1}. Через ${distanceFromStartMetres} метрів: ${localizedCrit}, ${localizedVal}. Статус: ${localizedSeverity}. Джерело: ${fact.source.name}, ${dateText}.`
+        : `Point ${index + 1}. After ${distanceFromStartMetres} metres: ${localizedCrit}, ${localizedVal}. Status: ${localizedSeverity}. Source: ${fact.source.name}, ${dateText}.`;
 
   const borderColor =
     severity === 'blocker'
@@ -43,6 +63,17 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
       : severity === 'warning'
         ? colors.warningBorder
         : colors.border;
+
+  const localizedStatus =
+    fact.status === 'verified'
+      ? t(locale, 'statusVerified')
+      : fact.status === 'community'
+        ? t(locale, 'statusCommunity')
+        : fact.status === 'reported'
+          ? t(locale, 'statusReported')
+          : fact.status === 'conflicting'
+            ? t(locale, 'statusConflicting')
+            : t(locale, 'statusUnknown');
 
   return (
     <View
@@ -63,23 +94,23 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
             #{index + 1}
           </Text>
           <Text style={[styles.distanceText, { color: colors.text, fontSize: fontSize(14) }]}>
-            Po {distanceFromStartMetres} m
+            {t(locale, 'afterDistance')} {distanceFromStartMetres} m
           </Text>
         </View>
         <StatusBadge severity={severity} locale={locale} />
       </View>
 
       <Text style={[styles.valueText, { color: colors.text, fontSize: fontSize(16) }]}>
-        {finding.fact.value}
+        {localizedVal}
       </Text>
 
       <Text style={[styles.evidenceText, { color: colors.muted, fontSize: fontSize(13) }]}>
-        Kryterium: {fact.criterion} • {type}
+        {t(locale, 'criterion')}: {localizedCrit} • {localizedType}
       </Text>
 
       <View style={[styles.sourceRow, { borderTopColor: colors.border }]}>
         <Text style={[styles.sourceText, { color: colors.muted, fontSize: fontSize(12.5) }]}>
-          Źródło: {fact.source.name} ({dateText})
+          {t(locale, 'source')}: {fact.source.name} ({dateText})
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -97,7 +128,7 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
               },
             ]}
           >
-            {expanded ? 'Ukryj szczegóły' : 'Dlaczego ten status?'}
+            {expanded ? t(locale, 'hideDetails') : t(locale, 'whyThisStatus')}
           </Text>
           {expanded ? (
             <CaretUp size={14} weight="bold" color={colors.accent} />
@@ -119,24 +150,24 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
           ]}
         >
           <Text style={[styles.detailTitle, { color: colors.text, fontSize: fontSize(13.5) }]}>
-            Szczegóły dowodowe z OpenStreetMap:
+            {t(locale, 'osmEvidenceDetails')}
           </Text>
           <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
-            • Identyfikator obiektu: {fact.source.objectId ?? fact.subject.ref}
+            • {t(locale, 'objectId')}: {fact.source.objectId ?? fact.subject.ref}
           </Text>
           <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
-            • Status wiarygodności: {fact.status}
+            • {t(locale, 'credibilityStatus')}: {localizedStatus}
           </Text>
           <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
-            • Licencja danych: {fact.source.licence}
+            • {t(locale, 'dataLicense')}: {fact.source.licence}
           </Text>
           {fact.matchConfidence !== undefined ? (
             <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
-              • Pewność dopasowania geometrycznego: {Math.round(fact.matchConfidence * 100)}%
+              • {t(locale, 'geometricMatchConfidence')}: {Math.round(fact.matchConfidence * 100)}%
             </Text>
           ) : null}
           <Text style={[styles.detailItem, { color: colors.muted, fontSize: fontSize(12) }]}>
-            URL źródła: {fact.source.url}
+            {t(locale, 'sourceUrl')}: {fact.source.url}
           </Text>
         </View>
       ) : null}

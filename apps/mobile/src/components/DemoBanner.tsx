@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Warning } from 'phosphor-react-native';
 
+import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 
 interface DemoBannerProps {
@@ -8,7 +9,7 @@ interface DemoBannerProps {
 }
 
 export function DemoBanner({ isSample }: DemoBannerProps) {
-  const { debugState, fontSize, isHighContrast, colors } = useSession();
+  const { debugState, fontSize, isHighContrast, colors, locale } = useSession();
 
   const isSimulating =
     debugState.simulateOverpassDown || debugState.simulateMapyDown || debugState.simulateOffline;
@@ -20,12 +21,12 @@ export function DemoBanner({ isSample }: DemoBannerProps) {
   let text = '';
   if (isSimulating) {
     const reasons: string[] = [];
-    if (debugState.simulateOverpassDown) reasons.push('Awaria Overpass (503)');
-    if (debugState.simulateMapyDown) reasons.push('Błąd Mapy.com (429)');
-    if (debugState.simulateOffline) reasons.push('Wymuszony Offline');
-    text = `AKTYWNA SYMULACJA AWARII: ${reasons.join(', ')} • Wyświetlono dane zapasowe`;
+    if (debugState.simulateOverpassDown) reasons.push(t(locale, 'simOverpassFailShort'));
+    if (debugState.simulateMapyDown) reasons.push(t(locale, 'simMapyFailShort'));
+    if (debugState.simulateOffline) reasons.push(t(locale, 'simOfflineShort'));
+    text = `${t(locale, 'activeFailureSimulation')} ${reasons.join(', ')} • ${t(locale, 'fallbackDataDisplayed')}`;
   } else if (isSample) {
-    text = 'DANE PRZYKŁADOWE (Offline Demo Snapshot Kraków)';
+    text = t(locale, 'sampleDataBanner');
   }
 
   const bgColor = isHighContrast

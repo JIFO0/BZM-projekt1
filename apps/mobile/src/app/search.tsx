@@ -68,18 +68,18 @@ export default function SearchScreen() {
 
   const handleUseMyLocation = async () => {
     if (userLocation) {
-      setFromQuery('Moja lokalizacja');
+      setFromQuery(t(locale, 'myLocationShort'));
       setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
       return;
     }
     const result = await fetchUserLocation();
     if (result) {
-      setFromQuery(result.address || 'Moja lokalizacja');
+      setFromQuery(result.address || t(locale, 'myLocationShort'));
       setFromPos({ lon: result.lon, lat: result.lat });
     } else {
       Alert.alert(
-        'Lokalizacja niedostępna',
-        'Nie udało się pobrać Twojej obecnej lokalizacji. Upewnij się, że masz włączony GPS i przyznane uprawnienia.',
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableDesc'),
       );
     }
   };
@@ -100,7 +100,14 @@ export default function SearchScreen() {
       setActiveRouteReport(result.report);
       router.push('/route' as any);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Wystąpił błąd podczas analizowania trasy.');
+      setErrorMsg(
+        err.message ||
+          (locale === 'pl'
+            ? 'Wystąpił błąd podczas analizowania trasy.'
+            : locale === 'uk'
+              ? 'Сталася помилка під час аналізу маршруту.'
+              : 'An error occurred while analyzing the route.')
+      );
     } finally {
       setLoading(false);
     }
@@ -114,7 +121,14 @@ export default function SearchScreen() {
       setActivePlaceReport(result.report);
       router.push('/place' as any);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Wystąpił błąd podczas sprawdzania miejsca.');
+      setErrorMsg(
+        err.message ||
+          (locale === 'pl'
+            ? 'Wystąpił błąd podczas sprawdzania miejsca.'
+            : locale === 'uk'
+              ? 'Сталася помилка під час перевірки місця.'
+              : 'An error occurred while checking place.')
+      );
     } finally {
       setLoading(false);
     }
@@ -394,37 +408,41 @@ export default function SearchScreen() {
             </Text>
           </View>
           <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13.5) }]}>
-            Kliknij gotowy scenariusz, aby przetestować bez wpisywania:
+            {locale === 'pl'
+              ? 'Kliknij gotowy scenariusz, aby przetestować bez wpisywania:'
+              : locale === 'uk'
+                ? 'Натисніть готовий сценарій, щоб протестувати без введення:'
+                : 'Click a preset scenario to test without typing:'}
           </Text>
 
           <View style={styles.scenariosList}>
             <GovButton
               variant="outline"
-              title={`Trasa: ${t(locale, 'demoRoute1')}`}
+              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute1')}`}
               icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(0)}
             />
             <GovButton
               variant="outline"
-              title={`Trasa: ${t(locale, 'demoRoute2')}`}
+              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute2')}`}
               icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(1)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce: ${t(locale, 'demoPlace1')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace1')}`}
               icon={<Buildings size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(0)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce (R7 Sprzeczne): ${t(locale, 'demoPlace2')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace2')}`}
               icon={<Lightning size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(1)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce (R8 Przedawnione): ${t(locale, 'demoPlace3')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace3')}`}
               icon={<Clock size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(2)}
             />
