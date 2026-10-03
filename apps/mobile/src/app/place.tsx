@@ -58,7 +58,13 @@ export default function PlaceScreen() {
               title="Wróć"
               icon={<ArrowLeft size={18} color="#fff" weight="bold" />}
               variant="primary"
-              onPress={() => router.back()}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/');
+                }
+              }}
             />
           </GovCard>
         </View>
