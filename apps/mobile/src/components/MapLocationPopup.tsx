@@ -43,12 +43,10 @@ export function MapLocationPopup({
 }: MapLocationPopupProps) {
   const { colors, fontSize, isHighContrast, locale } = useSession();
 
-  const coordsText = `${location.lat.toFixed(5)}, ${location.lon.toFixed(5)}`;
-
   return (
     <View
       accessibilityRole="summary"
-      accessibilityLabel={`${t(locale, 'mapClickPopupTitle')}: ${location.name}. Koordynaty: ${coordsText}`}
+      accessibilityLabel={`${t(locale, 'mapClickPopupTitle')}: ${location.name}`}
       style={[
         styles.card,
         {
@@ -112,15 +110,6 @@ export function MapLocationPopup({
         >
           <X size={16} weight="bold" color={colors.text} />
         </Pressable>
-      </View>
-
-      {/* Coordinates pill */}
-      <View style={styles.coordsRow}>
-        <View style={[styles.coordsPill, { backgroundColor: colors.border + '44' }]}>
-          <Text style={[styles.coordsText, { color: colors.muted, fontSize: fontSize(11) }]}>
-            GPS: {coordsText}
-          </Text>
-        </View>
       </View>
 
       {/* 3 Action Buttons */}

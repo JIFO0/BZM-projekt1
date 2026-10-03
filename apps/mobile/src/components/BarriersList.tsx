@@ -2,6 +2,7 @@ import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 import type { AccessibleRouteResult, RouteBarrier } from '@krakow-bez-barier/sources';
 import { darkColors, lightColors } from '@/theme/tokens';
 import {
+  getLocalizedBarrierMessage,
   getLocalizedFactValue,
   getLocalizedFindingType,
   t,
@@ -106,12 +107,13 @@ export function BarriersList({ route, locale }: BarriersListProps) {
             const severityB = getSeverityBadge(barrier.severity);
             const localizedCrit = getLocalizedFindingType(barrier.criterion, locale);
             const localizedVal = getLocalizedFactValue(barrier.value, locale);
+            const localizedMsg = getLocalizedBarrierMessage(barrier, locale) || barrier.message;
 
             return (
               <View
                 key={barrier.id}
                 accessibilityRole="text"
-                accessibilityLabel={`${localizedCrit}: ${localizedVal}. ${barrier.message}. Status: ${statusB.label}`}
+                accessibilityLabel={`${localizedCrit}: ${localizedVal}. ${localizedMsg}. Status: ${statusB.label}`}
                 style={[styles.barrierCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
               >
                 <View style={styles.badgeRow}>
@@ -130,7 +132,7 @@ export function BarriersList({ route, locale }: BarriersListProps) {
                   {localizedCrit}: <Text style={{ fontWeight: '400' }}>{localizedVal}</Text>
                 </Text>
 
-                <Text style={[styles.body, { color: colors.text }]}>{barrier.message}</Text>
+                <Text style={[styles.body, { color: colors.text }]}>{localizedMsg}</Text>
 
                 <View style={styles.footerRow}>
                   <Text style={[styles.sourceText, { color: colors.muted }]}>

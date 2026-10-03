@@ -115,7 +115,20 @@ export default function SearchScreen() {
       if (result.selectedVariant) {
         selectRouteVariant(result.selectedVariant);
       }
-      router.push('/route' as any);
+      router.push({
+        pathname: '/route',
+        params: {
+          fromName: fromQuery,
+          fromLat: String(fromPos.lat),
+          fromLon: String(fromPos.lon),
+          toName: toQuery,
+          toLat: String(toPos.lat),
+          toLon: String(toPos.lon),
+          profile: profileId,
+          variant: result.selectedVariant || 'accessible',
+          ...(result.isSample ? { isSample: '1' } : {}),
+        },
+      } as any);
     } catch (err: any) {
       setErrorMsg(
         err.message ||
@@ -136,7 +149,14 @@ export default function SearchScreen() {
     try {
       const result = await inspectPlace(placeQuery, placePos, debugState);
       setActivePlaceReport(result.report);
-      router.push('/place' as any);
+      router.push({
+        pathname: '/place',
+        params: {
+          placeName: placeQuery,
+          placeLat: String(placePos.lat),
+          placeLon: String(placePos.lon),
+        },
+      } as any);
     } catch (err: any) {
       setErrorMsg(
         err.message ||
