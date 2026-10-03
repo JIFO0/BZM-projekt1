@@ -1,6 +1,5 @@
 import { findConflicts, isStale } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,8 +8,6 @@ import {
   ArrowLeft,
   CheckCircle,
   Question,
-  SpeakerHigh,
-  Stop,
   Lightning,
   Clock,
   Door,
@@ -42,20 +39,19 @@ export default function PlaceScreen() {
   } = useSession();
 
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
   if (!activePlaceReport) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false, title: t(locale, 'placeDetailTitle') }} />
-        <KrakowHeader onOpenDemo={() => setDebugVisible(true)} />
+        <KrakowHeader />
         <View style={styles.emptyContainer}>
           <GovCard variant="warning">
             <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
-              Brak wybranego miejsca.
+              {t(locale, 'noSelectedPlace')}
             </Text>
             <GovButton
-              title="Wróć"
+              title={t(locale, 'back')}
               icon={<ArrowLeft size={18} color="#fff" weight="bold" />}
               variant="primary"
               onPress={() => {
@@ -83,42 +79,10 @@ export default function PlaceScreen() {
       (!f.lastConfirmedAt && isStale(f.lastEditedAt, now, 24)),
   );
 
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    let speechText = `Karta obiektu: ${report.placeName}. ${report.summaryMessage}. `;
-    if (report.isConfidentMatch) {
-      speechText += `Dopasowano obiekt z bazy OpenStreetMap z pewnością ${Math.round(report.matchConfidence * 100)} procent. `;
-    } else {
-      speechText += 'Brak danych o dostępności tego miejsca w OpenStreetMap. ';
-    }
-    if (conflicts.length > 0) {
-      speechText += `Wykryto sprzeczne dane dla ${conflicts.length} parametrów. `;
-    }
-    if (staleFacts.length > 0) {
-      speechText += 'Część danych jest starsza niż 24 miesiące. ';
-    }
-
-    setIsSpeaking(true);
-    Speech.speak(speechText, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: report.placeName }} />
-
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner isSample={report.isSample} />
 
@@ -135,7 +99,7 @@ export default function PlaceScreen() {
         <GovCard variant="accent">
           <View style={styles.cardTopRow}>
             <Text style={[styles.krakowPlaceTag, { color: colors.accent, fontSize: fontSize(12) }]}>
-              OBIEKT MIEJSKI KRAKÓW
+              {t(locale, 'municipalObjectKrakow')}
             </Text>
           </View>
           <Text
@@ -201,18 +165,6 @@ export default function PlaceScreen() {
             </View>
           </View>
 
-          <GovButton
-            title={isSpeaking ? t(locale, 'stopSpeech') : 'Odsłuchaj opis obiektu'}
-            icon={
-              isSpeaking ? (
-                <Stop size={18} color="#fff" weight="bold" />
-              ) : (
-                <SpeakerHigh size={18} color={colors.text} weight="bold" />
-              )
-            }
-            variant={isSpeaking ? 'danger' : 'outline'}
-            onPress={handleReadScreen}
-          />
         </GovCard>
 
         {/* Conflicting Data Warning (R7) */}
@@ -224,25 +176,25 @@ export default function PlaceScreen() {
                 accessibilityRole="header"
                 style={[styles.alertTitle, { color: colors.conflictingText, fontSize: fontSize(15.5) }]}
               >
-                Wykryto sprzeczne dane w OpenStreetMap (R7):
+                {t(locale, 'conflictingDataTitle')}
               </Text>
             </View>
             <Text
               style={[styles.alertBody, { color: colors.conflictingText, fontSize: fontSize(13.5), lineHeight: fontSize(20) }]}
             >
-              Różne obiekty OSM (np. budynek vs węzeł wejścia) podają sprzeczne informacje dla tego samego miejsca. Poniżej przedstawiono obie wartości:
+              {t(locale, 'conflictingDataDesc')}
             </Text>
             {conflicts.map((conf, idx) => (
               <View key={idx} style={[styles.conflictItem, { borderTopColor: colors.conflictingBorder }]}>
                 <Text style={[styles.conflictHeader, { color: colors.conflictingText, fontSize: fontSize(13.5) }]}>
-                  Kryterium: {conf.criterion}
+                  {t(locale, 'criterion')}: {conf.criterion}
                 </Text>
                 {conf.facts.map((f) => (
                   <Text
                     key={f.id}
                     style={[styles.conflictRow, { color: colors.conflictingText, fontSize: fontSize(13) }]}
                   >
-                    {`• Źródło: ${f.source.name} → Wartość: "${f.value}"`}
+                    {`• ${t(locale, 'source')}: ${f.source.name} → ${t(locale, 'value')}: "${f.value}"`}
                   </Text>
                 ))}
               </View>
@@ -259,13 +211,13 @@ export default function PlaceScreen() {
                 accessibilityRole="header"
                 style={[styles.alertTitle, { color: colors.warningText, fontSize: fontSize(15.5) }]}
               >
-                Uwaga: Przedawnione dane w OpenStreetMap (R8):
+                {t(locale, 'staleDataTitle')}
               </Text>
             </View>
             <Text
               style={[styles.alertBody, { color: colors.warningText, fontSize: fontSize(13.5), lineHeight: fontSize(20) }]}
             >
-              Niektóre informacje o tym miejscu nie były weryfikowane ani edytowane od ponad 24 miesięcy. Stan faktyczny mógł ulec zmianie.
+              {t(locale, 'staleDataDesc')}
             </Text>
           </GovCard>
         ) : null}

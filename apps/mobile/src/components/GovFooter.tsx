@@ -11,7 +11,7 @@ export function GovFooter() {
   return (
     <View
       accessibilityRole="summary"
-      accessibilityLabel="Informacje urzędowe i deklaracja dostępności Miasta Kraków"
+      accessibilityLabel={t(locale, 'footerA11yLabel')}
       style={[
         styles.footer,
         {
@@ -59,7 +59,7 @@ export function GovFooter() {
           >
             <LockSimple size={13} weight="bold" color={colors.accent} />
             <Text style={[styles.tagText, { color: colors.muted, fontSize: fontSize(11) }]}>
-              100% Prywatności (P1–P5)
+              {t(locale, 'privacyTag')}
             </Text>
           </View>
         </View>

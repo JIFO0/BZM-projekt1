@@ -5,6 +5,7 @@ import {
   type WalkingRoute,
 } from '@krakow-bez-barier/core';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { WebView } from 'react-native-webview';
 
 import { useSession } from '@/state/session';
@@ -19,6 +20,7 @@ export interface MapViewProps {
   style?: StyleProp<ViewStyle>;
   startLocation?: { name?: string; lat: number; lon: number };
   endLocation?: { name?: string; lat: number; lon: number };
+  userLocation?: { lat: number; lon: number } | null;
 }
 
 export function MapView({
@@ -30,8 +32,17 @@ export function MapView({
   style,
   startLocation,
   endLocation,
+  userLocation,
 }: MapViewProps) {
-  const { colors, isHighContrast } = useSession();
+  const { colors, isHighContrast, locale } = useSession();
+  const iframeRef = useRef<any>(null);
+  const webViewRef = useRef<WebView>(null);
+  const isMapLoaded = useRef(false);
+
+  const pendingUserLocation = useRef(userLocation);
+  pendingUserLocation.current = userLocation;
+  const pendingCenter = useRef(center);
+  pendingCenter.current = center;
 
   let defaultLat = 50.0619;
   let defaultLon = 19.9373;
@@ -39,43 +50,82 @@ export function MapView({
   if (center) {
     defaultLat = center.lat;
     defaultLon = center.lon;
+  } else if (userLocation) {
+    defaultLat = userLocation.lat;
+    defaultLon = userLocation.lon;
   } else if (route && route.coordinates.length > 0) {
     const midIdx = Math.floor(route.coordinates.length / 2);
     defaultLon = route.coordinates[midIdx]![0];
     defaultLat = route.coordinates[midIdx]![1];
   }
 
-  const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
+  // Reliable cross-platform message dispatch to the active Leaflet map
+  const sendToMap = useCallback((msg: { type: string; lat: number; lon: number; zoom?: number }) => {
+    if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
+      try {
+        const win = iframeRef.current.contentWindow as any;
+        if (msg.type === 'SET_USER_LOCATION' && typeof win.updateUserMarker === 'function') {
+          win.updateUserMarker(msg.lat, msg.lon);
+          return;
+        }
+        if (msg.type === 'SET_CENTER' && typeof win.setMapCenter === 'function') {
+          win.setMapCenter(msg.lat, msg.lon, msg.zoom);
+          return;
+        }
+      } catch {
+        // Fallback to postMessage
+      }
+      iframeRef.current.contentWindow.postMessage(JSON.stringify(msg), '*');
+    } else if (Platform.OS !== 'web' && webViewRef.current) {
+      if (msg.type === 'SET_USER_LOCATION') {
+        const js = `if (typeof updateUserMarker === 'function') { updateUserMarker(${msg.lat}, ${msg.lon}); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'SET_CENTER') {
+        const js = `if (typeof setMapCenter === 'function') { setMapCenter(${msg.lat}, ${msg.lon}, ${msg.zoom || 16}); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      }
+    }
+  }, []);
 
-  const markersData = findings.map((f, i) => {
-    let color = colors.infoBorder;
-    if (f.severity === 'blocker') color = colors.blockerBorder;
-    else if (f.severity === 'warning') color = colors.warningBorder;
-    else if (f.severity === 'ok') color = colors.okBorder;
-    else if (f.severity === 'unknown') color = colors.unknownBorder;
+  const flushPendingUpdates = useCallback(() => {
+    isMapLoaded.current = true;
+    if (pendingUserLocation.current) {
+      sendToMap({
+        type: 'SET_USER_LOCATION',
+        lat: pendingUserLocation.current.lat,
+        lon: pendingUserLocation.current.lon,
+      });
+    }
+    if (pendingCenter.current) {
+      sendToMap({
+        type: 'SET_CENTER',
+        lat: pendingCenter.current.lat,
+        lon: pendingCenter.current.lon,
+        zoom,
+      });
+    }
+  }, [sendToMap, zoom]);
 
-    return {
-      index: i + 1,
-      lat: f.fact.subject.lat,
-      lon: f.fact.subject.lon,
-      title: `#${i + 1} (${f.distanceFromStartMetres} m): ${f.type}`,
-      value: f.fact.value,
-      severity: f.severity,
-      color,
-    };
-  });
+  // Smooth dynamic user marker update without reloading iframe / WebView
+  useEffect(() => {
+    if (!userLocation) return;
+    sendToMap({
+      type: 'SET_USER_LOCATION',
+      lat: userLocation.lat,
+      lon: userLocation.lon,
+    });
+  }, [userLocation, sendToMap]);
 
-  const startPin = startLocation || (route && route.coordinates.length > 0 ? {
-    name: 'Start',
-    lat: route.coordinates[0]![1],
-    lon: route.coordinates[0]![0],
-  } : null);
-
-  const endPin = endLocation || (route && route.coordinates.length > 0 ? {
-    name: 'Cel',
-    lat: route.coordinates[route.coordinates.length - 1]![1],
-    lon: route.coordinates[route.coordinates.length - 1]![0],
-  } : null);
+  // Smooth dynamic centering
+  useEffect(() => {
+    if (!center) return;
+    sendToMap({
+      type: 'SET_CENTER',
+      lat: center.lat,
+      lon: center.lon,
+      zoom,
+    });
+  }, [center, zoom, sendToMap]);
 
   const mapyApiKey = process.env.EXPO_PUBLIC_MAPY_API_KEY;
   const hasMapyKey = Boolean(
@@ -92,7 +142,41 @@ export function MapView({
     ? MAPY_ATTRIBUTION.attribution
     : OSM_ATTRIBUTION.attribution;
 
-  const htmlContent = `
+  // htmlContent is memoized so it does NOT reload on userLocation updates
+  const htmlContent = useMemo(() => {
+    const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
+
+    const markersData = findings.map((f, i) => {
+      let color = colors.infoBorder;
+      if (f.severity === 'blocker') color = colors.blockerBorder;
+      else if (f.severity === 'warning') color = colors.warningBorder;
+      else if (f.severity === 'ok') color = colors.okBorder;
+      else if (f.severity === 'unknown') color = colors.unknownBorder;
+
+      return {
+        index: i + 1,
+        lat: f.fact.subject.lat,
+        lon: f.fact.subject.lon,
+        title: `#${i + 1} (${f.distanceFromStartMetres} m): ${f.type}`,
+        value: f.fact.value,
+        severity: f.severity,
+        color,
+      };
+    });
+
+    const startPin = startLocation || (route && route.coordinates.length > 0 ? {
+      name: 'Start',
+      lat: route.coordinates[0]![1],
+      lon: route.coordinates[0]![0],
+    } : null);
+
+    const endPin = endLocation || (route && route.coordinates.length > 0 ? {
+      name: locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination',
+      lat: route.coordinates[route.coordinates.length - 1]![1],
+      lon: route.coordinates[route.coordinates.length - 1]![0],
+    } : null);
+
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -130,6 +214,38 @@ export function MapView({
     }
     .endpoint-marker.destination {
       background-color: #D32F2F;
+    }
+    .user-location-marker {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px !important;
+      height: 26px !important;
+    }
+    .user-dot {
+      width: 14px;
+      height: 14px;
+      background-color: #007AFF;
+      border: 2.5px solid #FFFFFF;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      position: absolute;
+      z-index: 2;
+    }
+    .user-pulse {
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(0, 122, 255, 0.35);
+      animation: user-pulse-anim 2s infinite ease-out;
+      z-index: 1;
+    }
+    @keyframes user-pulse-anim {
+      0% { transform: scale(0.6); opacity: 0.9; }
+      70% { transform: scale(1.7); opacity: 0; }
+      100% { transform: scale(1.7); opacity: 0; }
     }
     .leaflet-control-attribution {
       font-size: 9px !important;
@@ -204,6 +320,46 @@ export function MapView({
       marker.bindPopup('<b>' + m.title + '</b><br/>' + m.value + '<br/><i>Status: ' + m.severity + '</i>');
     });
 
+    var userMarker = null;
+
+    window.updateUserMarker = function(lat, lon) {
+      if (!map) return;
+      if (userMarker) {
+        userMarker.setLatLng([lat, lon]);
+      } else {
+        var userIcon = L.divIcon({
+          className: 'user-location-marker',
+          html: '<div class="user-pulse"></div><div class="user-dot"></div>',
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
+        });
+        userMarker = L.marker([lat, lon], {
+          icon: userIcon,
+          zIndexOffset: 1000
+        }).addTo(map).bindPopup('<b>Twoja lokalizacja</b>');
+      }
+    };
+
+    window.setMapCenter = function(lat, lon, zoomLevel) {
+      if (!map) return;
+      map.setView([lat, lon], zoomLevel || 16, { animate: true });
+    };
+
+    function handleMapMessage(event) {
+      try {
+        var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (!data) return;
+        if (data.type === 'SET_CENTER') {
+          window.setMapCenter(data.lat, data.lon, data.zoom);
+        } else if (data.type === 'SET_USER_LOCATION') {
+          window.updateUserMarker(data.lat, data.lon);
+        }
+      } catch (err) {}
+    }
+
+    window.addEventListener('message', handleMapMessage);
+    document.addEventListener('message', handleMapMessage);
+
     window.addEventListener('resize', function() {
       map.invalidateSize();
     });
@@ -213,7 +369,25 @@ export function MapView({
   </script>
 </body>
 </html>
-  `;
+    `;
+  }, [
+    route,
+    findings,
+    startLocation,
+    endLocation,
+    defaultLat,
+    defaultLon,
+    zoom,
+    tileUrl,
+    tileAttribution,
+    colors.accent,
+    colors.infoBorder,
+    colors.blockerBorder,
+    colors.warningBorder,
+    colors.okBorder,
+    colors.unknownBorder,
+    locale,
+  ]);
 
   return (
     <View
@@ -228,14 +402,18 @@ export function MapView({
     >
       {Platform.OS === 'web' ? (
         <iframe
+          ref={iframeRef}
           title="Mapa trasy"
           srcDoc={htmlContent}
+          onLoad={flushPendingUpdates}
           style={{ width: '100%', height: '100%', border: 'none' }}
         />
       ) : (
         <WebView
+          ref={webViewRef}
           originWhitelist={['*']}
           source={{ html: htmlContent }}
+          onLoadEnd={flushPendingUpdates}
           style={styles.webview}
           javaScriptEnabled={true}
           domStorageEnabled={true}

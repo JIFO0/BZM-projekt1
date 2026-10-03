@@ -8,9 +8,15 @@ import type {
   RouteReport,
   WalkingRoute,
 } from '@krakow-bez-barier/core';
-import { createContext, useContext, useMemo, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 
 import type { Locale } from '@/i18n/strings';
+import {
+  getCurrentUserLocation,
+  watchUserLocation,
+  type UserCoordinates,
+  type UserLocationResult,
+} from '@/services/location';
 import {
   getColors,
   scaleFontSize,
@@ -57,6 +63,12 @@ interface SessionValue {
   setActiveWalkingRoute: (route: WalkingRoute | null) => void;
   activePlaceReport: PlaceAnalysisReport | null;
   setActivePlaceReport: (report: PlaceAnalysisReport | null) => void;
+
+  // Real user GPS location
+  userLocation: UserCoordinates | null;
+  setUserLocation: (loc: UserCoordinates | null) => void;
+  isLocating: boolean;
+  fetchUserLocation: () => Promise<UserLocationResult | null>;
 
   // Accessibility & Design System State
   contrastMode: ContrastMode;
@@ -107,7 +119,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profileId, setProfileId] = useState<ProfileId>('wheelchair');
   const [profileThresholds, setProfileThresholds] = useState<Record<ProfileId, BarrierThresholds>>({
     wheelchair: { ...city.profiles.wheelchair },
-    stroller: { ...city.profiles.stroller },
     custom: { ...city.profiles.custom },
   });
   const [customThresholds, setCustomThresholdsState] = useState<BarrierThresholds>(
@@ -196,6 +207,49 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [activeRouteReport, setActiveRouteReport] = useState<RouteReport | null>(null);
   const [activeWalkingRoute, setActiveWalkingRoute] = useState<WalkingRoute | null>(null);
   const [activePlaceReport, setActivePlaceReport] = useState<PlaceAnalysisReport | null>(null);
+
+  // User GPS location state
+  const [userLocation, setUserLocation] = useState<UserCoordinates | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const locationWatcherRef = useRef<(() => void) | null>(null);
+
+  const startWatchingLocation = useCallback(async () => {
+    if (locationWatcherRef.current) return;
+    try {
+      const unsub = await watchUserLocation((loc) => {
+        setUserLocation({ lat: loc.lat, lon: loc.lon });
+      });
+      if (unsub) {
+        locationWatcherRef.current = unsub;
+      }
+    } catch (err) {
+      console.warn('[Session] Failed to start location watch:', err);
+    }
+  }, []);
+
+  const fetchUserLocation = useCallback(async (): Promise<UserLocationResult | null> => {
+    setIsLocating(true);
+    try {
+      const res = await getCurrentUserLocation();
+      if (res) {
+        setUserLocation({ lat: res.lat, lon: res.lon });
+        void startWatchingLocation();
+      }
+      return res;
+    } finally {
+      setIsLocating(false);
+    }
+  }, [startWatchingLocation]);
+
+  useEffect(() => {
+    void startWatchingLocation();
+    return () => {
+      if (locationWatcherRef.current) {
+        locationWatcherRef.current();
+        locationWatcherRef.current = null;
+      }
+    };
+  }, [startWatchingLocation]);
 
   // Advanced Public-Sector Accessibility State (WCAG 2.2 AAA)
   const [contrastMode, setContrastMode] = useState<ContrastMode>('standard-light');
@@ -300,6 +354,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setActiveWalkingRoute,
       activePlaceReport,
       setActivePlaceReport,
+      userLocation,
+      setUserLocation,
+      isLocating,
+      fetchUserLocation,
       // Accessibility
       contrastMode,
       setContrastMode,
@@ -352,6 +410,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activeRouteReport,
       activeWalkingRoute,
       activePlaceReport,
+      userLocation,
+      isLocating,
+      fetchUserLocation,
       contrastMode,
       textSize,
       lineHeightMode,

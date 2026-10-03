@@ -1,7 +1,12 @@
 import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 import type { AccessibleRouteResult, RouteBarrier } from '@krakow-bez-barier/sources';
 import { darkColors, lightColors } from '@/theme/tokens';
-import { t, type Locale } from '@/i18n/strings';
+import {
+  getLocalizedFactValue,
+  getLocalizedFindingType,
+  t,
+  type Locale,
+} from '@/i18n/strings';
 
 interface BarriersListProps {
   route: AccessibleRouteResult;
@@ -13,6 +18,10 @@ export function BarriersList({ route, locale }: BarriersListProps) {
   const colors = scheme === 'dark' ? darkColors : lightColors;
 
   const { barriers, summary } = route;
+
+  const honestyNoteText = summary.honestyNote.includes('Nie znaleziono')
+    ? t(locale, 'noBarriersFound')
+    : t(locale, 'caveatNotice');
 
   const getStatusBadge = (status: RouteBarrier['status']) => {
     switch (status) {
@@ -60,7 +69,7 @@ export function BarriersList({ route, locale }: BarriersListProps) {
         ]}
       >
         <Text style={[styles.honestyTitle, { color: summary.blockerCount > 0 ? '#C62828' : '#F57F17' }]}>
-          {summary.honestyNote}
+          {honestyNoteText}
         </Text>
         {summary.coverageRatio !== null && (
           <Text style={styles.coverageText}>
@@ -95,12 +104,14 @@ export function BarriersList({ route, locale }: BarriersListProps) {
           {barriers.map((barrier) => {
             const statusB = getStatusBadge(barrier.status);
             const severityB = getSeverityBadge(barrier.severity);
+            const localizedCrit = getLocalizedFindingType(barrier.criterion, locale);
+            const localizedVal = getLocalizedFactValue(barrier.value, locale);
 
             return (
               <View
                 key={barrier.id}
                 accessibilityRole="text"
-                accessibilityLabel={`${barrier.criterion}: ${barrier.value}. ${barrier.message}. Status: ${statusB.label}`}
+                accessibilityLabel={`${localizedCrit}: ${localizedVal}. ${barrier.message}. Status: ${statusB.label}`}
                 style={[styles.barrierCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
               >
                 <View style={styles.badgeRow}>
@@ -116,14 +127,14 @@ export function BarriersList({ route, locale }: BarriersListProps) {
                 </View>
 
                 <Text style={[styles.criterionTitle, { color: colors.text }]}>
-                  {barrier.criterion}: <Text style={{ fontWeight: '400' }}>{barrier.value}</Text>
+                  {localizedCrit}: <Text style={{ fontWeight: '400' }}>{localizedVal}</Text>
                 </Text>
 
                 <Text style={[styles.body, { color: colors.text }]}>{barrier.message}</Text>
 
                 <View style={styles.footerRow}>
                   <Text style={[styles.sourceText, { color: colors.muted }]}>
-                    {locale === 'pl' ? 'Źródło' : 'Source'}: {barrier.source.name} ({barrier.source.licence})
+                    {t(locale, 'source')}: {barrier.source.name} ({barrier.source.licence})
                   </Text>
                 </View>
               </View>

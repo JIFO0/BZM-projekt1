@@ -4,10 +4,8 @@ import {
   type ProfileId,
 } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import {
   ArrowRight,
-  Baby,
   Buildings,
   CaretDown,
   CaretUp,
@@ -20,11 +18,11 @@ import {
   Prohibit,
   SlidersHorizontal,
   Warning,
-  Wheelchair,
   X,
 } from 'phosphor-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -54,36 +52,42 @@ const ROAD_TYPE_OPTIONS = [
     nameKey: 'surfaceCobblestone' as const,
     descPl: 'Bruk i kocie łby, trudne do przejazdu',
     descEn: 'Cobblestone and historic paving',
+    descUk: 'Бруківка та кругляк, важко проїхати',
   },
   {
     id: 'gravel',
     nameKey: 'surfaceGravel' as const,
     descPl: 'Gruby żwir i szuter, utrudniający toczenie się kół',
     descEn: 'Coarse gravel hindering wheel rolling',
+    descUk: 'Грубий гравій та щебінь, що ускладнює рух коліс',
   },
   {
     id: 'sand',
     nameKey: 'surfaceSand' as const,
     descPl: 'Sypki piasek grzęznący dla wózków',
     descEn: 'Loose sand causing wheels to sink',
+    descUk: 'Сипкий пісок, у якому загрузають візки',
   },
   {
     id: 'dirt',
     nameKey: 'surfaceDirt' as const,
     descPl: 'Drogi gruntowe i ziemne, błotniste po deszczu',
     descEn: 'Dirt and soil tracks, muddy in rain',
+    descUk: 'Ґрунтові дороги, багнисті після дощу',
   },
   {
     id: 'unpaved',
     nameKey: 'surfaceUnpaved' as const,
     descPl: 'Wszelkie nawierzchnie nieutwardzone',
     descEn: 'Any general unpaved terrain',
+    descUk: 'Будь-які невимощені поверхні',
   },
   {
     id: 'compacted',
     nameKey: 'surfaceCompacted' as const,
     descPl: 'Nawierzchnia szutrowa utwardzona / ubita',
     descEn: 'Compacted gravel or stabilized surface',
+    descUk: 'Утрамбований щебінь або стабілізоване покриття',
   },
 ];
 
@@ -107,6 +111,9 @@ export default function MapHomeScreen() {
     setActivePlaceReport,
     localReports,
     addLocalReport,
+    userLocation,
+    isLocating,
+    fetchUserLocation,
     colors,
     fontSize,
     isHighContrast,
@@ -117,6 +124,15 @@ export default function MapHomeScreen() {
     lat: 50.0619,
     lon: 19.9373,
   });
+
+  // Proactively request / fetch location on mount
+  useEffect(() => {
+    fetchUserLocation().then((loc) => {
+      if (loc) {
+        setMapCenter({ lat: loc.lat, lon: loc.lon });
+      }
+    });
+  }, [fetchUserLocation]);
 
   // Popup menu / sheet state (Google/Apple Maps style)
   const [popupExpanded, setPopupExpanded] = useState(false);
@@ -139,7 +155,6 @@ export default function MapHomeScreen() {
   const [loadingPlace, setLoadingPlace] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const blockedList =
     activeThresholds?.blockedRoadTypes ?? activeThresholds?.blockedSurfaces ?? [];
@@ -147,9 +162,8 @@ export default function MapHomeScreen() {
   const getProfileIcon = (id: ProfileId, size = 18) => {
     switch (id) {
       case 'wheelchair':
-        return <Wheelchair size={size} weight="bold" color={colors.accent} />;
-      case 'stroller':
-        return <Baby size={size} weight="bold" color={colors.accent} />;
+        // Less intimidating modern navigation arrow icon
+        return <NavigationArrow size={size} weight="bold" color={colors.accent} />;
       case 'custom':
       default:
         return <SlidersHorizontal size={size} weight="bold" color={colors.accent} />;
@@ -160,8 +174,6 @@ export default function MapHomeScreen() {
     switch (id) {
       case 'wheelchair':
         return t(locale, 'wheelchair');
-      case 'stroller':
-        return t(locale, 'stroller');
       case 'custom':
       default:
         return t(locale, 'custom');
@@ -171,14 +183,59 @@ export default function MapHomeScreen() {
   // 1. Locate Me / Reset Map
   const handleCenterKrakow = () => {
     setMapCenter({ lat: 50.0619, lon: 19.9373 });
-    setStatusMessage('Wycentrowano mapę na Rynku Głównym w Krakowie.');
+    setStatusMessage(t(locale, 'toastCenteredKrakow'));
     setTimeout(() => setStatusMessage(null), 3000);
   };
 
-  const handleUseMyLocation = () => {
-    setFromQuery('Moja lokalizacja (Centrum)');
-    setFromPos({ lon: 19.9373, lat: 50.0619 });
-    setMapCenter({ lat: 50.0619, lon: 19.9373 });
+  const handleLocateUser = async () => {
+    setStatusMessage(t(locale, 'gpsFetching'));
+    const result = await fetchUserLocation();
+    const loc = result || userLocation;
+    if (loc) {
+      setMapCenter({ lat: loc.lat, lon: loc.lon });
+      setStatusMessage(t(locale, 'gpsCenteredSuccess'));
+      setTimeout(() => setStatusMessage(null), 3000);
+    } else {
+      Alert.alert(
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableDesc'),
+        [
+          { text: t(locale, 'btnCenterKrakowAction'), onPress: handleCenterKrakow },
+          { text: 'OK', style: 'cancel' },
+        ],
+      );
+      setStatusMessage(null);
+    }
+  };
+
+  const handleUseMyLocation = async () => {
+    setStatusMessage(t(locale, 'gpsFetching'));
+    const result = await fetchUserLocation();
+    const loc = result || userLocation;
+    if (loc) {
+      setFromQuery(result?.address || t(locale, 'myLocationShort'));
+      setFromPos({ lon: loc.lon, lat: loc.lat });
+      setMapCenter({ lat: loc.lat, lon: loc.lon });
+      setStatusMessage(t(locale, 'gpsStartPointSet'));
+      setTimeout(() => setStatusMessage(null), 2500);
+    } else {
+      Alert.alert(
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableSearchDesc'),
+        [
+          {
+            text: t(locale, 'btnCenterKrakowAction'),
+            onPress: () => {
+              setFromQuery(t(locale, 'rynekGlowny'));
+              setFromPos({ lon: 19.9373, lat: 50.0619 });
+              setMapCenter({ lat: 50.0619, lon: 19.9373 });
+            },
+          },
+          { text: t(locale, 'cancel'), style: 'cancel' },
+        ],
+      );
+      setStatusMessage(null);
+    }
   };
 
   // 2. Plan & Analyze Route
@@ -207,7 +264,7 @@ export default function MapHomeScreen() {
         });
       }
     } catch (err: any) {
-      Alert.alert('Błąd wyznaczania trasy', err.message || 'Nie udało się obliczyć trasy.');
+      Alert.alert(t(locale, 'routeErrorTitle'), err.message || t(locale, 'routeErrorMsg'));
     } finally {
       setLoadingRoute(false);
     }
@@ -224,7 +281,7 @@ export default function MapHomeScreen() {
       setActiveTab('place');
       setMapCenter({ lat: placePos.lat, lon: placePos.lon });
     } catch (err: any) {
-      Alert.alert('Błąd sprawdzania obiektu', err.message || 'Nie udało się pobrać danych.');
+      Alert.alert(t(locale, 'placeErrorTitle'), err.message || t(locale, 'placeErrorMsg'));
     } finally {
       setLoadingPlace(false);
     }
@@ -258,7 +315,7 @@ export default function MapHomeScreen() {
         });
       }
     } catch (err: any) {
-      Alert.alert('Błąd', err.message || 'Nie udało się załadować trasy demo.');
+      Alert.alert(t(locale, 'errorTitle'), err.message || t(locale, 'routeErrorMsg'));
     } finally {
       setLoadingRoute(false);
     }
@@ -278,7 +335,7 @@ export default function MapHomeScreen() {
       setActivePlaceReport(result.report);
       setMapCenter({ lat: placeData.position.lat, lon: placeData.position.lon });
     } catch (err: any) {
-      Alert.alert('Błąd', err.message || 'Nie udało się załadować obiektu demo.');
+      Alert.alert(t(locale, 'errorTitle'), err.message || t(locale, 'placeErrorMsg'));
     } finally {
       setLoadingPlace(false);
     }
@@ -293,40 +350,13 @@ export default function MapHomeScreen() {
   // Submit local report
   const handleSubmitLocalReport = () => {
     if (!reportDesc.trim()) {
-      Alert.alert('Uwaga', 'Wpisz opis przeszkody przed zapisem.');
+      Alert.alert(t(locale, 'warningTitle'), t(locale, 'reportDescRequired'));
       return;
     }
     addLocalReport(reportDesc.trim());
     setReportDesc('');
     setReportSuccess(true);
     setTimeout(() => setReportSuccess(false), 3500);
-  };
-
-  // Screen Reader Narrative
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    let narrative = `${t(locale, 'appName')}. Mapa dostępności Krakowa w stylu map mobilnych. Aktualny profil poruszania: ${getProfileLabel(
-      profileId,
-    )}. `;
-    if (activeWalkingRoute && activeRouteReport) {
-      narrative += `Aktywna trasa z ${fromQuery} do ${toQuery} o długości ${activeRouteReport.lengthMetres} metrów. `;
-      const blockers = activeRouteReport.findings.filter((f) => f.severity === 'blocker');
-      const warnings = activeRouteReport.findings.filter((f) => f.severity === 'warning');
-      narrative += `Wykryto ${blockers.length} blokad oraz ${warnings.length} ostrzeżeń. `;
-    } else {
-      narrative += 'Brak aktywnej trasy. Użyj dolnego menu wyszukiwania, aby wyznaczyć trasę lub sprawdzić obiekt.';
-    }
-
-    setIsSpeaking(true);
-    Speech.speak(narrative, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
   };
 
   return (
@@ -337,11 +367,7 @@ export default function MapHomeScreen() {
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'appName') }} />
 
       {/* 1. TOP HEADER (Google / Apple Maps Style Floating Top Bar) */}
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner />
 
@@ -352,6 +378,7 @@ export default function MapHomeScreen() {
           route={activeWalkingRoute}
           findings={activeRouteReport?.findings || []}
           center={mapCenter}
+          userLocation={userLocation}
           startLocation={
             activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
               ? { name: fromQuery, lat: activeWalkingRoute.coordinates[0]![1], lon: activeWalkingRoute.coordinates[0]![0] }
@@ -372,23 +399,27 @@ export default function MapHomeScreen() {
         <View style={styles.floatingControlsRight}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Wycentruj na centrum Krakowa"
-            onPress={handleCenterKrakow}
+            accessibilityLabel={t(locale, 'accessibilityShowMyLocation')}
+            onPress={handleLocateUser}
             style={[
               styles.floatingBtn,
               {
                 backgroundColor: colors.surface,
-                borderColor: colors.border,
+                borderColor: userLocation ? colors.accent : colors.border,
                 borderWidth: isHighContrast ? 2.5 : 1.5,
               },
             ]}
           >
-            <Crosshair size={22} weight="bold" color={colors.accent} />
+            {isLocating ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Crosshair size={22} weight="bold" color={userLocation ? colors.accent : colors.text} />
+            )}
           </Pressable>
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Zmień profil poruszania się"
+            accessibilityLabel={t(locale, 'btnChangeProfile')}
             onPress={() => {
               setActiveTab('profile');
               setPopupExpanded(true);
@@ -408,7 +439,7 @@ export default function MapHomeScreen() {
           {activeWalkingRoute ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Wyczyść aktywną trasę"
+              accessibilityLabel={t(locale, 'btnClearRoute')}
               onPress={handleClearRoute}
               style={[
                 styles.floatingBtn,
@@ -428,7 +459,7 @@ export default function MapHomeScreen() {
         {activeWalkingRoute && activeRouteReport ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Pokaż podsumowanie aktywnej trasy"
+            accessibilityLabel={t(locale, 'btnShowRouteSummary')}
             onPress={() => {
               setActiveTab('route');
               setPopupExpanded(true);
@@ -445,7 +476,7 @@ export default function MapHomeScreen() {
             <Path size={18} weight="bold" color={colors.accent} />
             <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
               {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
-              {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length} blokad
+              {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length} {t(locale, 'severityBlocker').toLowerCase()}
             </Text>
             <CaretUp size={16} weight="bold" color={colors.accent} />
           </Pressable>
@@ -478,7 +509,7 @@ export default function MapHomeScreen() {
         {/* Drag Handle Bar / Tap to toggle */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={popupExpanded ? 'Zwiń dolne menu' : 'Rozwiń dolne menu wyszukiwania'}
+          accessibilityLabel={popupExpanded ? t(locale, 'collapseMenu') : t(locale, 'expandMenu')}
           onPress={() => setPopupExpanded(!popupExpanded)}
           style={styles.sheetHandleRow}
         >
@@ -497,7 +528,7 @@ export default function MapHomeScreen() {
             </View>
             <View style={styles.sheetToggleBtn}>
               <Text style={[styles.toggleText, { color: colors.muted, fontSize: fontSize(12) }]}>
-                {popupExpanded ? 'Ukryj menu' : 'Rozwiń menu'}
+                {popupExpanded ? t(locale, 'hideMenu') : t(locale, 'expandMenu')}
               </Text>
               {popupExpanded ? (
                 <CaretDown size={14} weight="bold" color={colors.accent} />
@@ -528,7 +559,7 @@ export default function MapHomeScreen() {
             >
               <MagnifyingGlass size={18} weight="bold" color={colors.accent} />
               <Text style={[styles.peekSearchPlaceholder, { color: colors.muted, fontSize: fontSize(14) }]}>
-                Dokąd w Krakowie? Szukaj trasy lub miejsca...
+                {t(locale, 'searchPlaceholderUnified')}
               </Text>
             </Pressable>
 
@@ -573,7 +604,7 @@ export default function MapHomeScreen() {
               >
                 <SlidersHorizontal size={14} weight="bold" color={colors.accent} />
                 <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  Nawierzchnie ({blockedList.length})
+                  {t(locale, 'surfacesChip')} ({blockedList.length})
                 </Text>
               </Pressable>
             </ScrollView>
@@ -616,7 +647,7 @@ export default function MapHomeScreen() {
                     },
                   ]}
                 >
-                  Trasa
+                  {t(locale, 'tabRoute')}
                 </Text>
               </Pressable>
 
@@ -643,7 +674,7 @@ export default function MapHomeScreen() {
                     },
                   ]}
                 >
-                  Obiekt
+                  {t(locale, 'tabPlace')}
                 </Text>
               </Pressable>
 
@@ -670,7 +701,7 @@ export default function MapHomeScreen() {
                     },
                   ]}
                 >
-                  Profil
+                  {t(locale, 'tabProfile')}
                 </Text>
               </Pressable>
 
@@ -697,7 +728,7 @@ export default function MapHomeScreen() {
                     },
                   ]}
                 >
-                  Zgłoś
+                  {t(locale, 'tabReport')}
                 </Text>
               </Pressable>
             </View>
@@ -721,13 +752,13 @@ export default function MapHomeScreen() {
                       </Text>
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Użyj mojej bieżącej lokalizacji"
+                        accessibilityLabel={t(locale, 'myLocation')}
                         onPress={handleUseMyLocation}
                         style={styles.myLocationPill}
                       >
                         <NavigationArrow size={12} weight="bold" color={colors.accent} />
                         <Text style={[styles.myLocationText, { color: colors.accent, fontSize: fontSize(12) }]}>
-                          Moja lokalizacja
+                          {t(locale, 'myLocationShort')}
                         </Text>
                       </Pressable>
                     </View>
@@ -786,7 +817,7 @@ export default function MapHomeScreen() {
                     <GovCard variant="accent">
                       <View style={styles.cardHeaderRow}>
                         <Text style={[styles.resultTitle, { color: colors.text, fontSize: fontSize(16) }]}>
-                          Podsumowanie trasy:
+                          {t(locale, 'summaryCardTitle')}:
                         </Text>
                         <Text style={[styles.metricVal, { color: colors.accent, fontSize: fontSize(15) }]}>
                           {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 60) / 60)} min
@@ -800,7 +831,7 @@ export default function MapHomeScreen() {
                             {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length}
                           </Text>
                           <Text style={[styles.barrierMiniLabel, { color: colors.blockerText, fontSize: fontSize(11) }]}>
-                            Blokady
+                            {t(locale, 'severityBlocker')}
                           </Text>
                         </View>
 
@@ -809,7 +840,7 @@ export default function MapHomeScreen() {
                             {activeRouteReport.findings.filter((f) => f.severity === 'warning').length}
                           </Text>
                           <Text style={[styles.barrierMiniLabel, { color: colors.warningText, fontSize: fontSize(11) }]}>
-                            Ostrzeżenia
+                            {t(locale, 'severityWarning')}
                           </Text>
                         </View>
 
@@ -818,14 +849,14 @@ export default function MapHomeScreen() {
                             {activeRouteReport.findings.filter((f) => f.severity === 'ok').length}
                           </Text>
                           <Text style={[styles.barrierMiniLabel, { color: colors.okText, fontSize: fontSize(11) }]}>
-                            Udogodnienia
+                            {t(locale, 'facilitiesCount')}
                           </Text>
                         </View>
                       </View>
 
                       <View style={styles.routeActionRow}>
                         <GovButton
-                          title="Pokaż pełny raport i manewry"
+                          title={t(locale, 'showFullReportAndManeuvers')}
                           icon={<ArrowRight size={16} weight="bold" color={colors.accent} />}
                           variant="outline"
                           onPress={() => router.push('/route')}
@@ -837,7 +868,7 @@ export default function MapHomeScreen() {
                   {/* Fast Demo Scenarios */}
                   <View style={styles.demoSection}>
                     <Text style={[styles.demoSectionTitle, { color: colors.muted, fontSize: fontSize(12.5) }]}>
-                      SZYBKIE TRASY DEMO (KRAKÓW):
+                      {t(locale, 'fastDemoRoutes')}
                     </Text>
                     <View style={styles.demoButtonsRow}>
                       <GovButton
@@ -901,7 +932,7 @@ export default function MapHomeScreen() {
                         {activePlaceReport.summaryMessage}
                       </Text>
                       <GovButton
-                        title="Otwórz pełną kartę obiektu"
+                        title={t(locale, 'openPlaceCard')}
                         icon={<ArrowRight size={16} weight="bold" color={colors.accent} />}
                         variant="outline"
                         onPress={() => router.push('/place')}
@@ -913,7 +944,7 @@ export default function MapHomeScreen() {
                   {/* Fast Demo Places */}
                   <View style={styles.demoSection}>
                     <Text style={[styles.demoSectionTitle, { color: colors.muted, fontSize: fontSize(12.5) }]}>
-                      POPULARNE OBIEKTY DEMO:
+                      {t(locale, 'popularDemoPlaces')}
                     </Text>
                     <View style={styles.demoButtonsRow}>
                       <GovButton
@@ -939,12 +970,12 @@ export default function MapHomeScreen() {
               {activeTab === 'profile' ? (
                 <View style={styles.formSection}>
                   <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
-                    Wybierz profil mobilności:
+                    {t(locale, 'selectProfile')}
                   </Text>
 
                   {/* Profile Cards */}
                   <View style={styles.profilesGrid}>
-                    {(['wheelchair', 'stroller', 'custom'] as ProfileId[]).map((pid) => {
+                    {(['wheelchair', 'custom'] as ProfileId[]).map((pid) => {
                       const selected = profileId === pid;
                       return (
                         <Pressable
@@ -983,7 +1014,7 @@ export default function MapHomeScreen() {
                   {/* Blocked Road Types */}
                   <GovCard variant="default">
                     <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
-                      Blokowane nawierzchnie (omijane na trasie):
+                      {t(locale, 'blockedRoadTypesTitle')}
                     </Text>
 
                     <View style={styles.roadChipsWrap}>
@@ -1029,12 +1060,12 @@ export default function MapHomeScreen() {
                   {profileId === 'custom' ? (
                     <GovCard variant="accent">
                       <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
-                        Progi barier dla profilu własnego:
+                        {t(locale, 'customThresholdsTitle')}
                       </Text>
 
                       <View style={styles.thresholdRow}>
                         <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                          Maksymalny krawężnik: <Text style={{ fontWeight: '800' }}>{customThresholds.maxKerbMillimetres} mm</Text>
+                          {t(locale, 'maxKerb')} <Text style={{ fontWeight: '800' }}>{customThresholds.maxKerbMillimetres} mm</Text>
                         </Text>
                         <View style={styles.stepBtnRow}>
                           <GovButton
@@ -1064,14 +1095,14 @@ export default function MapHomeScreen() {
 
                       <View style={styles.thresholdRow}>
                         <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                          Traktowanie stopni:{' '}
+                          {t(locale, 'stepsTreatment')}{' '}
                           <Text style={{ fontWeight: '800', color: customThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
-                            {customThresholds.stepsAreBlocker ? 'BLOKADA' : 'OSTRZEŻENIE'}
+                            {customThresholds.stepsAreBlocker ? t(locale, 'blockedStatusBlocked') : t(locale, 'severityWarning')}
                           </Text>
                         </Text>
                         <GovButton
                           variant="secondary"
-                          title="Przełącz status schodów"
+                          title={t(locale, 'toggleStepsStatus')}
                           onPress={() =>
                             setCustomThresholds({
                               ...customThresholds,
@@ -1089,13 +1120,13 @@ export default function MapHomeScreen() {
               {activeTab === 'report' ? (
                 <View style={styles.formSection}>
                   <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
-                    Zgłoś przeszkodę lub nieaktualną barierę:
+                    {t(locale, 'reportObstacleHeading')}
                   </Text>
 
                   <TextInput
                     value={reportDesc}
                     onChangeText={setReportDesc}
-                    placeholder="Opisz barierę w terenie (np. brak podjazdu, uszkodzony krawężnik)..."
+                    placeholder={t(locale, 'reportObstaclePlaceholder')}
                     placeholderTextColor={colors.muted}
                     multiline
                     numberOfLines={3}
@@ -1117,21 +1148,21 @@ export default function MapHomeScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Check size={16} weight="bold" color={colors.okText} />
                         <Text style={{ color: colors.okText, fontWeight: '700', fontSize: fontSize(13) }}>
-                          Zgłoszenie zostało zapisane w pamięci urządzenia.
+                          {t(locale, 'reportSavedSuccess')}
                         </Text>
                       </View>
                     </GovCard>
                   ) : null}
 
                   <GovButton
-                    title="Zapisz zgłoszenie lokalnie"
+                    title={t(locale, 'reportSubmit')}
                     icon={<Check size={16} weight="bold" color={colors.accentText} />}
                     variant="primary"
                     onPress={handleSubmitLocalReport}
                   />
 
                   <GovButton
-                    title="Przejdź do pełnego formularza OSM"
+                    title={t(locale, 'openFullOsmForm')}
                     icon={<ArrowRight size={16} weight="bold" color={colors.text} />}
                     variant="outline"
                     onPress={() => router.push('/report-correction')}
@@ -1140,7 +1171,7 @@ export default function MapHomeScreen() {
                   {localReports && localReports.length > 0 ? (
                     <View style={{ marginTop: 12 }}>
                       <Text style={[styles.sectionSubtitle, { color: colors.muted, fontSize: fontSize(12) }]}>
-                        ZAPISANE ZGŁOSZENIA LOKALNE ({localReports.length}):
+                        {t(locale, 'localReportsQueue')} ({localReports.length})
                       </Text>
                       {localReports.map((r) => (
                         <GovCard key={r.id} style={{ marginTop: 6 }}>

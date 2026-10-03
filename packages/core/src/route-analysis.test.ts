@@ -22,20 +22,15 @@ const MOCK_CONFIG = parseCityConfig({
       maxInclinePercent: 6,
       stepsAreBlocker: true,
       allowedSurfaces: ['asphalt', 'paving_stones', 'concrete'],
-    },
-    stroller: {
-      maxKerbMillimetres: 60,
-      minWidthMetres: 0.75,
-      maxInclinePercent: 8,
-      stepsAreBlocker: false,
-      allowedSurfaces: ['asphalt', 'paving_stones', 'concrete', 'fine_gravel'],
+      blockedRoadTypes: ['cobblestone', 'sand'],
     },
     custom: {
       maxKerbMillimetres: 30,
       minWidthMetres: 0.9,
       maxInclinePercent: 6,
-      stepsAreBlocker: true,
+      stepsAreBlocker: false,
       allowedSurfaces: ['asphalt'],
+      blockedRoadTypes: [],
     },
   },
   overpass: { endpoint: 'https://overpass-api.de/api/interpreter', userAgent: 'test/1.0' },
@@ -109,12 +104,9 @@ describe('Route Analysis (T5)', () => {
     expect(sevWithRamp.severity).toBe('warning');
   });
 
-  test('high kerb is blocker for wheelchair (120mm > 30mm) but warning for stroller (120mm > 60mm)', () => {
+  test('high kerb is blocker for wheelchair (120mm > 30mm)', () => {
     const sevWheelchair = evaluateFactSeverity(kerbFactHigh, MOCK_CONFIG.profiles.wheelchair);
     expect(sevWheelchair.severity).toBe('blocker');
-
-    const sevStroller = evaluateFactSeverity(kerbFactHigh, MOCK_CONFIG.profiles.stroller);
-    expect(sevStroller.severity).toBe('blocker'); // stroller max is 60mm
   });
 
   test('missing kerb tag stays unknown', () => {

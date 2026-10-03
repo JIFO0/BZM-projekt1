@@ -9,15 +9,16 @@ import {
 import { Plus, Minus, X, Prohibit, Warning } from 'phosphor-react-native';
 import type { AccessibleRouteResult, RouteBarrier } from '@krakow-bez-barier/sources';
 import { useSession } from '@/state/session';
-import type { Locale } from '@/i18n/strings';
+import { t, type Locale } from '@/i18n/strings';
 
 interface AccessibleMapProps {
   route: AccessibleRouteResult;
   locale: Locale;
   onSelectBarrier?: (barrier: RouteBarrier) => void;
+  userLocation?: { lat: number; lon: number } | null;
 }
 
-export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapProps) {
+export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: AccessibleMapProps) {
   const { colors } = useSession();
   const [zoomOffset, setZoomOffset] = useState<number>(0);
   const [selectedBarrierId, setSelectedBarrierId] = useState<string | null>(null);
@@ -126,13 +127,18 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
     const dist = (route.distanceMeters / 1000).toFixed(1);
     const blockers = route.summary.blockerCount;
     const warnings = route.summary.warningCount;
-    return locale === 'pl'
-      ? `Interaktywna mapa trasy o długości ${dist} kilometra. Znaleziono ${blockers} barier blokujących oraz ${warnings} ostrzeżeń.`
-      : `Interactive route map of length ${dist} kilometers. Found ${blockers} blocking barriers and ${warnings} warnings.`;
+    if (locale === 'pl') {
+      return `Interaktywna mapa trasy o długości ${dist} kilometra. Znaleziono ${blockers} barier blokujących oraz ${warnings} ostrzeżeń.`;
+    }
+    if (locale === 'uk') {
+      return `Інтерактивна карта маршруту довжиною ${dist} км. Знайдено ${blockers} блокуючих перешкод та ${warnings} попереджень.`;
+    }
+    return `Interactive route map of length ${dist} kilometers. Found ${blockers} blocking barriers and ${warnings} warnings.`;
   }, [route, locale]);
 
   const startPt = coords.length > 0 ? projectPoint(coords[0][0], coords[0][1]) : null;
   const endPt = coords.length > 0 ? projectPoint(coords[coords.length - 1][0], coords[coords.length - 1][1]) : null;
+  const userPt = userLocation ? projectPoint(userLocation.lon, userLocation.lat) : null;
 
   return (
     <View style={styles.container}>
@@ -194,6 +200,14 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
           </View>
         )}
 
+        {/* User GPS Location Marker */}
+        {userPt && (
+          <View style={[styles.userMarkerWrapper, { left: userPt.px - 12, top: userPt.py - 12 }]}>
+            <View style={styles.userPulseCircle} />
+            <View style={styles.userDotCircle} />
+          </View>
+        )}
+
         {/* Barrier Markers */}
         {route.barriers.map((barrier) => {
           const pt = projectPoint(barrier.lon, barrier.lat);
@@ -235,7 +249,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
         <View style={styles.zoomControls}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={locale === 'pl' ? 'Przybliż mapę' : 'Zoom in'}
+            accessibilityLabel={t(locale, 'zoomIn')}
             onPress={() => setZoomOffset((prev) => Math.min(prev + 1, 3))}
             style={[styles.zoomButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
@@ -243,7 +257,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={locale === 'pl' ? 'Oddal mapę' : 'Zoom out'}
+            accessibilityLabel={t(locale, 'zoomOut')}
             onPress={() => setZoomOffset((prev) => Math.max(prev - 1, -3))}
             style={[styles.zoomButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
@@ -269,7 +283,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
               </Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={locale === 'pl' ? 'Zamknij szczegóły' : 'Close'}
+                accessibilityLabel={t(locale, 'close')}
                 onPress={() => setSelectedBarrierId(null)}
               >
                 <X size={18} color={colors.muted} weight="bold" />
@@ -277,7 +291,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
             </View>
             <Text style={[styles.popupMessage, { color: colors.text }]}>{item.message}</Text>
             <Text style={[styles.popupMeta, { color: colors.muted }]}>
-              {locale === 'pl' ? 'Odległość od startu' : 'Distance from start'}: {item.distanceFromStartMeters} m | {item.status}
+              {t(locale, 'distanceFromStart')}: {item.distanceFromStartMeters} m | {item.status}
             </Text>
           </View>
         );
@@ -332,6 +346,29 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
+  },
+  userMarkerWrapper: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 28,
+  },
+  userPulseCircle: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 122, 255, 0.35)',
+  },
+  userDotCircle: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#007AFF',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
   },
   barrierMarker: {
     position: 'absolute',

@@ -20,19 +20,26 @@ export function FactRow({ fact, locale }: FactRowProps) {
   const dl = dateLabel(fact);
   let dateText = '';
   if (dl.kind === 'confirmed' && dl.at) {
-    dateText = `potwierdzono: ${dl.at.slice(0, 10)}`;
+    dateText = `${t(locale, 'dateConfirmed')}: ${dl.at.slice(0, 10)}`;
   } else if (dl.kind === 'osm_last_edit' && dl.at) {
-    dateText = `ostatnia edycja OSM: ${dl.at.slice(0, 10)}`;
+    dateText = `${t(locale, 'dateOsmEdit')}: ${dl.at.slice(0, 10)}`;
   } else if (dl.kind === 'retrieved' && dl.at) {
-    dateText = `pobrano: ${dl.at.slice(0, 10)}`;
+    dateText = `${t(locale, 'dateRetrieved')}: ${dl.at.slice(0, 10)}`;
   } else {
-    dateText = 'brak daty';
+    dateText = t(locale, 'noDate');
   }
+
+  const a11yLabel =
+    locale === 'pl'
+      ? `${fact.criterion}: ${fact.value}. Status: ${fact.status}. Źródło: ${fact.source.name}, ${dateText}`
+      : locale === 'uk'
+        ? `${fact.criterion}: ${fact.value}. Статус: ${fact.status}. Джерело: ${fact.source.name}, ${dateText}`
+        : `${fact.criterion}: ${fact.value}. Status: ${fact.status}. Source: ${fact.source.name}, ${dateText}`;
 
   return (
     <View
       accessibilityRole="text"
-      accessibilityLabel={`${fact.criterion}: ${fact.value}. Status: ${fact.status}. Źródło: ${fact.source.name}, ${dateText}`}
+      accessibilityLabel={a11yLabel}
       style={[
         styles.container,
         {
@@ -73,7 +80,7 @@ export function FactRow({ fact, locale }: FactRowProps) {
               },
             ]}
           >
-            {expanded ? 'Mniej' : 'Dlaczego taki status?'}
+            {expanded ? t(locale, 'less') : t(locale, 'whyThisStatus')}
           </Text>
           {expanded ? (
             <CaretUp size={14} weight="bold" color={colors.accent} />
@@ -95,23 +102,23 @@ export function FactRow({ fact, locale }: FactRowProps) {
           ]}
         >
           <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
-            • Obiekt: {fact.source.objectId ?? fact.subject.ref} ({fact.subject.type})
+            • {t(locale, 'objectLabel')}: {fact.source.objectId ?? fact.subject.ref} ({fact.subject.type})
           </Text>
           <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
-            • Licencja: {fact.source.licence}
+            • {t(locale, 'licenseLabel')}: {fact.source.licence}
           </Text>
           {fact.lastConfirmedAt ? (
             <Text style={[styles.detailItem, { color: colors.okBorder, fontSize: fontSize(13) }]}>
-              • Data potwierdzenia (check_date): {fact.lastConfirmedAt}
+              • {t(locale, 'confirmationDateLabel')}: {fact.lastConfirmedAt}
             </Text>
           ) : (
             <Text style={[styles.detailItem, { color: colors.muted, fontSize: fontSize(13) }]}>
-              • Brak tagu potwierdzenia (check_date). Data edycji nie jest datą weryfikacji.
+              • {t(locale, 'noCheckDateLabel')}
             </Text>
           )}
           {fact.matchConfidence !== undefined ? (
             <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
-              • Pewność dopasowania do miejsca: {Math.round(fact.matchConfidence * 100)}%
+              • {t(locale, 'placeMatchConfidenceLabel')}: {Math.round(fact.matchConfidence * 100)}%
             </Text>
           ) : null}
         </View>

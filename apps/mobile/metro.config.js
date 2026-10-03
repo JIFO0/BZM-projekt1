@@ -37,12 +37,17 @@ const exclusionPatterns = excludedDirs.map(
   (dir) => new RegExp(`^${escapeRegExp(dir)}([\\/\\\\].*)?$`)
 );
 
+config.resolver.extraNodeModules = {
+  ...(config.resolver.extraNodeModules ?? {}),
+  'expo-location': path.resolve(workspaceRoot, 'node_modules/expo-location'),
+};
+
 config.resolver.blockList = [
   ...(Array.isArray(config.resolver.blockList)
     ? config.resolver.blockList
     : config.resolver.blockList
-    ? [config.resolver.blockList]
-    : []),
+      ? [config.resolver.blockList]
+      : []),
   ...exclusionPatterns,
 ];
 

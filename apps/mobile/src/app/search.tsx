@@ -1,8 +1,8 @@
 import { DEMO_SNAPSHOT, type LonLat } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -48,6 +48,8 @@ export default function SearchScreen() {
     highlightLinks,
     dyslexicFont,
     activeThresholds,
+    userLocation,
+    fetchUserLocation,
   } = useSession();
 
   const [activeTab, setActiveTab] = useState<'route' | 'place'>('route');
@@ -63,12 +65,19 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const handleUseMyLocation = () => {
-    // Explicit user tap as required by P3
-    setFromQuery('Moja lokalizacja (Centrum Krakowa)');
-    setFromPos({ lon: 19.9373, lat: 50.0619 });
+  const handleUseMyLocation = async () => {
+    const result = await fetchUserLocation();
+    const loc = result || userLocation;
+    if (loc) {
+      setFromQuery(result?.address || t(locale, 'myLocationShort'));
+      setFromPos({ lon: loc.lon, lat: loc.lat });
+    } else {
+      Alert.alert(
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableDesc'),
+      );
+    }
   };
 
   const handleAnalyzeRoute = async () => {
@@ -87,7 +96,14 @@ export default function SearchScreen() {
       setActiveRouteReport(result.report);
       router.push('/route' as any);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Wystąpił błąd podczas analizowania trasy.');
+      setErrorMsg(
+        err.message ||
+          (locale === 'pl'
+            ? 'Wystąpił błąd podczas analizowania trasy.'
+            : locale === 'uk'
+              ? 'Сталася помилка під час аналізу маршруту.'
+              : 'An error occurred while analyzing the route.')
+      );
     } finally {
       setLoading(false);
     }
@@ -101,7 +117,14 @@ export default function SearchScreen() {
       setActivePlaceReport(result.report);
       router.push('/place' as any);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Wystąpił błąd podczas sprawdzania miejsca.');
+      setErrorMsg(
+        err.message ||
+          (locale === 'pl'
+            ? 'Wystąpił błąd podczas sprawdzania miejsca.'
+            : locale === 'uk'
+              ? 'Сталася помилка під час перевірки місця.'
+              : 'An error occurred while checking place.')
+      );
     } finally {
       setLoading(false);
     }
@@ -125,35 +148,11 @@ export default function SearchScreen() {
     setActiveTab('place');
   };
 
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    const text = `${t(locale, 'searchTitle')}. ${t(locale, 'searchLead')}. ${
-      activeTab === 'route'
-        ? `Aktywna zakładka: Trasa piesza A do B. Punkt początkowy: ${fromQuery}. Punkt docelowy: ${toQuery}. Naciśnij przycisk Analizuj trasę, aby sprawdzić bariery.`
-        : `Aktywna zakładka: Dostępność obiektu. Szukany obiekt: ${placeQuery}. Naciśnij przycisk Sprawdź dostępność miejsca.`
-    }`;
-
-    setIsSpeaking(true);
-    Speech.speak(text, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'searchTitle') }} />
 
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner />
 
@@ -405,37 +404,41 @@ export default function SearchScreen() {
             </Text>
           </View>
           <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13.5) }]}>
-            Kliknij gotowy scenariusz, aby przetestować bez wpisywania:
+            {locale === 'pl'
+              ? 'Kliknij gotowy scenariusz, aby przetestować bez wpisywania:'
+              : locale === 'uk'
+                ? 'Натисніть готовий сценарій, щоб протестувати без введення:'
+                : 'Click a preset scenario to test without typing:'}
           </Text>
 
           <View style={styles.scenariosList}>
             <GovButton
               variant="outline"
-              title={`Trasa: ${t(locale, 'demoRoute1')}`}
+              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute1')}`}
               icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(0)}
             />
             <GovButton
               variant="outline"
-              title={`Trasa: ${t(locale, 'demoRoute2')}`}
+              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute2')}`}
               icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(1)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce: ${t(locale, 'demoPlace1')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace1')}`}
               icon={<Buildings size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(0)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce (R7 Sprzeczne): ${t(locale, 'demoPlace2')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace2')}`}
               icon={<Lightning size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(1)}
             />
             <GovButton
               variant="outline"
-              title={`Miejsce (R8 Przedawnione): ${t(locale, 'demoPlace3')}`}
+              title={`${t(locale, 'tabPlace')}: ${t(locale, 'demoPlace3')}`}
               icon={<Clock size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(2)}
             />

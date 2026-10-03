@@ -13,7 +13,7 @@ import {
 } from 'phosphor-react-native';
 import type { AccessibleRouteResult } from '@krakow-bez-barier/sources';
 import { useSession } from '@/state/session';
-import type { Locale } from '@/i18n/strings';
+import { t, type Locale } from '@/i18n/strings';
 
 interface ManeuversListProps {
   route: AccessibleRouteResult;
@@ -62,7 +62,7 @@ export function ManeuversList({ route, locale }: ManeuversListProps) {
         ]}
       >
         <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
-          {locale === 'pl' ? 'Brak szczegółowych manewrów.' : 'No detailed maneuvers.'}
+          {t(locale, 'noDetailedManeuvers')}
         </Text>
       </View>
     );
@@ -77,7 +77,7 @@ export function ManeuversList({ route, locale }: ManeuversListProps) {
           <View
             key={maneuver.id}
             accessibilityRole="text"
-            accessibilityLabel={`${index + 1}. ${maneuver.text}. Dystans: ${maneuver.distanceMeters} metrów.`}
+            accessibilityLabel={`${index + 1}. ${maneuver.text}. ${t(locale, 'distanceLabel')}: ${maneuver.distanceMeters} m.`}
             style={[
               styles.itemCard,
               {

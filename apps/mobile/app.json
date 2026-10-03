@@ -36,7 +36,13 @@
         }
       ],
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Zezwól aplikacji Kraków bez barier na dostęp do Twojej lokalizacji, aby pokazywać ją na mapie i ułatwiać nawigację."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

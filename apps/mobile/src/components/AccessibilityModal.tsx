@@ -13,16 +13,16 @@ import {
   BookOpen,
   Check,
   Eye,
+  Globe,
   HandPointing,
   Palette,
   ShieldCheck,
-  SpeakerHigh,
   TextAa,
   TextAlignLeft,
   X,
 } from 'phosphor-react-native';
 
-import { t } from '@/i18n/strings';
+import { t, type Locale } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import type {
   ContrastMode,
@@ -36,6 +36,7 @@ import { spacing } from '@/theme/tokens';
 export function AccessibilityModal() {
   const {
     locale,
+    setLocale,
     accessibilityModalVisible,
     setAccessibilityModalVisible,
     contrastMode,
@@ -48,8 +49,6 @@ export function AccessibilityModal() {
     setLetterSpacingMode,
     fontFamilyMode,
     setFontFamilyMode,
-    speechRate,
-    setSpeechRate,
     setDyslexicFont,
     increasedSpacing,
     setIncreasedSpacing,
@@ -142,12 +141,11 @@ export function AccessibilityModal() {
     { id: 'mono', label: t(locale, 'fontFamilyMono') },
   ];
 
-  const speechRateOptions: { rate: number; label: string }[] = [
-    { rate: 0.8, label: t(locale, 'speechRateSlow') },
-    { rate: 1.0, label: t(locale, 'speechRateNormal') },
-    { rate: 1.2, label: t(locale, 'speechRateFast') },
+  const languageOptions: { id: Locale; label: string; code: string }[] = [
+    { id: 'pl', label: t(locale, 'langPl'), code: 'PL' },
+    { id: 'en', label: t(locale, 'langEn'), code: 'EN' },
+    { id: 'uk', label: t(locale, 'langUk'), code: 'UK' },
   ];
-
   return (
     <Modal
       visible={accessibilityModalVisible}
@@ -197,7 +195,7 @@ export function AccessibilityModal() {
                   },
                 ]}
               >
-                {t(locale, 'wcagBadge')} • Urząd Miasta Krakowa
+                {t(locale, 'wcagBadge')} • {t(locale, 'cityHallKrakow')}
               </Text>
             </View>
 
@@ -230,6 +228,78 @@ export function AccessibilityModal() {
               {t(locale, 'accessibilityPanelDesc')}
             </Text>
 
+            {/* SEKCJA JĘZYK: Wybór języka / Language Selection */}
+            <View style={styles.section}>
+              <View style={styles.sectionTitleRow}>
+                <Globe size={19} weight="bold" color={colors.accent} />
+                <Text
+                  accessibilityRole="header"
+                  style={[
+                    styles.sectionTitle,
+                    {
+                      color: colors.text,
+                      fontSize: fontSize(15.5),
+                    },
+                  ]}
+                >
+                  {t(locale, 'languageSectionTitle')}
+                </Text>
+              </View>
+
+              <View accessibilityRole="radiogroup" style={styles.optionsCol}>
+                {languageOptions.map((opt) => {
+                  const isSelected = locale === opt.id;
+                  return (
+                    <Pressable
+                      key={opt.id}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: isSelected }}
+                      aria-checked={isSelected}
+                      accessibilityLabel={`${opt.label}. ${isSelected ? t(locale, 'selected') : ''}`}
+                      onPress={() => setLocale(opt.id)}
+                      style={[
+                        styles.contrastCard,
+                        {
+                          backgroundColor: colors.surface,
+                          borderColor: isSelected ? colors.focus : colors.border,
+                          borderWidth: isSelected ? 3 : 1.5,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.colorSwatch,
+                          {
+                            backgroundColor: isSelected ? colors.accent : colors.background,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.swatchText, { color: isSelected ? colors.accentText : colors.text }]}>
+                          {opt.code}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.optionText,
+                          {
+                            color: colors.text,
+                            fontSize: fontSize(14),
+                            fontWeight: isSelected ? '800' : '500',
+                          },
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                      {isSelected ? (
+                        <Check size={18} weight="bold" color={colors.accent} />
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
             {/* SEKCJA 1: Kontrast i barwy */}
             <View style={styles.section}>
               <View style={styles.sectionTitleRow}>
@@ -257,7 +327,7 @@ export function AccessibilityModal() {
                       accessibilityRole="radio"
                       accessibilityState={{ checked: isSelected }}
                       aria-checked={isSelected}
-                      accessibilityLabel={`${opt.label}. ${isSelected ? 'Wybrany' : ''}`}
+                      accessibilityLabel={`${opt.label}. ${isSelected ? t(locale, 'selected') : ''}`}
                       onPress={() => setContrastMode(opt.id)}
                       style={[
                         styles.contrastCard,
@@ -667,62 +737,7 @@ export function AccessibilityModal() {
               </View>
             </View>
 
-            {/* SEKCJA 6: Synteza mowy (Lektor) */}
-            <View style={styles.section}>
-              <View style={styles.sectionTitleRow}>
-                <SpeakerHigh size={19} weight="bold" color={colors.accent} />
-                <Text
-                  accessibilityRole="header"
-                  style={[
-                    styles.sectionTitle,
-                    {
-                      color: colors.text,
-                      fontSize: fontSize(15.5),
-                    },
-                  ]}
-                >
-                  {t(locale, 'speechSectionTitle')}
-                </Text>
-              </View>
 
-              <Text style={[styles.subSectionTitle, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                {t(locale, 'speechRateTitle')}
-              </Text>
-              <View accessibilityRole="radiogroup" style={styles.textSizeGrid}>
-                {speechRateOptions.map((opt) => {
-                  const isSelected = speechRate === opt.rate;
-                  return (
-                    <Pressable
-                      key={opt.rate}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: isSelected }}
-                      onPress={() => setSpeechRate(opt.rate)}
-                      style={[
-                        styles.textSizeBtn,
-                        {
-                          backgroundColor: isSelected ? colors.accent : colors.surface,
-                          borderColor: isSelected ? colors.focus : colors.border,
-                          borderWidth: isSelected ? 2.5 : 1.5,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.textSizeBtnText,
-                          {
-                            color: isSelected ? colors.accentText : colors.text,
-                            fontSize: fontSize(12.5),
-                            fontWeight: isSelected ? '800' : '600',
-                          },
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
 
             {/* SEKCJA 7: Zgodność prawna */}
             <View
