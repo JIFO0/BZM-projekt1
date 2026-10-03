@@ -1,0 +1,146 @@
+import { parseCityConfig } from './city-config';
+import { analyzeRoute, evaluateFactSeverity } from './route-analysis';
+import type { Fact, ProfileId } from './types';
+
+const MOCK_CONFIG = parseCityConfig({
+  id: 'krakow',
+  displayName: 'Kraków',
+  defaultLanguage: 'pl',
+  languages: ['pl', 'en'],
+  teamId: null,
+  demoArea: { label: 'Rynek', provisional: true },
+  bbox: { minLon: 19.9, minLat: 50.0, maxLon: 20.0, maxLat: 50.1, note: 'test' },
+  stalenessMonths: 24,
+  corridorMeters: 20,
+  placeMatchMaxMetres: 40,
+  minCoverageForNoBarrierWording: 0.8,
+  adapters: { routing: 'mapy', geocoding: 'mapy', accessibility: 'osm', tiles: 'mapy' },
+  profiles: {
+    wheelchair: {
+      maxKerbMillimetres: 30,
+      minWidthMetres: 0.9,
+      maxInclinePercent: 6,
+      stepsAreBlocker: true,
+      allowedSurfaces: ['asphalt', 'paving_stones', 'concrete'],
+    },
+    stroller: {
+      maxKerbMillimetres: 60,
+      minWidthMetres: 0.75,
+      maxInclinePercent: 8,
+      stepsAreBlocker: false,
+      allowedSurfaces: ['asphalt', 'paving_stones', 'concrete', 'fine_gravel'],
+    },
+    custom: {
+      maxKerbMillimetres: 30,
+      minWidthMetres: 0.9,
+      maxInclinePercent: 6,
+      stepsAreBlocker: true,
+      allowedSurfaces: ['asphalt'],
+    },
+  },
+  overpass: { endpoint: 'https://overpass-api.de/api/interpreter', userAgent: 'test/1.0' },
+  mapy: {
+    apiBase: 'https://api.mapy.com',
+    routeType: 'foot_fast',
+    geometryFormat: 'geojson',
+    language: 'pl',
+    tileMapset: 'basic',
+  },
+});
+
+describe('Route Analysis (T5)', () => {
+  // Simple straight line route in Kraków (Rynek -> Grodzka)
+  // ~200 meters from lat 50.0619, lon 19.9373 to lat 50.0601, lon 19.9375
+  const samplePolyline: Array<[number, number]> = [
+    [19.9373, 50.0619],
+    [19.9374, 50.0610],
+    [19.9375, 50.0601],
+  ];
+
+  const stepFactWithoutRamp: Fact = {
+    id: 'node/101',
+    subject: { type: 'segment', ref: 'node/101', lat: 50.0612, lon: 19.9374 },
+    criterion: 'steps',
+    value: '12 stopni, ramp=no',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-01T10:00:00Z',
+  };
+
+  const stepFactWithRamp: Fact = {
+    id: 'node/102',
+    subject: { type: 'segment', ref: 'node/102', lat: 50.0612, lon: 19.9374 },
+    criterion: 'steps',
+    value: '8 stopni, ramp=yes',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-01T10:00:00Z',
+  };
+
+  const kerbFactHigh: Fact = {
+    id: 'node/103',
+    subject: { type: 'crossing', ref: 'node/103', lat: 50.0605, lon: 19.9375 },
+    criterion: 'kerb',
+    value: '120 mm',
+    status: 'community',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-01T10:00:00Z',
+  };
+
+  const missingKerbFact: Fact = {
+    id: 'node/104',
+    subject: { type: 'crossing', ref: 'node/104', lat: 50.0604, lon: 19.9375 },
+    criterion: 'kerb',
+    value: 'brak pomiaru',
+    status: 'unknown',
+    source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+    retrievedAt: '2026-10-01T10:00:00Z',
+  };
+
+  test('step detected is blocker for wheelchair, but downgraded to warning with ramp', () => {
+    const sevWithoutRamp = evaluateFactSeverity(
+      stepFactWithoutRamp,
+      MOCK_CONFIG.profiles.wheelchair,
+    );
+    expect(sevWithoutRamp.severity).toBe('blocker');
+
+    const sevWithRamp = evaluateFactSeverity(stepFactWithRamp, MOCK_CONFIG.profiles.wheelchair);
+    expect(sevWithRamp.severity).toBe('warning');
+  });
+
+  test('high kerb is blocker for wheelchair (120mm > 30mm) but warning for stroller (120mm > 60mm)', () => {
+    const sevWheelchair = evaluateFactSeverity(kerbFactHigh, MOCK_CONFIG.profiles.wheelchair);
+    expect(sevWheelchair.severity).toBe('blocker');
+
+    const sevStroller = evaluateFactSeverity(kerbFactHigh, MOCK_CONFIG.profiles.stroller);
+    expect(sevStroller.severity).toBe('blocker'); // stroller max is 60mm
+  });
+
+  test('missing kerb tag stays unknown', () => {
+    const sevUnknown = evaluateFactSeverity(missingKerbFact, MOCK_CONFIG.profiles.wheelchair);
+    expect(sevUnknown.severity).toBe('unknown');
+  });
+
+  test('route report orders findings by distance and computes coverage and longest unknown stretch', () => {
+    const report = analyzeRoute({
+      routeId: 'route-test-1',
+      profileId: 'wheelchair',
+      routeCoordinates: samplePolyline,
+      facts: [stepFactWithoutRamp, kerbFactHigh, missingKerbFact],
+      config: MOCK_CONFIG,
+    });
+
+    expect(report.lengthMetres).toBeGreaterThan(100);
+    expect(report.findings.length).toBe(3);
+
+    // Verify distance ordering
+    for (let i = 0; i < report.findings.length - 1; i++) {
+      expect(report.findings[i]!.distanceFromStartMetres).toBeLessThanOrEqual(
+        report.findings[i + 1]!.distanceFromStartMetres,
+      );
+    }
+
+    expect(report.longestUnknownStretchMetres).toBeGreaterThan(0);
+    expect(report.coverage.length).toBeGreaterThan(0);
+  });
+});
