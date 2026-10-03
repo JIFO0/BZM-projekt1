@@ -4,15 +4,15 @@
   "type": "module",
   "private": true,
   "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "types": "./src/types.d.ts",
   "bin": {
-    "krakow-cli": "./src/cli.ts"
+    "krakow-cli": "./src/index.ts"
   },
   "scripts": {
-    "start": "tsx ./src/cli.ts",
-    "server": "tsx ./src/cli.ts server",
-    "datagen": "tsx ./src/cli.ts datagen",
-    "build-snapshot": "tsx ./src/cli.ts datagen",
+    "start": "tsx ./src/index.ts",
+    "server": "tsx ./src/index.ts server",
+    "datagen": "tsx ./src/index.ts datagen",
+    "build-snapshot": "tsx ./src/index.ts datagen",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
