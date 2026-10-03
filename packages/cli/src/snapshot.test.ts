@@ -1,5 +1,5 @@
 import { DEMO_SNAPSHOT } from '@krakow-bez-barier/core';
-import { validateSnapshotData } from './index';
+import { validateSnapshotData } from './cli';
 
 describe('Demo Snapshot Validation', () => {
   test('validates bundled snapshot without errors and confirms DANE PRZYKŁADOWE', () => {

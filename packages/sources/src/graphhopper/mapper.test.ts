@@ -122,6 +122,18 @@ describe('GraphHopper mapper', () => {
     expect(result.summary.honestyNote).toContain('Brak informacji nie gwarantuje pełnej dostępności');
   });
 
+  it('marks blocked road types as blocker barriers in summary and barrier list', () => {
+    const blockedThresholds: BarrierThresholds = {
+      ...thresholds,
+      blockedRoadTypes: ['cobblestone'],
+    };
+    const result = mapGraphHopperPathToResult(samplePath, blockedThresholds);
+    const surfaceBarrier = result.barriers.find((b) => b.type === 'surface');
+    expect(surfaceBarrier).toBeDefined();
+    expect(surfaceBarrier?.severity).toBe('blocker');
+    expect(surfaceBarrier?.message).toContain('Zablokowana nawierzchnia');
+  });
+
   it('throws an informative error if response has no paths', () => {
     const emptyResponse: GraphHopperResponse = {
       paths: [],

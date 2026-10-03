@@ -6,6 +6,7 @@ import {
   DEMO_SNAPSHOT,
   SourceFailure,
   type AccessibilityBundle,
+  type BarrierThresholds,
   type Fact,
   type LonLat,
   type PlaceAnalysisReport,
@@ -39,6 +40,7 @@ export interface PlanRouteParams {
   start: { name: string; position: LonLat };
   end: { name: string; position: LonLat };
   profileId: ProfileId;
+  thresholds?: BarrierThresholds;
   debugState: DebugState;
 }
 
@@ -76,6 +78,7 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
         start: start.position,
         end: end.position,
         profileId,
+        thresholds: params.thresholds,
       });
       fallbackNotice = 'Trasa zoptymalizowana przez silnik GraphHopper (dynamiczne wagi barier).';
     } catch {
@@ -136,6 +139,7 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
     routeCoordinates: walkingRoute.coordinates,
     facts,
     config: city,
+    thresholds: params.thresholds,
     isSample,
   });
 

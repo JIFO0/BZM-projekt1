@@ -1,5 +1,5 @@
 import type { SourceFailure } from './errors';
-import type { Fact, LonLat, ProfileId, SourceDescriptor } from './types';
+import type { BarrierThresholds, Fact, LonLat, ProfileId, SourceDescriptor } from './types';
 import type { RouteReport } from './report';
 
 export interface RouteRequest {
@@ -7,6 +7,7 @@ export interface RouteRequest {
   end: LonLat;
   waypoints?: LonLat[];
   profileId: ProfileId;
+  thresholds?: BarrierThresholds;
 }
 
 /** A walking route from a routing provider. Not an accessibility verdict. */

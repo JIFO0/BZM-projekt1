@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { DEMO_SNAPSHOT, findConflicts, validateFact, type DemoSnapshot, type Fact } from '@krakow-bez-barier/core';
+import { main } from './cli';
 
 export interface SnapshotValidationResult {
     valid: boolean;

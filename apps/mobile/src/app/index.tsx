@@ -30,6 +30,8 @@ export default function ProfileScreen() {
     setProfileId,
     customThresholds,
     setCustomThresholds,
+    activeThresholds,
+    toggleBlockedRoadType,
     colors,
     fontSize,
     lineHeight,
@@ -213,6 +215,126 @@ export default function ProfileScreen() {
             );
           })}
         </View>
+
+        {/* Blocked Road Types / Surfaces Selection (eg. cobblestone) */}
+        <GovCard variant="default">
+          <View style={styles.sectionHeaderWrap}>
+            <Text
+              accessibilityRole="header"
+              style={[
+                styles.customTitle,
+                { color: colors.text, fontSize: fontSize(16) },
+              ]}
+            >
+              🚫 {t(locale, 'blockedRoadTypesTitle')}
+            </Text>
+            <Text
+              style={[
+                styles.bodyText,
+                {
+                  color: colors.muted,
+                  fontSize: fontSize(13),
+                  lineHeight: fontSize(18),
+                  marginTop: 2,
+                },
+              ]}
+            >
+              {t(locale, 'blockedRoadTypesSubtitle')}
+            </Text>
+          </View>
+
+          <View style={styles.roadTypesGrid}>
+            {ROAD_TYPE_OPTIONS.map((rt) => {
+              const isBlocked = blockedList.includes(rt.id);
+              const label = t(locale, rt.nameKey);
+
+              return (
+                <Pressable
+                  key={rt.id}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: isBlocked }}
+                  aria-checked={isBlocked}
+                  accessibilityLabel={`${label}. ${
+                    isBlocked
+                      ? t(locale, 'blockedStatusBlocked')
+                      : t(locale, 'blockedStatusAllowed')
+                  }`}
+                  onPress={() => toggleBlockedRoadType(rt.id)}
+                  style={[
+                    styles.roadTypeCard,
+                    {
+                      backgroundColor: isBlocked
+                        ? isHighContrast
+                          ? colors.background
+                          : colors.surface
+                        : colors.surface,
+                      borderColor: isBlocked ? colors.blockerBorder : colors.border,
+                      borderWidth: isBlocked ? 2.5 : 1.5,
+                      padding: increasedSpacing ? 12 : 9,
+                    },
+                  ]}
+                >
+                  <View style={styles.roadTypeLeft}>
+                    <Text style={{ fontSize: fontSize(19) }}>{rt.icon}</Text>
+                    <View style={styles.roadTypeInfo}>
+                      <Text
+                        style={[
+                          styles.roadTypeLabel,
+                          {
+                            color: isBlocked ? colors.blockerText : colors.text,
+                            fontSize: fontSize(13.5),
+                            fontWeight: isBlocked ? '800' : '600',
+                          },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.roadTypeDesc,
+                          {
+                            color: colors.muted,
+                            fontSize: fontSize(11.5),
+                          },
+                        ]}
+                      >
+                        {locale === 'pl' ? rt.descPl : rt.descEn}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.roadTypeStatusBadge,
+                      {
+                        backgroundColor: isBlocked
+                          ? colors.blockerBorder
+                          : isHighContrast
+                            ? colors.background
+                            : colors.badgeBg,
+                        borderColor: isBlocked ? colors.blockerBorder : colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.roadTypeStatusText,
+                        {
+                          color: isBlocked ? '#FFFFFF' : colors.text,
+                          fontSize: fontSize(11),
+                        },
+                      ]}
+                    >
+                      {isBlocked
+                        ? `🚫 ${t(locale, 'blockedStatusBlocked')}`
+                        : `✓ ${t(locale, 'blockedStatusAllowed')}`}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </GovCard>
 
         {/* Custom Profile Fine-tuning */}
         {profileId === 'custom' ? (
@@ -423,5 +545,45 @@ const styles = StyleSheet.create({
   actionRow: {
     gap: 10,
     marginTop: 4,
+  },
+  sectionHeaderWrap: {
+    gap: 2,
+    marginBottom: 4,
+  },
+  roadTypesGrid: {
+    gap: 8,
+    marginTop: 6,
+  },
+  roadTypeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 10,
+    gap: 8,
+  },
+  roadTypeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  roadTypeInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  roadTypeLabel: {
+    letterSpacing: 0.2,
+  },
+  roadTypeDesc: {
+    fontWeight: '500',
+  },
+  roadTypeStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  roadTypeStatusText: {
+    fontWeight: '800',
   },
 });

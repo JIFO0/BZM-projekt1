@@ -66,12 +66,21 @@ function readThresholds(value: unknown, profile: ProfileId): BarrierThresholds {
   if (typeof value.stepsAreBlocker !== 'boolean') {
     throw new Error(`Profile ${profile} stepsAreBlocker must be boolean`);
   }
+  const rawBlocked = Array.isArray(value.blockedRoadTypes)
+    ? value.blockedRoadTypes
+    : Array.isArray(value.blockedSurfaces)
+    ? value.blockedSurfaces
+    : [];
+  const blockedRoadTypes = rawBlocked.filter((item): item is string => typeof item === 'string');
+
   return {
     maxKerbMillimetres: readNumber(value, 'maxKerbMillimetres'),
     minWidthMetres: readNumber(value, 'minWidthMetres'),
     maxInclinePercent: readNumber(value, 'maxInclinePercent'),
     stepsAreBlocker: value.stepsAreBlocker,
     allowedSurfaces: surfaces,
+    blockedRoadTypes,
+    blockedSurfaces: blockedRoadTypes,
   };
 }
 

@@ -4,10 +4,11 @@ import {
   type RouteFinding,
   type WalkingRoute,
 } from '@krakow-bez-barier/core';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { useSession } from '@/state/session';
+import { city } from '@/config/city';
 
 interface MapViewProps {
   route?: WalkingRoute | null;
@@ -51,6 +52,21 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
     };
   });
 
+  const mapyApiKey = process.env.EXPO_PUBLIC_MAPY_API_KEY;
+  const hasMapyKey = Boolean(
+    mapyApiKey &&
+    mapyApiKey !== 'replace-with-mapy-api-key' &&
+    mapyApiKey.trim().length > 5
+  );
+
+  const tileUrl = hasMapyKey
+    ? `https://api.mapy.com/v1/maptiles/${city.mapy?.tileMapset ?? 'basic'}/256/{z}/{x}/{y}?apikey=${mapyApiKey}`
+    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  const tileAttribution = hasMapyKey
+    ? MAPY_ATTRIBUTION.attribution
+    : OSM_ATTRIBUTION.attribution;
+
   const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -89,9 +105,9 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
       attributionControl: true
     }).setView([${defaultLat}, ${defaultLon}], ${zoom});
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('${tileUrl}', {
       maxZoom: 19,
-      attribution: '${OSM_ATTRIBUTION.attribution} | ${MAPY_ATTRIBUTION.name}'
+      attribution: '${tileAttribution}'
     }).addTo(map);
 
     var routeCoords = ${JSON.stringify(routeGeoJsonCoords)};
@@ -128,13 +144,21 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
         },
       ]}
     >
-      <WebView
-        originWhitelist={['*']}
-        source={{ html: htmlContent }}
-        style={styles.webview}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-      />
+      {Platform.OS === 'web' ? (
+        <iframe
+          title="Mapa trasy"
+          srcDoc={htmlContent}
+          style={{ width: '100%', height: '100%', border: 'none' }}
+        />
+      ) : (
+        <WebView
+          originWhitelist={['*']}
+          source={{ html: htmlContent }}
+          style={styles.webview}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+        />
+      )}
     </View>
   );
 }

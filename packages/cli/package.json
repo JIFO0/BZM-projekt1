@@ -4,18 +4,21 @@
   "type": "module",
   "private": true,
   "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "types": "./src/types.d.ts",
   "bin": {
     "krakow-cli": "./src/index.ts"
   },
   "scripts": {
-    "start": "node ./src/index.ts",
-    "server": "node ./src/index.ts server",
-    "datagen": "node ./src/index.ts datagen",
-    "build-snapshot": "node ./src/index.ts datagen",
+    "start": "tsx ./src/index.ts",
+    "server": "tsx ./src/index.ts server",
+    "datagen": "tsx ./src/index.ts datagen",
+    "build-snapshot": "tsx ./src/index.ts datagen",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@krakow-bez-barier/core": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
   }
 }
