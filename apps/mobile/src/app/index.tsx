@@ -6,6 +6,7 @@ import {
 import { router, Stack } from 'expo-router';
 import {
   ArrowRight,
+  ArrowsDownUp,
   Buildings,
   CaretDown,
   CaretUp,
@@ -40,9 +41,10 @@ import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { KrakowHeader } from '@/components/KrakowHeader';
+import { LocationPicker } from '@/components/LocationPicker';
 import { MapView } from '@/components/MapView';
 import { t } from '@/i18n/strings';
-import { inspectPlace, planAndAnalyzeRoute } from '@/services/api';
+import { inspectPlace, planAndAnalyzeRoute, reverseGeocodeLocation } from '@/services/api';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -150,6 +152,9 @@ export default function MapHomeScreen() {
   const [reportDesc, setReportDesc] = useState('');
   const [reportSuccess, setReportSuccess] = useState(false);
 
+  // Interactive map picking target
+  const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | null>(null);
+
   // Loading & Audio state
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [loadingPlace, setLoadingPlace] = useState(false);
@@ -235,6 +240,47 @@ export default function MapHomeScreen() {
         ],
       );
       setStatusMessage(null);
+    }
+  };
+
+  // Swap Points (A ⇄ B)
+  const handleSwapPoints = () => {
+    const prevFromQuery = fromQuery;
+    const prevFromPos = fromPos;
+    setFromQuery(toQuery);
+    setFromPos(toPos);
+    setToQuery(prevFromQuery);
+    setToPos(prevFromPos);
+  };
+
+  // Interactive Map Click Handler
+  const handleMapClick = async (coords: { lat: number; lon: number }) => {
+    if (!pickingTarget) return;
+
+    let name = `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`;
+    try {
+      const rev = await reverseGeocodeLocation(coords.lat, coords.lon, locale);
+      if (rev?.name) name = rev.name;
+    } catch {}
+
+    if (pickingTarget === 'start') {
+      setFromPos(coords);
+      setFromQuery(name);
+      setPickingTarget(null);
+      setStatusMessage(`${t(locale, 'pointA')}: ${name}`);
+      setTimeout(() => setStatusMessage(null), 3000);
+    } else if (pickingTarget === 'end') {
+      setToPos(coords);
+      setToQuery(name);
+      setPickingTarget(null);
+      setStatusMessage(`${t(locale, 'pointB')}: ${name}`);
+      setTimeout(() => setStatusMessage(null), 3000);
+    } else if (pickingTarget === 'place') {
+      setPlacePos(coords);
+      setPlaceQuery(name);
+      setPickingTarget(null);
+      setStatusMessage(`${t(locale, 'placeLabel')}: ${name}`);
+      setTimeout(() => setStatusMessage(null), 3000);
     }
   };
 
@@ -379,20 +425,30 @@ export default function MapHomeScreen() {
           findings={activeRouteReport?.findings || []}
           center={mapCenter}
           userLocation={userLocation}
-          startLocation={
-            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-              ? { name: fromQuery, lat: activeWalkingRoute.coordinates[0]![1], lon: activeWalkingRoute.coordinates[0]![0] }
-              : undefined
-          }
-          endLocation={
-            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-              ? {
-                  name: toQuery,
-                  lat: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1],
-                  lon: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0],
-                }
-              : undefined
-          }
+          startLocation={{
+            name: fromQuery,
+            lat:
+              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+                ? activeWalkingRoute.coordinates[0]![1]
+                : fromPos.lat,
+            lon:
+              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+                ? activeWalkingRoute.coordinates[0]![0]
+                : fromPos.lon,
+          }}
+          endLocation={{
+            name: toQuery,
+            lat:
+              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+                ? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1]
+                : toPos.lat,
+            lon:
+              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+                ? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0]
+                : toPos.lon,
+          }}
+          onMapClick={handleMapClick}
+          isPickingMode={pickingTarget !== null}
         />
 
         {/* Floating Map Action Buttons (Apple / Google Maps style) */}
@@ -744,64 +800,61 @@ export default function MapHomeScreen() {
               {/* TAB 1: TRASA (ROUTE PLANNING & ANALYSIS) */}
               {activeTab === 'route' ? (
                 <View style={styles.formSection}>
-                  {/* Origin */}
-                  <View style={styles.fieldBox}>
-                    <View style={styles.fieldHeader}>
-                      <Text style={[styles.fieldLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                        {t(locale, 'from')}
-                      </Text>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={t(locale, 'myLocation')}
-                        onPress={handleUseMyLocation}
-                        style={styles.myLocationPill}
-                      >
-                        <NavigationArrow size={12} weight="bold" color={colors.accent} />
-                        <Text style={[styles.myLocationText, { color: colors.accent, fontSize: fontSize(12) }]}>
-                          {t(locale, 'myLocationShort')}
-                        </Text>
-                      </Pressable>
-                    </View>
-                    <TextInput
-                      value={fromQuery}
-                      onChangeText={setFromQuery}
-                      placeholder={t(locale, 'fromPlaceholder')}
-                      placeholderTextColor={colors.muted}
+                  {/* Point A (Start) */}
+                  <LocationPicker
+                    label={t(locale, 'from')}
+                    badge="A"
+                    badgeColor="#005CA9"
+                    point={{ name: fromQuery, position: fromPos }}
+                    onChangePoint={(p) => {
+                      setFromQuery(p.name);
+                      setFromPos(p.position);
+                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                    }}
+                    placeholder={t(locale, 'fromPlaceholder')}
+                    showMyLocation
+                    onUseMyLocation={handleUseMyLocation}
+                    onPickOnMap={() => setPickingTarget(pickingTarget === 'start' ? null : 'start')}
+                    isPickingOnMap={pickingTarget === 'start'}
+                  />
+
+                  {/* Swap Points Button (A ⇄ B) */}
+                  <View style={styles.swapBtnRow}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t(locale, 'swapPoints')}
+                      onPress={handleSwapPoints}
                       style={[
-                        styles.input,
+                        styles.swapBtn,
                         {
-                          color: colors.text,
-                          borderColor: colors.border,
                           backgroundColor: colors.background,
-                          fontSize: fontSize(14.5),
+                          borderColor: colors.border,
                           borderWidth: isHighContrast ? 2 : 1,
                         },
                       ]}
-                    />
+                    >
+                      <ArrowsDownUp size={15} weight="bold" color={colors.accent} />
+                      <Text style={[styles.swapBtnText, { color: colors.accent, fontSize: fontSize(12) }]}>
+                        {t(locale, 'swapPoints')}
+                      </Text>
+                    </Pressable>
                   </View>
 
-                  {/* Destination */}
-                  <View style={styles.fieldBox}>
-                    <Text style={[styles.fieldLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                      {t(locale, 'to')}
-                    </Text>
-                    <TextInput
-                      value={toQuery}
-                      onChangeText={setToQuery}
-                      placeholder={t(locale, 'toPlaceholder')}
-                      placeholderTextColor={colors.muted}
-                      style={[
-                        styles.input,
-                        {
-                          color: colors.text,
-                          borderColor: colors.border,
-                          backgroundColor: colors.background,
-                          fontSize: fontSize(14.5),
-                          borderWidth: isHighContrast ? 2 : 1,
-                        },
-                      ]}
-                    />
-                  </View>
+                  {/* Point B (Destination) */}
+                  <LocationPicker
+                    label={t(locale, 'to')}
+                    badge="B"
+                    badgeColor="#D32F2F"
+                    point={{ name: toQuery, position: toPos }}
+                    onChangePoint={(p) => {
+                      setToQuery(p.name);
+                      setToPos(p.position);
+                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                    }}
+                    placeholder={t(locale, 'toPlaceholder')}
+                    onPickOnMap={() => setPickingTarget(pickingTarget === 'end' ? null : 'end')}
+                    isPickingOnMap={pickingTarget === 'end'}
+                  />
 
                   {/* Plan Route Action */}
                   <GovButton
@@ -893,27 +946,18 @@ export default function MapHomeScreen() {
               {/* TAB 2: OBIEKT (PLACE INSPECTION) */}
               {activeTab === 'place' ? (
                 <View style={styles.formSection}>
-                  <View style={styles.fieldBox}>
-                    <Text style={[styles.fieldLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                      {t(locale, 'placeLabel')}
-                    </Text>
-                    <TextInput
-                      value={placeQuery}
-                      onChangeText={setPlaceQuery}
-                      placeholder={t(locale, 'placePlaceholder')}
-                      placeholderTextColor={colors.muted}
-                      style={[
-                        styles.input,
-                        {
-                          color: colors.text,
-                          borderColor: colors.border,
-                          backgroundColor: colors.background,
-                          fontSize: fontSize(14.5),
-                          borderWidth: isHighContrast ? 2 : 1,
-                        },
-                      ]}
-                    />
-                  </View>
+                  <LocationPicker
+                    label={t(locale, 'placeLabel')}
+                    point={{ name: placeQuery, position: placePos }}
+                    onChangePoint={(p) => {
+                      setPlaceQuery(p.name);
+                      setPlacePos(p.position);
+                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                    }}
+                    placeholder={t(locale, 'placePlaceholder')}
+                    onPickOnMap={() => setPickingTarget(pickingTarget === 'place' ? null : 'place')}
+                    isPickingOnMap={pickingTarget === 'place'}
+                  />
 
                   <GovButton
                     title={t(locale, 'searchPlaceButton')}
@@ -1516,5 +1560,20 @@ const styles = StyleSheet.create({
   },
   smallStepBtn: {
     flex: 1,
+  },
+  swapBtnRow: {
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  swapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  swapBtnText: {
+    fontWeight: '700',
   },
 });

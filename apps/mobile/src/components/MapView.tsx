@@ -21,6 +21,8 @@ export interface MapViewProps {
   startLocation?: { name?: string; lat: number; lon: number };
   endLocation?: { name?: string; lat: number; lon: number };
   userLocation?: { lat: number; lon: number } | null;
+  onMapClick?: (coords: { lat: number; lon: number }) => void;
+  isPickingMode?: boolean;
 }
 
 export function MapView({
@@ -33,6 +35,8 @@ export function MapView({
   startLocation,
   endLocation,
   userLocation,
+  onMapClick,
+  isPickingMode = false,
 }: MapViewProps) {
   const { colors, isHighContrast, locale } = useSession();
   const iframeRef = useRef<any>(null);
@@ -345,6 +349,20 @@ export function MapView({
       map.setView([lat, lon], zoomLevel || 16, { animate: true });
     };
 
+    map.on('click', function(e) {
+      var msg = JSON.stringify({ type: 'MAP_CLICK', lat: e.latlng.lat, lon: e.latlng.lng });
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(msg, '*');
+      }
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(msg);
+      }
+    });
+
+    if (${Boolean(isPickingMode)}) {
+      map.getContainer().style.cursor = 'crosshair';
+    }
+
     function handleMapMessage(event) {
       try {
         var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
@@ -387,7 +405,22 @@ export function MapView({
     colors.okBorder,
     colors.unknownBorder,
     locale,
+    isPickingMode,
   ]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !onMapClick) return;
+    const handleWindowMessage = (event: MessageEvent) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data && data.type === 'MAP_CLICK') {
+          onMapClick({ lat: data.lat, lon: data.lon });
+        }
+      } catch {}
+    };
+    window.addEventListener('message', handleWindowMessage);
+    return () => window.removeEventListener('message', handleWindowMessage);
+  }, [onMapClick]);
 
   return (
     <View
@@ -417,6 +450,14 @@ export function MapView({
           style={styles.webview}
           javaScriptEnabled={true}
           domStorageEnabled={true}
+          onMessage={(event) => {
+            try {
+              const data = JSON.parse(event.nativeEvent.data);
+              if (data && data.type === 'MAP_CLICK' && onMapClick) {
+                onMapClick({ lat: data.lat, lon: data.lon });
+              }
+            } catch {}
+          }}
         />
       )}
     </View>

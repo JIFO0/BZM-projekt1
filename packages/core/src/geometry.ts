@@ -113,3 +113,109 @@ export function findNearestPointOnRoute(
     segmentIndex: bestSegmentIndex,
   };
 }
+
+/** Check if latitude and longitude are within valid geographic bounds. */
+export function isValidCoordinate(lat: number, lon: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180
+  );
+}
+
+/** Format a coordinate pair cleanly for display, e.g. "50.06190, 19.93730". */
+export function formatCoordinates(pos: LonLat, precision = 5): string {
+  return `${pos.lat.toFixed(precision)}, ${pos.lon.toFixed(precision)}`;
+}
+
+/**
+ * Parses user input string into geographic coordinates { lon, lat }.
+ * Supports formats such as:
+ * - "50.0619, 19.9373" or "50.0619,19.9373"
+ * - "50.0619 19.9373" or "50.0619; 19.9373"
+ * - "50.0619N, 19.9373E" or "50.0619° N, 19.9373° E"
+ * - "lat: 50.0619, lon: 19.9373"
+ * - Automatically detects reversed lon, lat order if first number is outside [-90, 90] or if numbers clearly match Polish bounds (lat ~48..56, lon ~14..25)
+ */
+export function parseCoordinates(input: string): LonLat | null {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  // 1. Check for labeled format: lat/latitude and lon/lng/longitude
+  const labeledLatMatch = trimmed.match(
+    /(?:lat|latitude|szer|szerokość)\s*[:=]?\s*([+-]?\d+(?:[.,]\d+)?)/i,
+  );
+  const labeledLonMatch = trimmed.match(
+    /(?:lon|lng|longitude|dł|długość)\s*[:=]?\s*([+-]?\d+(?:[.,]\d+)?)/i,
+  );
+  if (labeledLatMatch && labeledLonMatch) {
+    const lat = parseFloat(labeledLatMatch[1]!.replace(',', '.'));
+    const lon = parseFloat(labeledLonMatch[1]!.replace(',', '.'));
+    if (isValidCoordinate(lat, lon)) {
+      return { lat, lon };
+    }
+  }
+
+  // 2. Check for DMS or Cardinal format: e.g. 50.0619 N, 19.9373 E
+  const cardinalMatch = trimmed.match(
+    /([+-]?\d+(?:[.,]\d+)?)\s*°?\s*([NSns])\s*[,; ]+\s*([+-]?\d+(?:[.,]\d+)?)\s*°?\s*([EWew])/,
+  );
+  if (cardinalMatch) {
+    let lat = parseFloat(cardinalMatch[1]!.replace(',', '.'));
+    if (cardinalMatch[2]!.toUpperCase() === 'S') lat = -lat;
+    let lon = parseFloat(cardinalMatch[3]!.replace(',', '.'));
+    if (cardinalMatch[4]!.toUpperCase() === 'W') lon = -lon;
+    if (isValidCoordinate(lat, lon)) {
+      return { lat, lon };
+    }
+  }
+
+  // Check reversed cardinal: 19.9373 E, 50.0619 N
+  const reversedCardinalMatch = trimmed.match(
+    /([+-]?\d+(?:[.,]\d+)?)\s*°?\s*([EWew])\s*[,; ]+\s*([+-]?\d+(?:[.,]\d+)?)\s*°?\s*([NSns])/,
+  );
+  if (reversedCardinalMatch) {
+    let lon = parseFloat(reversedCardinalMatch[1]!.replace(',', '.'));
+    if (reversedCardinalMatch[2]!.toUpperCase() === 'W') lon = -lon;
+    let lat = parseFloat(reversedCardinalMatch[3]!.replace(',', '.'));
+    if (reversedCardinalMatch[4]!.toUpperCase() === 'S') lat = -lat;
+    if (isValidCoordinate(lat, lon)) {
+      return { lat, lon };
+    }
+  }
+
+  // 3. General two-number pattern separated by comma, semicolon, or space
+  // Matches e.g. "50.0619, 19.9373" or "50.0619; 19.9373" or "50.0619 19.9373"
+  const generalMatch = trimmed.match(/^([+-]?\d+(?:[.,]\d+)?)[,\s;]+([+-]?\d+(?:[.,]\d+)?)$/);
+  if (generalMatch) {
+    const num1 = parseFloat(generalMatch[1]!.replace(',', '.'));
+    const num2 = parseFloat(generalMatch[2]!.replace(',', '.'));
+
+    // Usually order is (latitude, longitude)
+    let lat = num1;
+    let lon = num2;
+
+    // If num1 cannot be lat (> 90 or < -90) but num2 can: swap
+    if ((num1 > 90 || num1 < -90) && num2 >= -90 && num2 <= 90) {
+      lat = num2;
+      lon = num1;
+    }
+    // Also in Poland context: Poland lat is ~48..56 and lon is ~14..25
+    // If num1 is 14..25 and num2 is 48..56, it's almost certainly (lon, lat)
+    else if (num1 >= 14 && num1 <= 25 && num2 >= 48 && num2 <= 56) {
+      lat = num2;
+      lon = num1;
+    }
+
+    if (isValidCoordinate(lat, lon)) {
+      return { lat, lon };
+    }
+  }
+
+  return null;
+}
+
