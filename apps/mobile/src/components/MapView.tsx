@@ -1,4 +1,5 @@
 import {
+  GEOPORTAL_BDOT10K_ATTRIBUTION,
   MAPY_ATTRIBUTION,
   OSM_ATTRIBUTION,
   type RouteFinding,
@@ -160,11 +161,17 @@ export function MapView({
     mapyApiKey.trim().length > 5
   );
 
-  const tileUrl = hasMapyKey
+  const isGeoportal = city.adapters.tiles === 'geoportal';
+
+  const tileUrl = isGeoportal
+    ? 'https://mapy.geoportal.gov.pl/wss/service/WMTS/guest/wmts/BDOT10k-BDOO?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=BDOT10k-BDOO&STYLE=default&TILEMATRIXSET=EPSG:2180&TILEMATRIX=EPSG:2180:{z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png'
+    : hasMapyKey
     ? `https://api.mapy.com/v1/maptiles/${city.mapy?.tileMapset ?? 'basic'}/256/{z}/{x}/{y}?apikey=${mapyApiKey}`
     : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
-  const tileAttribution = hasMapyKey
+  const tileAttribution = isGeoportal
+    ? `${GEOPORTAL_BDOT10K_ATTRIBUTION.attribution} • Geoportal.gov.pl`
+    : hasMapyKey
     ? MAPY_ATTRIBUTION.attribution
     : OSM_ATTRIBUTION.attribution;
 
@@ -234,6 +241,8 @@ export function MapView({
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4leaflet/1.0.2/proj4leaflet.min.js"></script>
   <style>
     body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #e5e3df; overflow: hidden; }
     .custom-marker {
@@ -355,15 +364,65 @@ export function MapView({
 <body>
   <div id="map"></div>
   <script>
-    var map = L.map('map', {
+    var isGeoportal = ${Boolean(isGeoportal)};
+    var initialZoom = ${zoom};
+    var mapOptions = {
       zoomControl: false,
       attributionControl: true
-    }).setView([${initialCenterRef.current.lat}, ${initialCenterRef.current.lon}], ${zoom});
+    };
 
-    L.tileLayer('${tileUrl}', {
-      maxZoom: 19,
-      attribution: '${tileAttribution}'
-    }).addTo(map);
+    if (isGeoportal && typeof L.Proj !== 'undefined') {
+      try {
+        var crs2180 = new L.Proj.CRS(
+          'EPSG:2180',
+          '+proj=tmerc +lat_0=0 +lon_0=19 +k=0.9993 +x_0=500000 +y_0=-5300000 +ellps=GRS80 +units=m +no_defs',
+          {
+            origin: [100000.0, 850000.0],
+            resolutions: [
+              2116.6708999999995,
+              1058.3354499999997,
+              529.1677249999999,
+              264.58386249999994,
+              132.29193124999997,
+              66.14596562499999,
+              26.45838625,
+              13.229193125,
+              6.6145965625,
+              2.645838625,
+              1.3229193125,
+              0.529167725,
+              0.2645838625
+            ]
+          }
+        );
+        mapOptions.crs = crs2180;
+        mapOptions.minZoom = 0;
+        mapOptions.maxZoom = 12;
+        initialZoom = (${zoom} > 12) ? Math.min(12, Math.max(0, ${zoom} - 5)) : ${zoom};
+      } catch (e) {
+        console.warn('Failed to initialize EPSG:2180 CRS, falling back to standard WebMercator:', e);
+      }
+    }
+
+    var map = L.map('map', mapOptions).setView([${initialCenterRef.current.lat}, ${initialCenterRef.current.lon}], initialZoom);
+
+    if (isGeoportal && map.options.crs && map.options.crs.code === 'EPSG:2180') {
+      var geoportalLayer = L.tileLayer(
+        'https://mapy.geoportal.gov.pl/wss/service/WMTS/guest/wmts/BDOT10k-BDOO?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=BDOT10k-BDOO&STYLE=default&TILEMATRIXSET=EPSG:2180&TILEMATRIX=EPSG:2180:{z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png',
+        {
+          minZoom: 0,
+          maxZoom: 12,
+          tileSize: 512,
+          attribution: '${tileAttribution}'
+        }
+      );
+      geoportalLayer.addTo(map);
+    } else {
+      L.tileLayer('${tileUrl}', {
+        maxZoom: 19,
+        attribution: '${tileAttribution}'
+      }).addTo(map);
+    }
 
     var routeCoords = ${JSON.stringify(routeGeoJsonCoords)};
     var surfaceSpans = ${JSON.stringify(surfaceSpans)};
@@ -485,7 +544,13 @@ export function MapView({
 
     window.setMapCenter = function(lat, lon, zoomLevel) {
       if (!map) return;
-      map.setView([lat, lon], zoomLevel || 16, { animate: true });
+      var targetZoom = zoomLevel || map.getZoom() || 16;
+      if (isGeoportal && map.options.crs && map.options.crs.code === 'EPSG:2180') {
+        if (targetZoom > 12) {
+          targetZoom = Math.min(12, Math.max(0, targetZoom - 5));
+        }
+      }
+      map.setView([lat, lon], targetZoom, { animate: true });
     };
 
     map.on('click', function(e) {
@@ -549,6 +614,7 @@ export function MapView({
     isHighContrast,
     locale,
     isPickingMode,
+    isGeoportal,
   ]);
 
   useEffect(() => {
