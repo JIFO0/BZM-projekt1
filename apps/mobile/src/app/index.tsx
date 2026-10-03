@@ -190,8 +190,9 @@ export default function MapHomeScreen() {
   const handleLocateUser = async () => {
     setStatusMessage(t(locale, 'gpsFetching'));
     const result = await fetchUserLocation();
-    if (result) {
-      setMapCenter({ lat: result.lat, lon: result.lon });
+    const loc = result || userLocation;
+    if (loc) {
+      setMapCenter({ lat: loc.lat, lon: loc.lon });
       setStatusMessage(t(locale, 'gpsCenteredSuccess'));
       setTimeout(() => setStatusMessage(null), 3000);
     } else {
@@ -208,21 +209,13 @@ export default function MapHomeScreen() {
   };
 
   const handleUseMyLocation = async () => {
-    if (userLocation) {
-      setFromQuery(t(locale, 'myLocationShort'));
-      setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
-      setMapCenter({ lat: userLocation.lat, lon: userLocation.lon });
-      setStatusMessage(t(locale, 'gpsStartPointSet'));
-      setTimeout(() => setStatusMessage(null), 2500);
-      return;
-    }
-
     setStatusMessage(t(locale, 'gpsFetching'));
     const result = await fetchUserLocation();
-    if (result) {
-      setFromQuery(result.address || t(locale, 'myLocationShort'));
-      setFromPos({ lon: result.lon, lat: result.lat });
-      setMapCenter({ lat: result.lat, lon: result.lon });
+    const loc = result || userLocation;
+    if (loc) {
+      setFromQuery(result?.address || t(locale, 'myLocationShort'));
+      setFromPos({ lon: loc.lon, lat: loc.lat });
+      setMapCenter({ lat: loc.lat, lon: loc.lon });
       setStatusMessage(t(locale, 'gpsStartPointSet'));
       setTimeout(() => setStatusMessage(null), 2500);
     } else {

@@ -67,15 +67,11 @@ export default function SearchScreen() {
   const [debugVisible, setDebugVisible] = useState(false);
 
   const handleUseMyLocation = async () => {
-    if (userLocation) {
-      setFromQuery(t(locale, 'myLocationShort'));
-      setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
-      return;
-    }
     const result = await fetchUserLocation();
-    if (result) {
-      setFromQuery(result.address || t(locale, 'myLocationShort'));
-      setFromPos({ lon: result.lon, lat: result.lat });
+    const loc = result || userLocation;
+    if (loc) {
+      setFromQuery(result?.address || t(locale, 'myLocationShort'));
+      setFromPos({ lon: loc.lon, lat: loc.lat });
     } else {
       Alert.alert(
         t(locale, 'gpsUnavailableTitle'),
