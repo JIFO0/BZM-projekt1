@@ -21,6 +21,10 @@ export function evaluateSteps(
 ): Severity {
   if (input.stepCount === null) return 'unknown';
   if (input.stepCount <= 0) return 'ok';
+  const blockedRoads = (thresholds.blockedRoadTypes ?? thresholds.blockedSurfaces ?? []).map((s) =>
+    s.trim().toLowerCase(),
+  );
+  if (blockedRoads.includes('steps')) return 'blocker';
   if (input.ramp === true) return 'warning';
   return thresholds.stepsAreBlocker ? 'blocker' : 'warning';
 }
@@ -38,11 +42,19 @@ export function evaluateIncline(percent: number | null, thresholds: BarrierThres
 }
 
 /**
- * A surface value outside the profile list is a warning, not a pass.
+ * A surface explicitly blocked by profile is a blocker.
+ * A surface value in the allowed list is ok.
+ * A surface value outside the profile list is a warning.
  * A missing surface is unknown. The allowed list is city config, not an OSM verdict.
  */
 export function evaluateSurface(surface: string | null, thresholds: BarrierThresholds): Severity {
   if (surface === null || surface.trim() === '') return 'unknown';
-  if (thresholds.allowedSurfaces.includes(surface)) return 'ok';
+  const norm = surface.trim().toLowerCase();
+  const blocked = (thresholds.blockedRoadTypes ?? thresholds.blockedSurfaces ?? []).map((s) =>
+    s.trim().toLowerCase(),
+  );
+  if (blocked.includes(norm)) return 'blocker';
+  const allowed = thresholds.allowedSurfaces.map((s) => s.trim().toLowerCase());
+  if (allowed.includes(norm)) return 'ok';
   return 'warning';
 }

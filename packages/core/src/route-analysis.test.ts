@@ -143,4 +143,32 @@ describe('Route Analysis (T5)', () => {
     expect(report.longestUnknownStretchMetres).toBeGreaterThan(0);
     expect(report.coverage.length).toBeGreaterThan(0);
   });
+
+  test('surface fact is blocker when surface is in blockedRoadTypes and warning otherwise', () => {
+    const cobblestoneFact: Fact = {
+      id: 'way/201',
+      subject: { type: 'segment', ref: 'way/201', lat: 50.0612, lon: 19.9374 },
+      criterion: 'surface',
+      value: 'cobblestone',
+      status: 'community',
+      source: { name: 'OpenStreetMap', url: 'https://osm.org', licence: 'ODbL' },
+      retrievedAt: '2026-10-01T10:00:00Z',
+    };
+
+    // With blockedRoadTypes including cobblestone
+    const blockerEval = evaluateFactSeverity(cobblestoneFact, {
+      ...MOCK_CONFIG.profiles.wheelchair,
+      blockedRoadTypes: ['cobblestone'],
+    });
+    expect(blockerEval.severity).toBe('blocker');
+    expect(blockerEval.evidence).toContain('Zablokowana nawierzchnia: cobblestone');
+
+    // Without blockedRoadTypes (only not in allowedSurfaces) -> warning
+    const warningEval = evaluateFactSeverity(cobblestoneFact, {
+      ...MOCK_CONFIG.profiles.wheelchair,
+      blockedRoadTypes: [],
+    });
+    expect(warningEval.severity).toBe('warning');
+    expect(warningEval.evidence).toContain('Nawierzchnia utrudniająca poruszanie się: cobblestone');
+  });
 });

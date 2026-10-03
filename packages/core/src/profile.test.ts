@@ -33,4 +33,11 @@ describe('profile thresholds', () => {
     expect(evaluateSurface('sand', city.profiles.wheelchair)).toBe('warning');
     expect(evaluateSurface('asphalt', city.profiles.wheelchair)).toBe('ok');
   });
+
+  it('treats blocked road types such as cobblestone as blockers for wheelchair profile', () => {
+    // Wheelchair profile has cobblestone in blockedRoadTypes
+    expect(evaluateSurface('cobblestone', city.profiles.wheelchair)).toBe('blocker');
+    // Stroller profile does not block cobblestone, so it is a warning
+    expect(evaluateSurface('cobblestone', city.profiles.stroller)).toBe('warning');
+  });
 });

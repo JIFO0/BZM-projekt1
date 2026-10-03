@@ -17,6 +17,7 @@ export interface RouteAnalysisInput {
   routeCoordinates: Array<[number, number]>;
   facts: Fact[];
   config: CityConfig;
+  thresholds?: BarrierThresholds;
   isSample?: boolean;
 }
 
@@ -76,8 +77,11 @@ export function evaluateFactSeverity(
 
   if (crit === 'surface') {
     const severity = evaluateSurface(val, thresholds);
-    const isAllowed = thresholds.allowedSurfaces.includes(val);
-    const evidence = isAllowed
+    const isBlocked = severity === 'blocker';
+    const isAllowed = thresholds.allowedSurfaces.some((s) => s.toLowerCase() === val);
+    const evidence = isBlocked
+      ? `Zablokowana nawierzchnia: ${val}`
+      : isAllowed
       ? `Nawierzchnia dopuszczalna: ${val}`
       : `Nawierzchnia utrudniająca poruszanie się: ${val}`;
     return { severity, type: 'surface', evidence };
@@ -145,7 +149,7 @@ export function evaluateFactSeverity(
  */
 export function analyzeRoute(input: RouteAnalysisInput): RouteReport {
   const { routeId, profileId, routeCoordinates, facts, config, isSample = false } = input;
-  const thresholds = config.profiles[profileId];
+  const thresholds = input.thresholds ?? config.profiles[profileId] ?? config.profiles.wheelchair;
   const corridorMeters = config.corridorMeters;
 
   const totalLengthMetres = Math.round(polylineLengthMetres(routeCoordinates));

@@ -69,4 +69,16 @@ describe('buildCustomModel', () => {
     const smoothnessRule = model.priority?.find((r) => r.if.includes('smoothness == BAD'));
     expect(smoothnessRule).toBeDefined();
   });
+
+  it('completely blocks (multiply_by 0.0) surfaces in blockedRoadTypes such as cobblestone', () => {
+    const model = buildCustomModel({
+      ...wheelchairThresholds,
+      blockedRoadTypes: ['cobblestone'],
+    });
+    const cobblestoneRule = model.priority?.find((r) => r.if === 'surface == COBBLESTONE');
+    expect(cobblestoneRule).toEqual({
+      if: 'surface == COBBLESTONE',
+      multiply_by: '0.0',
+    });
+  });
 });

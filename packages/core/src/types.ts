@@ -60,6 +60,8 @@ export interface BarrierThresholds {
   maxInclinePercent: number;
   stepsAreBlocker: boolean;
   allowedSurfaces: string[];
+  blockedRoadTypes?: string[];
+  blockedSurfaces?: string[];
 }
 
 export interface LonLat {
