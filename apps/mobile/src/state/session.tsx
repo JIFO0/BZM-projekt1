@@ -14,8 +14,13 @@ import type { Locale } from '@/i18n/strings';
 import {
   getColors,
   scaleFontSize,
+  getLineHeight,
+  getLetterSpacing,
   type ContrastMode,
   type TextSize,
+  type LineHeightMode,
+  type LetterSpacingMode,
+  type FontFamilyMode,
   type ThemeColors,
 } from '@/theme/tokens';
 
@@ -56,9 +61,16 @@ interface SessionValue {
   cycleContrastMode: () => void;
   textSize: TextSize;
   setTextSize: (size: TextSize) => void;
-  cycleTextSize: () => void;
   decreaseTextSize: () => void;
   increaseTextSize: () => void;
+  lineHeightMode: LineHeightMode;
+  setLineHeightMode: (mode: LineHeightMode) => void;
+  letterSpacingMode: LetterSpacingMode;
+  setLetterSpacingMode: (mode: LetterSpacingMode) => void;
+  fontFamilyMode: FontFamilyMode;
+  setFontFamilyMode: (mode: FontFamilyMode) => void;
+  speechRate: number;
+  setSpeechRate: (rate: number) => void;
   dyslexicFont: boolean;
   setDyslexicFont: (val: boolean) => void;
   increasedSpacing: boolean;
@@ -69,6 +81,10 @@ interface SessionValue {
   setReadingRuler: (val: boolean) => void;
   readingRulerY: number;
   setReadingRulerY: (y: number) => void;
+  readingMask: boolean;
+  setReadingMask: (val: boolean) => void;
+  readingMaskY: number;
+  setReadingMaskY: (y: number) => void;
   accessibilityModalVisible: boolean;
   setAccessibilityModalVisible: (val: boolean) => void;
   resetAccessibility: () => void;
@@ -76,6 +92,8 @@ interface SessionValue {
   // Computed Theme Helpers
   colors: ThemeColors;
   fontSize: (base: number) => number;
+  lineHeight: (base: number) => number;
+  letterSpacing: number;
   isHighContrast: boolean;
 }
 
@@ -104,14 +122,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [activeWalkingRoute, setActiveWalkingRoute] = useState<WalkingRoute | null>(null);
   const [activePlaceReport, setActivePlaceReport] = useState<PlaceAnalysisReport | null>(null);
 
-  // Accessibility State (WCAG 2.2 AAA Gov standards)
+  // Advanced Public-Sector Accessibility State (WCAG 2.2 AAA)
   const [contrastMode, setContrastMode] = useState<ContrastMode>('standard-light');
   const [textSize, setTextSize] = useState<TextSize>('normal');
+  const [lineHeightMode, setLineHeightMode] = useState<LineHeightMode>('normal');
+  const [letterSpacingMode, setLetterSpacingMode] = useState<LetterSpacingMode>('normal');
+  const [fontFamilyMode, setFontFamilyMode] = useState<FontFamilyMode>('system');
+  const [speechRate, setSpeechRate] = useState<number>(1.0);
   const [dyslexicFont, setDyslexicFont] = useState<boolean>(false);
   const [increasedSpacing, setIncreasedSpacing] = useState<boolean>(false);
   const [highlightLinks, setHighlightLinks] = useState<boolean>(false);
   const [readingRuler, setReadingRuler] = useState<boolean>(false);
   const [readingRulerY, setReadingRulerY] = useState<number>(240);
+  const [readingMask, setReadingMask] = useState<boolean>(false);
+  const [readingMaskY, setReadingMaskY] = useState<number>(260);
   const [accessibilityModalVisible, setAccessibilityModalVisible] = useState<boolean>(false);
 
   const cycleContrastMode = () => {
@@ -120,6 +144,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       'hc-yellow-black',
       'hc-black-yellow',
       'hc-white-black',
+      'monochrome',
       'standard-dark',
     ];
     setContrastMode((curr) => {
@@ -128,16 +153,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const cycleTextSize = () => {
-    const sizes: TextSize[] = ['normal', 'medium', 'large', 'xlarge'];
-    setTextSize((curr) => {
-      const idx = sizes.indexOf(curr);
-      return sizes[(idx + 1) % sizes.length]!;
-    });
-  };
-
   const decreaseTextSize = () => {
     setTextSize((curr) => {
+      if (curr === 'xxlarge') return 'xlarge';
       if (curr === 'xlarge') return 'large';
       if (curr === 'large') return 'medium';
       return 'normal';
@@ -148,17 +166,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setTextSize((curr) => {
       if (curr === 'normal') return 'medium';
       if (curr === 'medium') return 'large';
-      return 'xlarge';
+      if (curr === 'large') return 'xlarge';
+      return 'xxlarge';
     });
   };
 
   const resetAccessibility = () => {
     setContrastMode('standard-light');
     setTextSize('normal');
+    setLineHeightMode('normal');
+    setLetterSpacingMode('normal');
+    setFontFamilyMode('system');
+    setSpeechRate(1.0);
     setDyslexicFont(false);
     setIncreasedSpacing(false);
     setHighlightLinks(false);
     setReadingRuler(false);
+    setReadingMask(false);
   };
 
   const addLocalReport = (description: string) => {
@@ -174,6 +198,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const colors = useMemo(() => getColors(contrastMode), [contrastMode]);
   const isHighContrast = contrastMode.startsWith('hc-');
   const fontSize = useCallback((base: number) => scaleFontSize(base, textSize), [textSize]);
+  const lineHeight = useCallback(
+    (base: number) => getLineHeight(base, textSize, lineHeightMode),
+    [textSize, lineHeightMode],
+  );
+  const letterSpacing = useMemo(() => getLetterSpacing(letterSpacingMode), [letterSpacingMode]);
 
   const value = useMemo(
     () => ({
@@ -199,9 +228,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       cycleContrastMode,
       textSize,
       setTextSize,
-      cycleTextSize,
       decreaseTextSize,
       increaseTextSize,
+      lineHeightMode,
+      setLineHeightMode,
+      letterSpacingMode,
+      setLetterSpacingMode,
+      fontFamilyMode,
+      setFontFamilyMode,
+      speechRate,
+      setSpeechRate,
       dyslexicFont,
       setDyslexicFont,
       increasedSpacing,
@@ -212,11 +248,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setReadingRuler,
       readingRulerY,
       setReadingRulerY,
+      readingMask,
+      setReadingMask,
+      readingMaskY,
+      setReadingMaskY,
       accessibilityModalVisible,
       setAccessibilityModalVisible,
       resetAccessibility,
       colors,
       fontSize,
+      lineHeight,
+      letterSpacing,
       isHighContrast,
     }),
     [
@@ -230,14 +272,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activePlaceReport,
       contrastMode,
       textSize,
+      lineHeightMode,
+      letterSpacingMode,
+      fontFamilyMode,
+      speechRate,
       dyslexicFont,
       increasedSpacing,
       highlightLinks,
       readingRuler,
       readingRulerY,
+      readingMask,
+      readingMaskY,
       accessibilityModalVisible,
       colors,
       fontSize,
+      lineHeight,
+      letterSpacing,
       isHighContrast,
     ],
   );

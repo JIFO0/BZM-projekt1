@@ -7,8 +7,9 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
+import { Plus, Minus, X, Prohibit, Warning } from 'phosphor-react-native';
 import type { AccessibleRouteResult, RouteBarrier } from '@krakow-bez-barier/sources';
-import { darkColors, lightColors } from '@/theme/tokens';
+import { useSession } from '@/state/session';
 import type { Locale } from '@/i18n/strings';
 
 interface AccessibleMapProps {
@@ -18,8 +19,7 @@ interface AccessibleMapProps {
 }
 
 export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapProps) {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
+  const { colors, isHighContrast } = useSession();
   const [zoomOffset, setZoomOffset] = useState<number>(0);
   const [selectedBarrierId, setSelectedBarrierId] = useState<string | null>(null);
 
@@ -211,7 +211,13 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
                 },
               ]}
             >
-              <Text style={styles.barrierText}>{isBlocker ? '✕' : '!'}</Text>
+              <View style={styles.barrierInner}>
+                {isBlocker ? (
+                  <Prohibit size={14} color="#FFFFFF" weight="bold" />
+                ) : (
+                  <Warning size={14} color="#FFFFFF" weight="bold" />
+                )}
+              </View>
             </Pressable>
           );
         })}
@@ -224,7 +230,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
             onPress={() => setZoomOffset((prev) => Math.min(prev + 1, 3))}
             style={[styles.zoomButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
-            <Text style={[styles.zoomButtonText, { color: colors.text }]}>+</Text>
+            <Plus size={16} color={colors.text} weight="bold" />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -232,7 +238,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
             onPress={() => setZoomOffset((prev) => Math.max(prev - 1, -3))}
             style={[styles.zoomButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
           >
-            <Text style={[styles.zoomButtonText, { color: colors.text }]}>−</Text>
+            <Minus size={16} color={colors.text} weight="bold" />
           </Pressable>
         </View>
 
@@ -257,7 +263,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapP
                 accessibilityLabel={locale === 'pl' ? 'Zamknij szczegóły' : 'Close'}
                 onPress={() => setSelectedBarrierId(null)}
               >
-                <Text style={[styles.closeButton, { color: colors.muted }]}>✕</Text>
+                <X size={18} color={colors.muted} weight="bold" />
               </Pressable>
             </View>
             <Text style={[styles.popupMessage, { color: colors.text }]}>{item.message}</Text>
@@ -328,10 +334,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     zIndex: 25,
   },
-  barrierText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
+  barrierInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   zoomControls: {
     position: 'absolute',

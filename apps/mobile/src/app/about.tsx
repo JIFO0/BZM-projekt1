@@ -11,6 +11,14 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  MapTrifold,
+  Globe,
+  ShieldCheck,
+  ArchiveBox,
+  MapPin,
+  LockKey,
+} from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
 import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
@@ -102,12 +110,15 @@ export default function AboutScreen() {
 
         {/* Mapy.com source */}
         <GovCard variant="default">
-          <Text
-            accessibilityRole="header"
-            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
-          >
-            🗺️ {MAPY_ATTRIBUTION.name}
-          </Text>
+          <View style={styles.cardHeaderRow}>
+            <MapTrifold size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+            >
+              {MAPY_ATTRIBUTION.name}
+            </Text>
+          </View>
           <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
             {t(locale, 'mapyUses')}
           </Text>
@@ -134,12 +145,15 @@ export default function AboutScreen() {
 
         {/* OSM source */}
         <GovCard variant="default">
-          <Text
-            accessibilityRole="header"
-            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
-          >
-            🌐 {OSM_ATTRIBUTION.name}
-          </Text>
+          <View style={styles.cardHeaderRow}>
+            <Globe size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+            >
+              {OSM_ATTRIBUTION.name}
+            </Text>
+          </View>
           <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
             {t(locale, 'osmUses')}
           </Text>
@@ -156,12 +170,15 @@ export default function AboutScreen() {
 
         {/* Deklaracja Dostępności Gov */}
         <GovCard variant="accent">
-          <Text
-            accessibilityRole="header"
-            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
-          >
-            🏛️ Deklaracja Dostępności Cyfrowej (WCAG 2.2 AAA & EAA)
-          </Text>
+          <View style={styles.cardHeaderRow}>
+            <ShieldCheck size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+            >
+              Deklaracja Dostępności Cyfrowej (WCAG 2.2 AAA & EAA)
+            </Text>
+          </View>
           <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14), lineHeight: fontSize(21) }]}>
             System został zaprojektowany z myślą o pełnej dostępności cyfrowej i architektonicznej zgodnie z:
           </Text>
@@ -178,12 +195,15 @@ export default function AboutScreen() {
 
         {/* Demo snapshot info */}
         <GovCard variant="default">
-          <Text
-            accessibilityRole="header"
-            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
-          >
-            📦 Wbudowany snapshot offline
-          </Text>
+          <View style={styles.cardHeaderRow}>
+            <ArchiveBox size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+            >
+              Wbudowany snapshot offline
+            </Text>
+          </View>
           <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
             Wersja: {DEMO_SNAPSHOT.snapshotVersion} ({DEMO_SNAPSHOT.label})
           </Text>
@@ -197,17 +217,20 @@ export default function AboutScreen() {
 
         {/* Demo Area */}
         <GovCard variant="default">
-          <Text
-            accessibilityRole="header"
-            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
-          >
-            📍 {t(locale, 'demoArea')}
-          </Text>
+          <View style={styles.cardHeaderRow}>
+            <MapPin size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+            >
+              {t(locale, 'demoArea')}
+            </Text>
+          </View>
           <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
             {city.demoArea.label}
           </Text>
           {city.demoArea.provisional ? (
-            <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13) }]}>
+            <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13.5) }]}>
               {t(locale, 'provisional')}
             </Text>
           ) : null}
@@ -215,12 +238,15 @@ export default function AboutScreen() {
 
         {/* Privacy Summary (P1-P5) */}
         <GovCard variant="default">
-          <Text
-            accessibilityRole="header"
-            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
-          >
-            🔒 Prywatność i ochrona danych (P1–P5)
-          </Text>
+          <View style={styles.cardHeaderRow}>
+            <LockKey size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
+            >
+              Prywatność i ochrona danych (P1–P5)
+            </Text>
+          </View>
           <Text style={[styles.body, { color: colors.text, fontSize: fontSize(13.5) }]}>
             • Brak kont użytkowników, brak logowania, brak baz danych w chmurze.
           </Text>

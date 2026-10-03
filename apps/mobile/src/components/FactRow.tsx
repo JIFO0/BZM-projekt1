@@ -1,6 +1,7 @@
 import { dateLabel, type Fact } from '@krakow-bez-barier/core';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { CaretDown, CaretUp } from 'phosphor-react-native';
 
 import { t, type Locale } from '@/i18n/strings';
 import { useSession } from '@/state/session';
@@ -72,8 +73,13 @@ export function FactRow({ fact, locale }: FactRowProps) {
               },
             ]}
           >
-            {expanded ? 'Mniej ▲' : 'Dlaczego taki status? ▼'}
+            {expanded ? 'Mniej' : 'Dlaczego taki status?'}
           </Text>
+          {expanded ? (
+            <CaretUp size={14} weight="bold" color={colors.accent} />
+          ) : (
+            <CaretDown size={14} weight="bold" color={colors.accent} />
+          )}
         </Pressable>
       </View>
 
@@ -151,6 +157,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     justifyContent: 'center',
   },
   expandText: {
