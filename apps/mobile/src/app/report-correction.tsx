@@ -12,6 +12,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  NotePencil,
+  FloppyDisk,
+  MapTrifold,
+  Globe,
+  ListChecks,
+  Warning,
+  CheckCircle,
+} from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
@@ -134,12 +143,15 @@ export default function ReportCorrectionScreen() {
 
         {/* Local Submission Form */}
         <GovCard variant="default">
-          <Text
-            accessibilityRole="header"
-            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(16) }]}
-          >
-            📝 {t(locale, 'reportObstacleDesc')}
-          </Text>
+          <View style={styles.cardHeaderRow}>
+            <NotePencil size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(16) }]}
+            >
+              {t(locale, 'reportObstacleDesc')}
+            </Text>
+          </View>
           <TextInput
             value={description}
             onChangeText={setDescription}
@@ -161,15 +173,18 @@ export default function ReportCorrectionScreen() {
 
           {successMsg ? (
             <GovCard variant="ok">
-              <Text style={{ color: colors.okText, fontWeight: '800', fontSize: fontSize(13.5) }}>
-                ✓ {t(locale, 'reportSavedSuccess')}
-              </Text>
+              <View style={styles.cardHeaderRow}>
+                <CheckCircle size={18} color={colors.okText} weight="bold" />
+                <Text style={{ color: colors.okText, fontWeight: '800', fontSize: fontSize(13.5) }}>
+                  {t(locale, 'reportSavedSuccess')}
+                </Text>
+              </View>
             </GovCard>
           ) : null}
 
           <GovButton
             title={t(locale, 'reportSubmit')}
-            icon="💾"
+            icon={<FloppyDisk size={18} color="#fff" weight="bold" />}
             variant="primary"
             onPress={handleSubmitLocal}
           />
@@ -177,19 +192,22 @@ export default function ReportCorrectionScreen() {
 
         {/* OpenStreetMap Deep Link (R11) */}
         <GovCard variant="default">
-          <Text
-            accessibilityRole="header"
-            style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(16) }]}
-          >
-            🗺️ OpenStreetMap (OSM Note)
-          </Text>
+          <View style={styles.cardHeaderRow}>
+            <MapTrifold size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(16) }]}
+            >
+              OpenStreetMap (OSM Note)
+            </Text>
+          </View>
           <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13.5), lineHeight: fontSize(20) }]}>
             {t(locale, 'osmNoteDisclaimer')}
           </Text>
 
           <GovButton
             title={t(locale, 'openOsmNote')}
-            icon="🌐"
+            icon={<Globe size={18} color={colors.text} weight="bold" />}
             variant="outline"
             onPress={handleOpenOsmNote}
           />
@@ -197,12 +215,15 @@ export default function ReportCorrectionScreen() {
 
         {/* Local Reports Queue List */}
         <View style={styles.queueSection}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.queueTitle, { color: colors.text, fontSize: fontSize(17.5) }]}
-          >
-            📋 {t(locale, 'localReportsQueue')} ({localReports.length})
-          </Text>
+          <View style={styles.cardHeaderRow}>
+            <ListChecks size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.queueTitle, { color: colors.text, fontSize: fontSize(17.5) }]}
+            >
+              {t(locale, 'localReportsQueue')} ({localReports.length})
+            </Text>
+          </View>
 
           {localReports.length === 0 ? (
             <GovCard variant="default">
@@ -214,9 +235,12 @@ export default function ReportCorrectionScreen() {
             localReports.map((report) => (
               <GovCard key={report.id} variant="warning">
                 <View style={styles.itemHeader}>
-                  <Text style={[styles.statusBadge, { color: colors.warningText, fontSize: fontSize(13) }]}>
-                    ⚠️ Zgłoszenie lokalne (niezweryfikowane)
-                  </Text>
+                  <View style={styles.statusBadgeRow}>
+                    <Warning size={16} color={colors.warningText} weight="bold" />
+                    <Text style={[styles.statusBadge, { color: colors.warningText, fontSize: fontSize(13) }]}>
+                      Zgłoszenie lokalne (niezweryfikowane)
+                    </Text>
+                  </View>
                   <Text style={[styles.itemDate, { color: colors.muted, fontSize: fontSize(12) }]}>
                     {report.createdAt.slice(0, 10)}
                   </Text>
@@ -281,5 +305,17 @@ const styles = StyleSheet.create({
   itemText: {
     lineHeight: 20,
     fontWeight: '600',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  statusBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
   },
 });

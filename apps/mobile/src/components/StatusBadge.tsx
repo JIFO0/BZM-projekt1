@@ -1,5 +1,16 @@
 import type { FactStatus, Severity } from '@krakow-bez-barier/core';
 import { StyleSheet, Text, View } from 'react-native';
+import {
+  CheckCircle,
+  Info,
+  Lightning,
+  NotePencil,
+  Prohibit,
+  Question,
+  ShieldCheck,
+  Users,
+  Warning,
+} from 'phosphor-react-native';
 
 import { t, type Locale } from '@/i18n/strings';
 import { useSession } from '@/state/session';
@@ -17,94 +28,93 @@ export function StatusBadge({ status, severity, locale: propsLocale }: StatusBad
   const fontSize = session.fontSize;
   const locale = propsLocale || session.locale;
 
-  // Determine badge styling and label
-  let icon = 'ℹ️';
   let label = '';
   let bg = colors.infoBg;
   let border = colors.infoBorder;
   let text = colors.infoText;
+  let iconComponent = <Info size={14} weight="bold" color={text} />;
 
   if (severity) {
     switch (severity) {
       case 'blocker':
-        icon = '⛔';
         label = t(locale, 'severityBlocker');
         bg = colors.blockerBg;
         border = colors.blockerBorder;
         text = colors.blockerText;
+        iconComponent = <Prohibit size={14} weight="bold" color={text} />;
         break;
       case 'warning':
-        icon = '⚠️';
         label = t(locale, 'severityWarning');
         bg = colors.warningBg;
         border = colors.warningBorder;
         text = colors.warningText;
+        iconComponent = <Warning size={14} weight="bold" color={text} />;
         break;
       case 'ok':
-        icon = '✅';
         label = t(locale, 'severityOk');
         bg = colors.okBg;
         border = colors.okBorder;
         text = colors.okText;
+        iconComponent = <CheckCircle size={14} weight="bold" color={text} />;
         break;
       case 'unknown':
-        icon = '❓';
         label = t(locale, 'statusUnknown');
         bg = colors.unknownBg;
         border = colors.unknownBorder;
         text = colors.unknownText;
+        iconComponent = <Question size={14} weight="bold" color={text} />;
         break;
       case 'info':
-        icon = 'ℹ️';
         label = t(locale, 'severityInfo');
         bg = colors.infoBg;
         border = colors.infoBorder;
         text = colors.infoText;
+        iconComponent = <Info size={14} weight="bold" color={text} />;
         break;
     }
   } else if (status) {
     switch (status) {
       case 'verified':
-        icon = '🛡️';
         label = t(locale, 'statusVerified');
         bg = colors.okBg;
         border = colors.okBorder;
         text = colors.okText;
+        iconComponent = <ShieldCheck size={14} weight="bold" color={text} />;
         break;
       case 'community':
-        icon = '👥';
         label = t(locale, 'statusCommunity');
         bg = colors.infoBg;
         border = colors.infoBorder;
         text = colors.infoText;
+        iconComponent = <Users size={14} weight="bold" color={text} />;
         break;
       case 'reported':
-        icon = '📝';
         label = t(locale, 'statusReported');
         bg = colors.warningBg;
         border = colors.warningBorder;
         text = colors.warningText;
+        iconComponent = <NotePencil size={14} weight="bold" color={text} />;
         break;
       case 'conflicting':
-        icon = '⚡';
         label = t(locale, 'statusConflicting');
         bg = colors.conflictingBg;
         border = colors.conflictingBorder;
         text = colors.conflictingText;
+        iconComponent = <Lightning size={14} weight="bold" color={text} />;
         break;
       case 'unknown':
-        icon = '❓';
         label = t(locale, 'statusUnknown');
         bg = colors.unknownBg;
         border = colors.unknownBorder;
         text = colors.unknownText;
+        iconComponent = <Question size={14} weight="bold" color={text} />;
         break;
       default:
-        icon = 'ℹ️';
         label = status;
         bg = colors.infoBg;
         border = colors.infoBorder;
         text = colors.infoText;
+        iconComponent = <Info size={14} weight="bold" color={text} />;
         break;
     }
   }
@@ -122,7 +132,7 @@ export function StatusBadge({ status, severity, locale: propsLocale }: StatusBad
         },
       ]}
     >
-      <Text style={[styles.icon, { fontSize: fontSize(13) }]}>{icon}</Text>
+      {iconComponent}
       <Text style={[styles.text, { color: text, fontSize: fontSize(13) }]}>{label}</Text>
     </View>
   );
@@ -137,9 +147,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
     alignSelf: 'flex-start',
-  },
-  icon: {
-    fontSize: 13,
   },
   text: {
     fontWeight: '800',

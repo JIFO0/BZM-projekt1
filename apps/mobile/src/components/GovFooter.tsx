@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { LockSimple, ShieldCheck } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
 import { t } from '@/i18n/strings';
@@ -42,8 +43,9 @@ export function GovFooter() {
               },
             ]}
           >
-            <Text style={[styles.tagText, { color: colors.muted, fontSize: fontSize(10.5) }]}>
-              🛡️ {t(locale, 'wcagBadge')}
+            <ShieldCheck size={13} weight="bold" color={colors.accent} />
+            <Text style={[styles.tagText, { color: colors.muted, fontSize: fontSize(11) }]}>
+              {t(locale, 'wcagBadge')}
             </Text>
           </View>
           <View
@@ -55,8 +57,9 @@ export function GovFooter() {
               },
             ]}
           >
-            <Text style={[styles.tagText, { color: colors.muted, fontSize: fontSize(10.5) }]}>
-              🔒 100% Prywatności (P1–P5)
+            <LockSimple size={13} weight="bold" color={colors.accent} />
+            <Text style={[styles.tagText, { color: colors.muted, fontSize: fontSize(11) }]}>
+              100% Prywatności (P1–P5)
             </Text>
           </View>
         </View>
@@ -88,7 +91,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 6,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   tagText: {
     fontWeight: '700',

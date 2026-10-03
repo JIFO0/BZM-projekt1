@@ -1,4 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { CheckSquare, Square, Wrench, X } from 'phosphor-react-native';
 
 import { t, type Locale } from '@/i18n/strings';
 import { useSession } from '@/state/session';
@@ -26,13 +27,28 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
             },
           ]}
         >
-          <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
-            🛠️ {t(locale, 'debugPanel')}
-          </Text>
+          <View style={styles.headerRow}>
+            <View style={styles.titleWithIcon}>
+              <Wrench size={20} weight="bold" color={colors.accent} />
+              <Text style={[styles.title, { color: colors.text, fontSize: fontSize(17) }]}>
+                {t(locale, 'debugPanel')}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(locale, 'close')}
+              onPress={onClose}
+              style={[styles.closeIconBtn, { borderColor: colors.border }]}
+            >
+              <X size={16} weight="bold" color={colors.text} />
+            </Pressable>
+          </View>
+
           <Text style={[styles.desc, { color: colors.muted, fontSize: fontSize(13) }]}>
             Symulacja stanów awaryjnych i brzegowych wymaganych przez regulamin HackYeah (R7, R8, R12):
           </Text>
 
+          {/* Overpass simulation */}
           <Pressable
             accessibilityRole="switch"
             accessibilityLabel={t(locale, 'simulateOverpassFail')}
@@ -52,12 +68,17 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
               },
             ]}
           >
-            <Text style={[styles.rowText, { color: colors.text, fontSize: fontSize(14) }]}>
-              {debugState.simulateOverpassDown ? '☒ ' : '☐ '}
+            {debugState.simulateOverpassDown ? (
+              <CheckSquare size={18} weight="bold" color={colors.blockerText} />
+            ) : (
+              <Square size={18} weight="regular" color={colors.muted} />
+            )}
+            <Text style={[styles.rowText, { color: colors.text, fontSize: fontSize(13.5) }]}>
               {t(locale, 'simulateOverpassFail')}
             </Text>
           </Pressable>
 
+          {/* Mapy.com simulation */}
           <Pressable
             accessibilityRole="switch"
             accessibilityLabel={t(locale, 'simulateMapyFail')}
@@ -77,12 +98,17 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
               },
             ]}
           >
-            <Text style={[styles.rowText, { color: colors.text, fontSize: fontSize(14) }]}>
-              {debugState.simulateMapyDown ? '☒ ' : '☐ '}
+            {debugState.simulateMapyDown ? (
+              <CheckSquare size={18} weight="bold" color={colors.warningText} />
+            ) : (
+              <Square size={18} weight="regular" color={colors.muted} />
+            )}
+            <Text style={[styles.rowText, { color: colors.text, fontSize: fontSize(13.5) }]}>
               {t(locale, 'simulateMapyFail')}
             </Text>
           </Pressable>
 
+          {/* Offline simulation */}
           <Pressable
             accessibilityRole="switch"
             accessibilityLabel={t(locale, 'simulateOffline')}
@@ -102,12 +128,17 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
               },
             ]}
           >
-            <Text style={[styles.rowText, { color: colors.text, fontSize: fontSize(14) }]}>
-              {debugState.simulateOffline ? '☒ ' : '☐ '}
+            {debugState.simulateOffline ? (
+              <CheckSquare size={18} weight="bold" color={colors.accent} />
+            ) : (
+              <Square size={18} weight="regular" color={colors.muted} />
+            )}
+            <Text style={[styles.rowText, { color: colors.text, fontSize: fontSize(13.5) }]}>
               {t(locale, 'simulateOffline')}
             </Text>
           </Pressable>
 
+          {/* Reset simulations button */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(locale, 'resetSimulation')}
@@ -132,6 +163,7 @@ export function DebugModal({ visible, onClose, locale }: DebugModalProps) {
             </Text>
           </Pressable>
 
+          {/* Close button */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(locale, 'close')}
@@ -166,8 +198,23 @@ const styles = StyleSheet.create({
     padding: 18,
     gap: 12,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  titleWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontWeight: '800',
+  },
+  closeIconBtn: {
+    borderWidth: 1.5,
+    borderRadius: 6,
+    padding: 5,
   },
   desc: {
     lineHeight: 18,
@@ -175,10 +222,13 @@ const styles = StyleSheet.create({
   row: {
     padding: 12,
     borderRadius: 10,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   rowText: {
     fontWeight: '600',
+    flex: 1,
   },
   resetButton: {
     borderRadius: 10,

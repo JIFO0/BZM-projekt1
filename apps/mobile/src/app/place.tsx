@@ -5,6 +5,20 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  ArrowLeft,
+  CheckCircle,
+  Question,
+  SpeakerHigh,
+  Stop,
+  Lightning,
+  Clock,
+  Door,
+  Buildings,
+  Toilet,
+  Tree,
+  NotePencil,
+} from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
 import { FactRow } from '@/components/FactRow';
@@ -42,7 +56,7 @@ export default function PlaceScreen() {
             </Text>
             <GovButton
               title="Wróć"
-              icon="←"
+              icon={<ArrowLeft size={18} color="#fff" weight="bold" />}
               variant="primary"
               onPress={() => router.back()}
             />
@@ -158,25 +172,38 @@ export default function PlaceScreen() {
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.confBadgeText,
-                  {
-                    color: report.isConfidentMatch ? colors.okText : colors.unknownText,
-                    fontSize: fontSize(13),
-                  },
-                ]}
-              >
-                {report.isConfidentMatch
-                  ? `✓ ${Math.round(report.matchConfidence * 100)}% (${t(locale, 'confidentMatch')})`
-                  : `? ${t(locale, 'noPlaceData')}`}
-              </Text>
+              <View style={styles.inlineBadgeRow}>
+                {report.isConfidentMatch ? (
+                  <CheckCircle size={15} color={colors.okText} weight="bold" />
+                ) : (
+                  <Question size={15} color={colors.unknownText} weight="bold" />
+                )}
+                <Text
+                  style={[
+                    styles.confBadgeText,
+                    {
+                      color: report.isConfidentMatch ? colors.okText : colors.unknownText,
+                      fontSize: fontSize(13),
+                    },
+                  ]}
+                >
+                  {report.isConfidentMatch
+                    ? `${Math.round(report.matchConfidence * 100)}% (${t(locale, 'confidentMatch')})`
+                    : t(locale, 'noPlaceData')}
+                </Text>
+              </View>
             </View>
           </View>
 
           <GovButton
             title={isSpeaking ? t(locale, 'stopSpeech') : 'Odsłuchaj opis obiektu'}
-            icon={isSpeaking ? '⏹️' : '🔊'}
+            icon={
+              isSpeaking ? (
+                <Stop size={18} color="#fff" weight="bold" />
+              ) : (
+                <SpeakerHigh size={18} color={colors.text} weight="bold" />
+              )
+            }
             variant={isSpeaking ? 'danger' : 'outline'}
             onPress={handleReadScreen}
           />
@@ -185,12 +212,15 @@ export default function PlaceScreen() {
         {/* Conflicting Data Warning (R7) */}
         {conflicts.length > 0 ? (
           <GovCard variant="conflicting">
-            <Text
-              accessibilityRole="header"
-              style={[styles.alertTitle, { color: colors.conflictingText, fontSize: fontSize(15.5) }]}
-            >
-              ⚡ Wykryto sprzeczne dane w OpenStreetMap (R7):
-            </Text>
+            <View style={styles.inlineHeaderRow}>
+              <Lightning size={20} color={colors.conflictingText} weight="bold" />
+              <Text
+                accessibilityRole="header"
+                style={[styles.alertTitle, { color: colors.conflictingText, fontSize: fontSize(15.5) }]}
+              >
+                Wykryto sprzeczne dane w OpenStreetMap (R7):
+              </Text>
+            </View>
             <Text
               style={[styles.alertBody, { color: colors.conflictingText, fontSize: fontSize(13.5), lineHeight: fontSize(20) }]}
             >
@@ -217,12 +247,15 @@ export default function PlaceScreen() {
         {/* Stale Data Warning (R8) */}
         {staleFacts.length > 0 ? (
           <GovCard variant="warning">
-            <Text
-              accessibilityRole="header"
-              style={[styles.alertTitle, { color: colors.warningText, fontSize: fontSize(15.5) }]}
-            >
-              ⏰ Uwaga: Przedawnione dane w OpenStreetMap (R8):
-            </Text>
+            <View style={styles.inlineHeaderRow}>
+              <Clock size={20} color={colors.warningText} weight="bold" />
+              <Text
+                accessibilityRole="header"
+                style={[styles.alertTitle, { color: colors.warningText, fontSize: fontSize(15.5) }]}
+              >
+                Uwaga: Przedawnione dane w OpenStreetMap (R8):
+              </Text>
+            </View>
             <Text
               style={[styles.alertBody, { color: colors.warningText, fontSize: fontSize(13.5), lineHeight: fontSize(20) }]}
             >
@@ -233,32 +266,36 @@ export default function PlaceScreen() {
 
         {/* 4 Standard Challenge Categories (R4) */}
         <CategorySection
-          title={`🚪 ${t(locale, 'catEntrance')}`}
+          title={t(locale, 'catEntrance')}
+          icon={<Door size={20} color={colors.accent} weight="bold" />}
           facts={report.factsByCategory.entrance}
           locale={locale}
         />
 
         <CategorySection
-          title={`🏢 ${t(locale, 'catInside')}`}
+          title={t(locale, 'catInside')}
+          icon={<Buildings size={20} color={colors.accent} weight="bold" />}
           facts={report.factsByCategory.inside}
           locale={locale}
         />
 
         <CategorySection
-          title={`🚻 ${t(locale, 'catToilet')}`}
+          title={t(locale, 'catToilet')}
+          icon={<Toilet size={20} color={colors.accent} weight="bold" />}
           facts={report.factsByCategory.toilet}
           locale={locale}
         />
 
         <CategorySection
-          title={`🌳 ${t(locale, 'catSurroundings')}`}
+          title={t(locale, 'catSurroundings')}
+          icon={<Tree size={20} color={colors.accent} weight="bold" />}
           facts={report.factsByCategory.surroundings}
           locale={locale}
         />
 
         <GovButton
           title={t(locale, 'reportCorrection')}
-          icon="✍️"
+          icon={<NotePencil size={18} color={colors.text} weight="bold" />}
           variant="secondary"
           onPress={() => router.push('/report-correction' as any)}
         />
@@ -273,10 +310,12 @@ export default function PlaceScreen() {
 
 function CategorySection({
   title,
+  icon,
   facts,
   locale,
 }: {
   title: string;
+  icon: React.ReactNode;
   facts: any[];
   locale: any;
 }) {
@@ -284,14 +323,20 @@ function CategorySection({
 
   return (
     <View style={styles.catBox}>
-      <Text accessibilityRole="header" style={[styles.catTitle, { color: colors.text, fontSize: fontSize(17.5) }]}>
-        {title}
-      </Text>
+      <View style={styles.inlineHeaderRow}>
+        {icon}
+        <Text accessibilityRole="header" style={[styles.catTitle, { color: colors.text, fontSize: fontSize(17.5) }]}>
+          {title}
+        </Text>
+      </View>
       {facts.length === 0 ? (
         <GovCard variant="default">
-          <Text style={[styles.emptyText, { color: colors.muted, fontSize: fontSize(13.5) }]}>
-            ❓ {t(locale, 'emptyCategory')}
-          </Text>
+          <View style={styles.inlineNoticeRow}>
+            <Question size={16} color={colors.muted} weight="bold" />
+            <Text style={[styles.emptyText, { color: colors.muted, fontSize: fontSize(13.5) }]}>
+              {t(locale, 'emptyCategory')}
+            </Text>
+          </View>
         </GovCard>
       ) : (
         facts.map((fact) => <FactRow key={fact.id} fact={fact} locale={locale} />)
@@ -365,5 +410,20 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '800',
+  },
+  inlineHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  inlineBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  inlineNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });

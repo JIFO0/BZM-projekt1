@@ -1,6 +1,7 @@
 import { dateLabel, type RouteFinding } from '@krakow-bez-barier/core';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { CaretDown, CaretUp } from 'phosphor-react-native';
 
 import { t, type Locale } from '@/i18n/strings';
 import { useSession } from '@/state/session';
@@ -96,8 +97,13 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
               },
             ]}
           >
-            {expanded ? 'Ukryj szczegóły ▲' : 'Dlaczego ten status? ▼'}
+            {expanded ? 'Ukryj szczegóły' : 'Dlaczego ten status?'}
           </Text>
+          {expanded ? (
+            <CaretUp size={14} weight="bold" color={colors.accent} />
+          ) : (
+            <CaretDown size={14} weight="bold" color={colors.accent} />
+          )}
         </Pressable>
       </View>
 
@@ -180,6 +186,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     justifyContent: 'center',
   },
   expandText: {

@@ -12,6 +12,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  Footprints,
+  Buildings,
+  MapPin,
+  MagnifyingGlass,
+  Warning,
+  Lightning,
+  Clock,
+  Target,
+} from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
@@ -198,18 +208,25 @@ export default function SearchScreen() {
               { minHeight: increasedSpacing ? 54 : 46 },
             ]}
           >
-            <Text
-              style={[
-                styles.tabText,
-                {
-                  color: activeTab === 'route' ? colors.accentText : colors.text,
-                  fontSize: fontSize(14.5),
-                  textDecorationLine: highlightLinks && activeTab === 'route' ? 'underline' : 'none',
-                },
-              ]}
-            >
-              🚶 {t(locale, 'routeTab')}
-            </Text>
+            <View style={styles.tabInner}>
+              <Footprints
+                size={18}
+                color={activeTab === 'route' ? colors.accentText : colors.text}
+                weight={activeTab === 'route' ? 'fill' : 'regular'}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: activeTab === 'route' ? colors.accentText : colors.text,
+                    fontSize: fontSize(14.5),
+                    textDecorationLine: highlightLinks && activeTab === 'route' ? 'underline' : 'none',
+                  },
+                ]}
+              >
+                {t(locale, 'routeTab')}
+              </Text>
+            </View>
           </Pressable>
 
           <Pressable
@@ -222,18 +239,25 @@ export default function SearchScreen() {
               { minHeight: increasedSpacing ? 54 : 46 },
             ]}
           >
-            <Text
-              style={[
-                styles.tabText,
-                {
-                  color: activeTab === 'place' ? colors.accentText : colors.text,
-                  fontSize: fontSize(14.5),
-                  textDecorationLine: highlightLinks && activeTab === 'place' ? 'underline' : 'none',
-                },
-              ]}
-            >
-              🏢 {t(locale, 'placeTab')}
-            </Text>
+            <View style={styles.tabInner}>
+              <Buildings
+                size={18}
+                color={activeTab === 'place' ? colors.accentText : colors.text}
+                weight={activeTab === 'place' ? 'fill' : 'regular'}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: activeTab === 'place' ? colors.accentText : colors.text,
+                    fontSize: fontSize(14.5),
+                    textDecorationLine: highlightLinks && activeTab === 'place' ? 'underline' : 'none',
+                  },
+                ]}
+              >
+                {t(locale, 'placeTab')}
+              </Text>
+            </View>
           </Pressable>
         </View>
 
@@ -252,18 +276,21 @@ export default function SearchScreen() {
                     onPress={handleUseMyLocation}
                     style={styles.locationBtn}
                   >
-                    <Text
-                      style={[
-                        styles.linkText,
-                        {
-                          color: colors.accent,
-                          fontSize: fontSize(13),
-                          textDecorationLine: highlightLinks ? 'underline' : 'none',
-                        },
-                      ]}
-                    >
-                      📍 {t(locale, 'myLocation')}
-                    </Text>
+                    <View style={styles.inlineRow}>
+                      <MapPin size={15} color={colors.accent} weight="bold" />
+                      <Text
+                        style={[
+                          styles.linkText,
+                          {
+                            color: colors.accent,
+                            fontSize: fontSize(13),
+                            textDecorationLine: highlightLinks ? 'underline' : 'none',
+                          },
+                        ]}
+                      >
+                        {t(locale, 'myLocation')}
+                      </Text>
+                    </View>
                   </Pressable>
                 </View>
                 <TextInput
@@ -311,7 +338,7 @@ export default function SearchScreen() {
 
               <GovButton
                 title={t(locale, 'searchButton')}
-                icon="🔍"
+                icon={<MagnifyingGlass size={18} color={colors.accentText} weight="bold" />}
                 variant="primary"
                 loading={loading}
                 onPress={handleAnalyzeRoute}
@@ -346,7 +373,7 @@ export default function SearchScreen() {
 
               <GovButton
                 title={t(locale, 'searchPlaceButton')}
-                icon="🏢"
+                icon={<Buildings size={18} color={colors.accentText} weight="bold" />}
                 variant="primary"
                 loading={loading}
                 onPress={handleInspectPlace}
@@ -357,20 +384,26 @@ export default function SearchScreen() {
 
         {errorMsg ? (
           <GovCard variant="blocker">
-            <Text style={{ color: colors.blockerText, fontWeight: '800', fontSize: fontSize(14) }}>
-              ⚠️ {errorMsg}
-            </Text>
+            <View style={styles.inlineRow}>
+              <Warning size={18} color={colors.blockerText} weight="bold" />
+              <Text style={{ color: colors.blockerText, fontWeight: '800', fontSize: fontSize(14), flex: 1 }}>
+                {errorMsg}
+              </Text>
+            </View>
           </GovCard>
         ) : null}
 
         {/* Demo Fast Triggers */}
         <GovCard variant="accent">
-          <Text
-            accessibilityRole="header"
-            style={[styles.demoTitle, { color: colors.text, fontSize: fontSize(16) }]}
-          >
-            🎯 {t(locale, 'demoScenarios')}
-          </Text>
+          <View style={styles.inlineRow}>
+            <Target size={20} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.demoTitle, { color: colors.text, fontSize: fontSize(16) }]}
+            >
+              {t(locale, 'demoScenarios')}
+            </Text>
+          </View>
           <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(13.5) }]}>
             Kliknij gotowy scenariusz, aby przetestować bez wpisywania:
           </Text>
@@ -379,31 +412,31 @@ export default function SearchScreen() {
             <GovButton
               variant="outline"
               title={`Trasa: ${t(locale, 'demoRoute1')}`}
-              icon="🚶"
+              icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(0)}
             />
             <GovButton
               variant="outline"
               title={`Trasa: ${t(locale, 'demoRoute2')}`}
-              icon="🚶"
+              icon={<Footprints size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoRoute(1)}
             />
             <GovButton
               variant="outline"
               title={`Miejsce: ${t(locale, 'demoPlace1')}`}
-              icon="🏛️"
+              icon={<Buildings size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(0)}
             />
             <GovButton
               variant="outline"
               title={`Miejsce (R7 Sprzeczne): ${t(locale, 'demoPlace2')}`}
-              icon="⚡"
+              icon={<Lightning size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(1)}
             />
             <GovButton
               variant="outline"
               title={`Miejsce (R8 Przedawnione): ${t(locale, 'demoPlace3')}`}
-              icon="⏰"
+              icon={<Clock size={18} color={colors.text} weight="bold" />}
               onPress={() => loadDemoPlace(2)}
             />
           </View>
@@ -481,5 +514,15 @@ const styles = StyleSheet.create({
   scenariosList: {
     gap: 8,
     marginTop: 4,
+  },
+  tabInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  inlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
 });

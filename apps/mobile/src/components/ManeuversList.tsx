@@ -1,6 +1,18 @@
-import { StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import {
+  ArrowUp,
+  ArrowUpRight,
+  ArrowRight,
+  ArrowDownRight,
+  ArrowUpLeft,
+  ArrowLeft,
+  ArrowDownLeft,
+  FlagBanner,
+  ArrowsClockwise,
+  NavigationArrow,
+} from 'phosphor-react-native';
 import type { AccessibleRouteResult } from '@krakow-bez-barier/sources';
-import { darkColors, lightColors } from '@/theme/tokens';
+import { useSession } from '@/state/session';
 import type { Locale } from '@/i18n/strings';
 
 interface ManeuversListProps {
@@ -9,39 +21,47 @@ interface ManeuversListProps {
 }
 
 export function ManeuversList({ route, locale }: ManeuversListProps) {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
+  const { colors, fontSize, isHighContrast } = useSession();
   const { instructions } = route;
 
-  const getSignSymbol = (sign: number) => {
+  const getSignIcon = (sign: number, color: string) => {
     switch (sign) {
       case 0:
-        return '↑'; // straight
+        return <ArrowUp size={20} color={color} weight="bold" />;
       case 1:
-        return '↗'; // slight right
+        return <ArrowUpRight size={20} color={color} weight="bold" />;
       case 2:
-        return '→'; // right
+        return <ArrowRight size={20} color={color} weight="bold" />;
       case 3:
-        return '↘'; // sharp right
+        return <ArrowDownRight size={20} color={color} weight="bold" />;
       case -1:
-        return '↖'; // slight left
+        return <ArrowUpLeft size={20} color={color} weight="bold" />;
       case -2:
-        return '←'; // left
+        return <ArrowLeft size={20} color={color} weight="bold" />;
       case -3:
-        return '↙'; // sharp left
+        return <ArrowDownLeft size={20} color={color} weight="bold" />;
       case 4:
-        return '🏁'; // destination
+        return <FlagBanner size={20} color={color} weight="fill" />;
       case 6:
-        return '🔄'; // roundabout
+        return <ArrowsClockwise size={20} color={color} weight="bold" />;
       default:
-        return '•';
+        return <NavigationArrow size={20} color={color} weight="bold" />;
     }
   };
 
   if (!instructions || instructions.length === 0) {
     return (
-      <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.body, { color: colors.text }]}>
+      <View
+        style={[
+          styles.emptyCard,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            borderWidth: isHighContrast ? 2.5 : 1.5,
+          },
+        ]}
+      >
+        <Text style={[styles.body, { color: colors.text, fontSize: fontSize(14) }]}>
           {locale === 'pl' ? 'Brak szczegółowych manewrów.' : 'No detailed maneuvers.'}
         </Text>
       </View>
@@ -51,7 +71,6 @@ export function ManeuversList({ route, locale }: ManeuversListProps) {
   return (
     <View accessibilityRole="list" style={styles.container}>
       {instructions.map((maneuver, index) => {
-        const symbol = getSignSymbol(maneuver.sign);
         const timeMin = Math.ceil(maneuver.timeSeconds / 60);
 
         return (
@@ -59,18 +78,53 @@ export function ManeuversList({ route, locale }: ManeuversListProps) {
             key={maneuver.id}
             accessibilityRole="text"
             accessibilityLabel={`${index + 1}. ${maneuver.text}. Dystans: ${maneuver.distanceMeters} metrów.`}
-            style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[
+              styles.itemCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderWidth: isHighContrast ? 2.5 : 1.5,
+              },
+            ]}
           >
-            <View style={[styles.signBadge, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <Text style={[styles.signText, { color: colors.text }]}>{symbol}</Text>
+            <View
+              style={[
+                styles.signBadge,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  borderWidth: isHighContrast ? 2.5 : 1.5,
+                },
+              ]}
+            >
+              {getSignIcon(maneuver.sign, colors.accent)}
             </View>
 
             <View style={styles.textContent}>
-              <Text style={[styles.maneuverText, { color: colors.text }]}>{maneuver.text}</Text>
+              <Text
+                style={[
+                  styles.maneuverText,
+                  { color: colors.text, fontSize: fontSize(15) },
+                ]}
+              >
+                {maneuver.text}
+              </Text>
               {maneuver.streetName ? (
-                <Text style={[styles.streetName, { color: colors.muted }]}>{maneuver.streetName}</Text>
+                <Text
+                  style={[
+                    styles.streetName,
+                    { color: colors.muted, fontSize: fontSize(13) },
+                  ]}
+                >
+                  {maneuver.streetName}
+                </Text>
               ) : null}
-              <Text style={[styles.metaText, { color: colors.muted }]}>
+              <Text
+                style={[
+                  styles.metaText,
+                  { color: colors.muted, fontSize: fontSize(12) },
+                ]}
+              >
                 {maneuver.distanceMeters} m {maneuver.timeSeconds > 0 ? `(~${timeMin} min)` : ''}
               </Text>
             </View>
@@ -91,44 +145,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 12,
-    borderWidth: 2,
     gap: 12,
   },
   signBadge: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  signText: {
-    fontSize: 18,
-    fontWeight: '700',
   },
   textContent: {
     flex: 1,
     gap: 2,
   },
   maneuverText: {
-    fontSize: 15,
     fontWeight: '700',
     lineHeight: 20,
   },
   streetName: {
-    fontSize: 13,
     fontWeight: '500',
   },
-  metaText: {
-    fontSize: 12,
-  },
+  metaText: {},
   emptyCard: {
     padding: 16,
     borderRadius: 12,
-    borderWidth: 2,
     alignItems: 'center',
   },
-  body: {
-    fontSize: 14,
-  },
+  body: {},
 });

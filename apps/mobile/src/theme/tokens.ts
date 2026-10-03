@@ -3,9 +3,13 @@ export type ContrastMode =
   | 'standard-dark'
   | 'hc-yellow-black'
   | 'hc-black-yellow'
-  | 'hc-white-black';
+  | 'hc-white-black'
+  | 'monochrome';
 
-export type TextSize = 'normal' | 'medium' | 'large' | 'xlarge';
+export type TextSize = 'normal' | 'medium' | 'large' | 'xlarge' | 'xxlarge';
+export type LineHeightMode = 'normal' | 'increased' | 'loose';
+export type LetterSpacingMode = 'normal' | 'increased' | 'wide';
+export type FontFamilyMode = 'system' | 'dyslexic' | 'mono';
 
 export interface ThemeColors {
   background: string;
@@ -50,7 +54,7 @@ export interface ThemeColors {
   conflictingText: string;
 }
 
-// 🏛️ Kraków Municipal Official Identity: Błękit Krakowski (#005CA9 - Pantone 2935 C), Granat (#003865)
+// Krakow Municipal Official Identity: Blekit Krakowski (#005CA9 - Pantone 2935 C), Granat (#003865)
 export const krakowLightColors: ThemeColors = {
   background: '#F0F4F8',
   surface: '#FFFFFF',
@@ -94,7 +98,7 @@ export const krakowLightColors: ThemeColors = {
   conflictingText: '#581C87',
 };
 
-// 🌙 Modern Kraków Dark Municipal Palette
+// Modern Krakow Dark Municipal Palette
 export const krakowDarkColors: ThemeColors = {
   background: '#0B131E',
   surface: '#152232',
@@ -137,7 +141,7 @@ export const krakowDarkColors: ThemeColors = {
   conflictingText: '#F3E8FF',
 };
 
-// 🟡⚫ WCAG AAA High Contrast: Yellow on Black (for severe visual impairment)
+// WCAG AAA High Contrast: Yellow on Black (for severe visual impairment)
 export const hcYellowBlackColors: ThemeColors = {
   background: '#000000',
   surface: '#000000',
@@ -180,7 +184,7 @@ export const hcYellowBlackColors: ThemeColors = {
   conflictingText: '#FF77FF',
 };
 
-// ⚫🟡 WCAG AAA High Contrast: Black on Yellow (Alternative high contrast)
+// WCAG AAA High Contrast: Black on Yellow (Alternative high contrast)
 export const hcBlackYellowColors: ThemeColors = {
   background: '#FFFF00',
   surface: '#FFFF00',
@@ -223,7 +227,7 @@ export const hcBlackYellowColors: ThemeColors = {
   conflictingText: '#550055',
 };
 
-// ⚪⚫ WCAG AAA High Contrast: White on Black (Monochrome / Inverted)
+// WCAG AAA High Contrast: White on Black (Monochrome / Inverted)
 export const hcWhiteBlackColors: ThemeColors = {
   background: '#000000',
   surface: '#0A0A0A',
@@ -266,6 +270,49 @@ export const hcWhiteBlackColors: ThemeColors = {
   conflictingText: '#FFFFFF',
 };
 
+// Monochrome / Greyscale Mode (for light sensitivity / photophobia)
+export const monochromeColors: ThemeColors = {
+  background: '#F5F5F5',
+  surface: '#FFFFFF',
+  text: '#111111',
+  muted: '#555555',
+  border: '#888888',
+  accent: '#222222',
+  accentText: '#FFFFFF',
+  focus: '#000000',
+  headerBg: '#222222',
+  headerText: '#FFFFFF',
+  govBarBg: '#111111',
+  govBarText: '#FFFFFF',
+  badgeBg: '#EEEEEE',
+  badgeBorder: '#444444',
+  badgeText: '#111111',
+
+  blockerBg: '#E0E0E0',
+  blockerBorder: '#222222',
+  blockerText: '#000000',
+
+  warningBg: '#EAEAEA',
+  warningBorder: '#333333',
+  warningText: '#111111',
+
+  okBg: '#F0F0F0',
+  okBorder: '#444444',
+  okText: '#111111',
+
+  infoBg: '#F5F5F5',
+  infoBorder: '#555555',
+  infoText: '#111111',
+
+  unknownBg: '#F0F0F0',
+  unknownBorder: '#666666',
+  unknownText: '#222222',
+
+  conflictingBg: '#EAEAEA',
+  conflictingBorder: '#333333',
+  conflictingText: '#111111',
+};
+
 export function getColors(mode: ContrastMode): ThemeColors {
   switch (mode) {
     case 'standard-dark':
@@ -276,6 +323,8 @@ export function getColors(mode: ContrastMode): ThemeColors {
       return hcBlackYellowColors;
     case 'hc-white-black':
       return hcWhiteBlackColors;
+    case 'monochrome':
+      return monochromeColors;
     case 'standard-light':
     default:
       return krakowLightColors;
@@ -296,11 +345,13 @@ export const spacing = {
 export function getTextSizeMultiplier(size: TextSize): number {
   switch (size) {
     case 'medium':
-      return 1.2;
+      return 1.15;
     case 'large':
-      return 1.4;
+      return 1.3;
     case 'xlarge':
-      return 1.65;
+      return 1.5;
+    case 'xxlarge':
+      return 1.75;
     case 'normal':
     default:
       return 1.0;
@@ -309,4 +360,29 @@ export function getTextSizeMultiplier(size: TextSize): number {
 
 export function scaleFontSize(baseSize: number, size: TextSize): number {
   return Math.round(baseSize * getTextSizeMultiplier(size));
+}
+
+export function getLineHeight(baseSize: number, size: TextSize, mode: LineHeightMode): number {
+  const scaled = scaleFontSize(baseSize, size);
+  switch (mode) {
+    case 'loose':
+      return Math.round(scaled * 2.2);
+    case 'increased':
+      return Math.round(scaled * 1.8);
+    case 'normal':
+    default:
+      return Math.round(scaled * 1.45);
+  }
+}
+
+export function getLetterSpacing(mode: LetterSpacingMode): number {
+  switch (mode) {
+    case 'wide':
+      return 2.5;
+    case 'increased':
+      return 1.2;
+    case 'normal':
+    default:
+      return 0;
+  }
 }

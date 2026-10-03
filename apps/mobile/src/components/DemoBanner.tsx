@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Warning } from 'phosphor-react-native';
 
 import { useSession } from '@/state/session';
 
@@ -47,8 +48,9 @@ export function DemoBanner({ isSample }: DemoBannerProps) {
         },
       ]}
     >
+      <Warning size={16} weight="bold" color={textColor} />
       <Text style={[styles.text, { color: textColor, fontSize: fontSize(12.5) }]}>
-        ⚠️ {text}
+        {text}
       </Text>
     </View>
   );
@@ -58,8 +60,10 @@ const styles = StyleSheet.create({
   banner: {
     paddingVertical: 8,
     paddingHorizontal: 12,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   },
   text: {
     fontWeight: '800',

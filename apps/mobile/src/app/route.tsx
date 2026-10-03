@@ -15,6 +15,23 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  ChartBar,
+  Prohibit,
+  Warning,
+  CheckCircle,
+  Question,
+  Ruler,
+  ChartLineUp,
+  Info,
+  SpeakerHigh,
+  Stop,
+  ShareNetwork,
+  NotePencil,
+  MapTrifold,
+  ListChecks,
+  ArrowLeft,
+} from 'phosphor-react-native';
 import { CoverageBar } from '@/components/CoverageBar';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
@@ -56,7 +73,7 @@ export default function RouteScreen() {
             </Text>
             <GovButton
               title="Wróć do wyszukiwania"
-              icon="←"
+              icon={<ArrowLeft size={18} color="#fff" weight="bold" />}
               variant="primary"
               onPress={() => router.back()}
             />
@@ -148,19 +165,22 @@ export default function RouteScreen() {
         {/* SUMMARY CARD (R10) */}
         <GovCard variant="accent">
           <View style={styles.cardHeaderRow}>
-            <Text
-              accessibilityRole="header"
-              style={[
-                styles.cardTitle,
-                {
-                  color: colors.text,
-                  fontSize: fontSize(19),
-                  letterSpacing: dyslexicFont ? 1.2 : 0.3,
-                },
-              ]}
-            >
-              📊 {t(locale, 'summaryCardTitle')}
-            </Text>
+            <View style={styles.inlineHeaderRow}>
+              <ChartBar size={22} color={colors.accent} weight="bold" />
+              <Text
+                accessibilityRole="header"
+                style={[
+                  styles.cardTitle,
+                  {
+                    color: colors.text,
+                    fontSize: fontSize(19),
+                    letterSpacing: dyslexicFont ? 1.2 : 0.3,
+                  },
+                ]}
+              >
+                {t(locale, 'summaryCardTitle')}
+              </Text>
+            </View>
             <View
               style={[
                 styles.cityTag,
@@ -211,9 +231,12 @@ export default function RouteScreen() {
               <Text style={[styles.countNumber, { color: colors.blockerText, fontSize: fontSize(22) }]}>
                 {blockers.length}
               </Text>
-              <Text style={[styles.countText, { color: colors.blockerText, fontSize: fontSize(12) }]}>
-                ⛔ {t(locale, 'blockersCount')}
-              </Text>
+              <View style={styles.inlineBadgeLabel}>
+                <Prohibit size={15} color={colors.blockerText} weight="bold" />
+                <Text style={[styles.countText, { color: colors.blockerText, fontSize: fontSize(12) }]}>
+                  {t(locale, 'blockersCount')}
+                </Text>
+              </View>
             </View>
 
             <View
@@ -229,9 +252,12 @@ export default function RouteScreen() {
               <Text style={[styles.countNumber, { color: colors.warningText, fontSize: fontSize(22) }]}>
                 {warnings.length}
               </Text>
-              <Text style={[styles.countText, { color: colors.warningText, fontSize: fontSize(12) }]}>
-                ⚠️ {t(locale, 'warningsCount')}
-              </Text>
+              <View style={styles.inlineBadgeLabel}>
+                <Warning size={15} color={colors.warningText} weight="bold" />
+                <Text style={[styles.countText, { color: colors.warningText, fontSize: fontSize(12) }]}>
+                  {t(locale, 'warningsCount')}
+                </Text>
+              </View>
             </View>
 
             <View
@@ -247,9 +273,12 @@ export default function RouteScreen() {
               <Text style={[styles.countNumber, { color: colors.unknownText, fontSize: fontSize(22) }]}>
                 {unknownItems.length}
               </Text>
-              <Text style={[styles.countText, { color: colors.unknownText, fontSize: fontSize(12) }]}>
-                ❓ {t(locale, 'unknownCount')}
-              </Text>
+              <View style={styles.inlineBadgeLabel}>
+                <Question size={15} color={colors.unknownText} weight="bold" />
+                <Text style={[styles.countText, { color: colors.unknownText, fontSize: fontSize(12) }]}>
+                  {t(locale, 'unknownCount')}
+                </Text>
+              </View>
             </View>
 
             <View
@@ -265,9 +294,12 @@ export default function RouteScreen() {
               <Text style={[styles.countNumber, { color: colors.okText, fontSize: fontSize(22) }]}>
                 {okItems.length + infoItems.length}
               </Text>
-              <Text style={[styles.countText, { color: colors.okText, fontSize: fontSize(12) }]}>
-                ✅ Udogodnienia
-              </Text>
+              <View style={styles.inlineBadgeLabel}>
+                <CheckCircle size={15} color={colors.okText} weight="bold" />
+                <Text style={[styles.countText, { color: colors.okText, fontSize: fontSize(12) }]}>
+                  Udogodnienia
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -282,18 +314,24 @@ export default function RouteScreen() {
               },
             ]}
           >
-            <Text style={[styles.highlightTitle, { color: colors.text, fontSize: fontSize(14) }]}>
-              📏 {t(locale, 'longestUnknownStretch')}:
-            </Text>
+            <View style={styles.inlineHeaderRow}>
+              <Ruler size={17} color={colors.accent} weight="bold" />
+              <Text style={[styles.highlightTitle, { color: colors.text, fontSize: fontSize(14) }]}>
+                {t(locale, 'longestUnknownStretch')}:
+              </Text>
+            </View>
             <Text style={[styles.highlightValue, { color: colors.accent, fontSize: fontSize(14.5) }]}>
               {report.longestUnknownStretchMetres} metrów ciągłego braku danych
             </Text>
           </View>
 
           {/* Coverage stats (R9) */}
-          <Text style={[styles.subTitle, { color: colors.text, fontSize: fontSize(15.5), marginTop: 6 }]}>
-            📈 {t(locale, 'dataCoverage')}:
-          </Text>
+          <View style={[styles.inlineHeaderRow, { marginTop: 6 }]}>
+            <ChartLineUp size={18} color={colors.accent} weight="bold" />
+            <Text style={[styles.subTitle, { color: colors.text, fontSize: fontSize(15.5) }]}>
+              {t(locale, 'dataCoverage')}:
+            </Text>
+          </View>
           {report.coverage.map((stat, i) => (
             <CoverageBar key={i} stat={stat} />
           ))}
@@ -304,18 +342,24 @@ export default function RouteScreen() {
               accessibilityRole="alert"
               style={[styles.bannerAlert, { backgroundColor: colors.okBg, borderColor: colors.okBorder }]}
             >
-              <Text style={[styles.bannerAlertText, { color: colors.okText, fontSize: fontSize(13.5) }]}>
-                ✓ {t(locale, 'noBarriersFound')}
-              </Text>
+              <View style={styles.inlineNoticeRow}>
+                <CheckCircle size={18} color={colors.okText} weight="bold" />
+                <Text style={[styles.bannerAlertText, { color: colors.okText, fontSize: fontSize(13.5), flex: 1 }]}>
+                  {t(locale, 'noBarriersFound')}
+                </Text>
+              </View>
             </View>
           ) : (
             <View
               accessibilityRole="text"
               style={[styles.bannerAlert, { backgroundColor: colors.infoBg, borderColor: colors.infoBorder }]}
             >
-              <Text style={[styles.bannerAlertText, { color: colors.infoText, fontSize: fontSize(13.5) }]}>
-                ℹ️ {t(locale, 'caveatNotice')}
-              </Text>
+              <View style={styles.inlineNoticeRow}>
+                <Info size={18} color={colors.infoText} weight="bold" />
+                <Text style={[styles.bannerAlertText, { color: colors.infoText, fontSize: fontSize(13.5), flex: 1 }]}>
+                  {t(locale, 'caveatNotice')}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -323,14 +367,20 @@ export default function RouteScreen() {
           <View style={styles.actionRow}>
             <GovButton
               title={isSpeaking ? t(locale, 'stopSpeech') : t(locale, 'readAloud')}
-              icon={isSpeaking ? '⏹️' : '🔊'}
+              icon={
+                isSpeaking ? (
+                  <Stop size={18} color="#fff" weight="bold" />
+                ) : (
+                  <SpeakerHigh size={18} color="#fff" weight="bold" />
+                )
+              }
               variant={isSpeaking ? 'danger' : 'primary'}
               onPress={handleSpeechToggle}
               style={{ flex: 1 }}
             />
             <GovButton
               title={t(locale, 'shareSummary')}
-              icon="📤"
+              icon={<ShareNetwork size={18} color={colors.text} weight="bold" />}
               variant="outline"
               onPress={handleShare}
               style={{ flex: 1 }}
@@ -339,7 +389,7 @@ export default function RouteScreen() {
 
           <GovButton
             title={t(locale, 'reportCorrection')}
-            icon="✍️"
+            icon={<NotePencil size={18} color={colors.text} weight="bold" />}
             variant="secondary"
             onPress={() => router.push('/report-correction' as any)}
           />
@@ -348,7 +398,7 @@ export default function RouteScreen() {
         {/* MAP TOGGLE AND COMPONENT */}
         <GovButton
           title={showMap ? t(locale, 'hideMap') : t(locale, 'showMap')}
-          icon="🗺️"
+          icon={<MapTrifold size={18} color={colors.text} weight="bold" />}
           variant="outline"
           onPress={() => setShowMap(!showMap)}
         />
@@ -357,12 +407,15 @@ export default function RouteScreen() {
 
         {/* ORDERED FINDINGS LIST (R3, R5, R6) */}
         <View style={styles.findingsSection}>
-          <Text
-            accessibilityRole="header"
-            style={[styles.sectionTitle, { color: colors.text, fontSize: fontSize(18) }]}
-          >
-            📋 {t(locale, 'findingsListTitle')} ({report.findings.length})
-          </Text>
+          <View style={styles.inlineHeaderRow}>
+            <ListChecks size={22} color={colors.accent} weight="bold" />
+            <Text
+              accessibilityRole="header"
+              style={[styles.sectionTitle, { color: colors.text, fontSize: fontSize(18) }]}
+            >
+              {t(locale, 'findingsListTitle')} ({report.findings.length})
+            </Text>
+          </View>
           <Text style={[styles.metaText, { color: colors.muted, fontSize: fontSize(13.5) }]}>
             Uporządkowane rosnąco według odległości od startu:
           </Text>
@@ -493,5 +546,21 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: '700',
+  },
+  inlineHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  inlineBadgeLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  inlineNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
   },
 });

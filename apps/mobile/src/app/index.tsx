@@ -1,9 +1,17 @@
 import type { ProfileId } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ArrowRight,
+  Baby,
+  Check,
+  Info,
+  LockKey,
+  SlidersHorizontal,
+  Wheelchair,
+} from 'phosphor-react-native';
 
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
@@ -14,74 +22,6 @@ import { KrakowHeader } from '@/components/KrakowHeader';
 import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
-
-const OPTIONS: {
-  id: ProfileId;
-  title: 'wheelchair' | 'stroller' | 'custom';
-  hint: 'wheelchairHint' | 'strollerHint' | 'customHint';
-  icon: string;
-}[] = [
-  { id: 'wheelchair', title: 'wheelchair', hint: 'wheelchairHint', icon: '♿' },
-  { id: 'stroller', title: 'stroller', hint: 'strollerHint', icon: '👶' },
-  { id: 'custom', title: 'custom', hint: 'customHint', icon: '⚙️' },
-];
-
-const ROAD_TYPE_OPTIONS: {
-  id: string;
-  nameKey:
-    | 'surfaceCobblestone'
-    | 'surfaceGravel'
-    | 'surfaceSand'
-    | 'surfaceDirt'
-    | 'surfaceUnpaved'
-    | 'surfaceCompacted';
-  icon: string;
-  descPl: string;
-  descEn: string;
-}[] = [
-  {
-    id: 'cobblestone',
-    nameKey: 'surfaceCobblestone',
-    icon: '🪨',
-    descPl: 'Bruk i kocie łby powodujące silne drgania i blokowanie kół',
-    descEn: 'Cobblestone causing severe vibrations and stuck wheels',
-  },
-  {
-    id: 'gravel',
-    nameKey: 'surfaceGravel',
-    icon: '⚪',
-    descPl: 'Gruby żwir i szuter, utrudniający toczenie się kół',
-    descEn: 'Coarse gravel hindering wheel rolling',
-  },
-  {
-    id: 'sand',
-    nameKey: 'surfaceSand',
-    icon: '🏖️',
-    descPl: 'Sypki piasek grzęznący dla wózków',
-    descEn: 'Loose sand causing wheels to sink',
-  },
-  {
-    id: 'dirt',
-    nameKey: 'surfaceDirt',
-    icon: '🌱',
-    descPl: 'Drogi gruntowe i ziemne, błotniste po deszczu',
-    descEn: 'Dirt and soil tracks, muddy in rain',
-  },
-  {
-    id: 'unpaved',
-    nameKey: 'surfaceUnpaved',
-    icon: '🚧',
-    descPl: 'Wszelkie nawierzchnie nieutwardzone',
-    descEn: 'Any general unpaved terrain',
-  },
-  {
-    id: 'compacted',
-    nameKey: 'surfaceCompacted',
-    icon: '🛤️',
-    descPl: 'Nawierzchnia szutrowa utwardzona / ubita',
-    descEn: 'Compacted gravel or stabilized surface',
-  },
-];
 
 export default function ProfileScreen() {
   const {
@@ -94,57 +34,42 @@ export default function ProfileScreen() {
     toggleBlockedRoadType,
     colors,
     fontSize,
+    lineHeight,
+    letterSpacing,
     isHighContrast,
     increasedSpacing,
-    dyslexicFont,
   } = useSession();
 
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const blockedList =
-    activeThresholds.blockedRoadTypes ?? activeThresholds.blockedSurfaces ?? [];
-
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
+  const getProfileIcon = (id: ProfileId) => {
+    switch (id) {
+      case 'wheelchair':
+        return <Wheelchair size={22} weight="bold" color={colors.accent} />;
+      case 'stroller':
+        return <Baby size={22} weight="bold" color={colors.accent} />;
+      case 'custom':
+      default:
+        return <SlidersHorizontal size={22} weight="bold" color={colors.accent} />;
     }
-    const blockedNarrative =
-      blockedList.length > 0
-        ? `Zablokowane nawierzchnie dla profilu: ${blockedList.join(', ')}.`
-        : 'Brak zablokowanych nawierzchni.';
-
-    const narrative = `${t(locale, 'appName')}. ${t(locale, 'profileTitle')}. ${t(
-      locale,
-      'profileLead',
-    )}. Dostępne profile to: Wózek, Wózek dziecięcy oraz Profil własny. Aktualnie wybrany profil: ${
-      profileId === 'wheelchair'
-        ? 'Wózek'
-        : profileId === 'stroller'
-          ? 'Wózek dziecięcy'
-          : 'Profil własny'
-    }. ${blockedNarrative} Kliknij przycisk dalej, aby przejść do wyszukiwania tras w Krakowie.`;
-
-    setIsSpeaking(true);
-    Speech.speak(narrative, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
   };
+
+  const OPTIONS: {
+    id: ProfileId;
+    title: 'wheelchair' | 'stroller' | 'custom';
+    hint: 'wheelchairHint' | 'strollerHint' | 'customHint';
+  }[] = [
+    { id: 'wheelchair', title: 'wheelchair', hint: 'wheelchairHint' },
+    { id: 'stroller', title: 'stroller', hint: 'strollerHint' },
+    { id: 'custom', title: 'custom', hint: 'customHint' },
+  ];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'appName') }} />
 
-      {/* Official Kraków Gov Header with WCAG toolbar */}
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      {/* Official Krakow Gov Header with Dedicated Accessibility Trigger */}
+      <KrakowHeader onOpenDemo={() => setDebugVisible(true)} />
 
       <DemoBanner />
 
@@ -171,8 +96,8 @@ export default function ProfileScreen() {
               {
                 color: colors.text,
                 fontSize: fontSize(21),
-                lineHeight: fontSize(28),
-                letterSpacing: dyslexicFont ? 1.2 : 0.3,
+                lineHeight: lineHeight(21),
+                letterSpacing,
               },
             ]}
           >
@@ -184,7 +109,8 @@ export default function ProfileScreen() {
               {
                 color: colors.muted,
                 fontSize: fontSize(14.5),
-                lineHeight: fontSize(22),
+                lineHeight: lineHeight(14.5),
+                letterSpacing,
               },
             ]}
           >
@@ -219,9 +145,7 @@ export default function ProfileScreen() {
               >
                 <View style={styles.optionTopRow}>
                   <View style={styles.optionTitleRow}>
-                    <Text style={[styles.optionIcon, { fontSize: fontSize(22) }]}>
-                      {option.icon}
-                    </Text>
+                    {getProfileIcon(option.id)}
                     <Text
                       style={[
                         styles.optionTitle,
@@ -229,6 +153,7 @@ export default function ProfileScreen() {
                           color: colors.text,
                           fontSize: fontSize(17),
                           fontWeight: selected ? '800' : '600',
+                          letterSpacing,
                         },
                       ]}
                     >
@@ -262,7 +187,8 @@ export default function ProfileScreen() {
                     {
                       color: colors.muted,
                       fontSize: fontSize(13.5),
-                      lineHeight: fontSize(20),
+                      lineHeight: lineHeight(13.5),
+                      letterSpacing,
                     },
                   ]}
                 >
@@ -279,8 +205,9 @@ export default function ProfileScreen() {
                       },
                     ]}
                   >
+                    <Check size={14} weight="bold" color={colors.accent} />
                     <Text style={[styles.selectedText, { color: colors.accent, fontSize: fontSize(12) }]}>
-                      ✓ {t(locale, 'selected')}
+                      {t(locale, 'selected')}
                     </Text>
                   </View>
                 ) : null}
@@ -416,7 +343,7 @@ export default function ProfileScreen() {
               accessibilityRole="header"
               style={[styles.customTitle, { color: colors.text, fontSize: fontSize(16) }]}
             >
-              ⚙️ Dostosuj progi barier dla profilu własnego:
+              Dostosuj progi barier dla profilu własnego:
             </Text>
 
             <View style={styles.thresholdRow}>
@@ -472,16 +399,31 @@ export default function ProfileScreen() {
 
         {/* Privacy Note */}
         <GovCard variant="default">
-          <Text style={[styles.privacyNotice, { color: colors.muted, fontSize: fontSize(12.5), lineHeight: fontSize(18) }]}>
-            🔒 <Text style={{ fontWeight: '700' }}>Prywatność i bezpieczeństwo:</Text> {t(locale, 'privacy')}
-          </Text>
+          <View style={styles.privacyRow}>
+            <LockKey size={18} weight="bold" color={colors.accent} />
+            <Text
+              style={[
+                styles.privacyNotice,
+                {
+                  color: colors.muted,
+                  fontSize: fontSize(12.5),
+                  lineHeight: lineHeight(12.5),
+                  letterSpacing,
+                  flex: 1,
+                },
+              ]}
+            >
+              <Text style={{ fontWeight: '700', color: colors.text }}>Prywatność i bezpieczeństwo:</Text>{' '}
+              {t(locale, 'privacy')}
+            </Text>
+          </View>
         </GovCard>
 
         {/* Main Action Buttons */}
         <View style={styles.actionRow}>
           <GovButton
             title={t(locale, 'continue')}
-            icon="➜"
+            icon={<ArrowRight size={18} weight="bold" color={colors.accentText} />}
             variant="primary"
             disabled={profileId === null}
             onPress={() => router.push('/search')}
@@ -489,7 +431,7 @@ export default function ProfileScreen() {
 
           <GovButton
             title={t(locale, 'about')}
-            icon="ℹ️"
+            icon={<Info size={18} weight="bold" color={colors.text} />}
             variant="outline"
             onPress={() => router.push('/about')}
           />
@@ -520,7 +462,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   leadTitle: {
-    fontWeight: '800',
+    fontWeight: '900',
   },
   bodyText: {
     fontWeight: '500',
@@ -542,7 +484,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  optionIcon: {},
   optionTitle: {
     letterSpacing: 0.2,
   },
@@ -569,6 +510,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   selectedText: {
     fontWeight: '800',
@@ -589,6 +533,11 @@ const styles = StyleSheet.create({
   },
   smallStepBtn: {
     flex: 1,
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
   },
   privacyNotice: {
     fontWeight: '500',

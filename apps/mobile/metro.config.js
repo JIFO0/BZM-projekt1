@@ -15,6 +15,11 @@ config.watchFolders = [
   workspaceRoot,
 ];
 
+config.resolver.nodeModulesPaths = [
+  path.resolve(projectRoot, 'node_modules'),
+  path.resolve(workspaceRoot, 'node_modules'),
+];
+
 // Exclude backend directory and graphhopper data cache from Metro bundler
 const backendPattern = new RegExp(
   `^${path.resolve(workspaceRoot, 'backend').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`

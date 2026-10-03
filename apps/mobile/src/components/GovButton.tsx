@@ -4,6 +4,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -21,7 +22,7 @@ interface GovButtonProps {
   accessibilityLabel?: string;
   accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
-  icon?: string;
+  icon?: ReactNode;
 }
 
 export function GovButton({
@@ -88,7 +89,7 @@ export function GovButton({
         <ActivityIndicator color={textColor} />
       ) : (
         <>
-          {icon ? <Text style={[styles.iconText, { fontSize: fontSize(16) }]}>{icon}</Text> : null}
+          {icon ? <View style={styles.iconContainer}>{icon}</View> : null}
           {title ? (
             <Text
               style={[
@@ -126,7 +127,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textAlign: 'center',
   },
-  iconText: {
-    marginRight: 2,
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
