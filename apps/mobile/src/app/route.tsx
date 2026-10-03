@@ -6,6 +6,7 @@ import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
+  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -23,6 +24,8 @@ import {
   Ruler,
   ChartLineUp,
   Info,
+  Lightning,
+  ShieldCheck,
   ShareNetwork,
   NotePencil,
   MapTrifold,
@@ -47,6 +50,9 @@ export default function RouteScreen() {
     locale,
     activeRouteReport,
     activeWalkingRoute,
+    routeVariants,
+    selectedRouteVariant,
+    selectRouteVariant,
     colors,
     fontSize,
     isHighContrast,
@@ -161,7 +167,7 @@ export default function RouteScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'routeReportTitle') }} />
 
-      <KrakowHeader />
+      <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
 
       <DemoBanner isSample={report.isSample} />
 
@@ -174,6 +180,137 @@ export default function RouteScreen() {
           },
         ]}
       >
+        {/* VARIANT SELECTOR CARD */}
+        {routeVariants ? (
+          <GovCard variant="default">
+            <Text style={[styles.variantCardTitle, { color: colors.text, fontSize: fontSize(14.5), fontWeight: '700', marginBottom: 8 }]}>
+              Wybór wariantu trasy:
+            </Text>
+            <View style={styles.variantButtonsRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedRouteVariant === 'accessible' }}
+                onPress={() => selectRouteVariant('accessible')}
+                style={[
+                  styles.variantButton,
+                  {
+                    backgroundColor:
+                      selectedRouteVariant === 'accessible' ? colors.accent : colors.background,
+                    borderColor:
+                      selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
+                    borderWidth: selectedRouteVariant === 'accessible' ? 2 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.variantHeader}>
+                  <ShieldCheck
+                    size={18}
+                    weight="bold"
+                    color={selectedRouteVariant === 'accessible' ? colors.accentText : colors.accent}
+                  />
+                  <Text
+                    style={[
+                      styles.variantTitle,
+                      {
+                        color: selectedRouteVariant === 'accessible' ? colors.accentText : colors.text,
+                        fontSize: fontSize(14),
+                        fontWeight: selectedRouteVariant === 'accessible' ? '800' : '600',
+                      },
+                    ]}
+                  >
+                    Bez barier
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.variantSub,
+                    {
+                      color: selectedRouteVariant === 'accessible' ? colors.accentText : colors.muted,
+                      fontSize: fontSize(12),
+                    },
+                  ]}
+                >
+                  {routeVariants.accessible.report.lengthMetres} m • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedRouteVariant === 'shortest' }}
+                onPress={() => selectRouteVariant('shortest')}
+                style={[
+                  styles.variantButton,
+                  {
+                    backgroundColor:
+                      selectedRouteVariant === 'shortest' ? colors.accent : colors.background,
+                    borderColor:
+                      selectedRouteVariant === 'shortest' ? colors.accent : colors.border,
+                    borderWidth: selectedRouteVariant === 'shortest' ? 2 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.variantHeader}>
+                  <Lightning
+                    size={18}
+                    weight="bold"
+                    color={selectedRouteVariant === 'shortest' ? colors.accentText : colors.warningText}
+                  />
+                  <Text
+                    style={[
+                      styles.variantTitle,
+                      {
+                        color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.text,
+                        fontSize: fontSize(14),
+                        fontWeight: selectedRouteVariant === 'shortest' ? '800' : '600',
+                      },
+                    ]}
+                  >
+                    Najkrótsza
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.variantSub,
+                    {
+                      color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.muted,
+                      fontSize: fontSize(12),
+                    },
+                  ]}
+                >
+                  {routeVariants.shortest.report.lengthMetres} m • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                </Text>
+              </Pressable>
+            </View>
+
+            {selectedRouteVariant === 'shortest' &&
+              routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length > 0 && (
+                <View
+                  style={[
+                    styles.variantWarningCallout,
+                    {
+                      backgroundColor: colors.warningBg,
+                      borderColor: colors.warningBorder,
+                      borderWidth: 1.5,
+                      marginTop: 10,
+                    },
+                  ]}
+                >
+                  <Warning size={18} weight="bold" color={colors.warningText} />
+                  <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
+                    Trasa najkrótsza jest o{' '}
+                    {Math.max(
+                      0,
+                      routeVariants.accessible.report.lengthMetres - routeVariants.shortest.report.lengthMetres,
+                    )}{' '}
+                    m krótsza, ale zawiera{' '}
+                    {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length}{' '}
+                    blokad(y) dla Twojego profilu mobilności (np. schody bez podjazdu, wysoki krawężnik, zabytkowy bruk).
+                  </Text>
+                </View>
+              )}
+          </GovCard>
+        ) : null}
+
         {/* SUMMARY CARD (R10) */}
         <GovCard variant="accent">
           <View style={styles.cardHeaderRow}>
@@ -564,5 +701,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
+  },
+  variantCardTitle: {
+    letterSpacing: 0.2,
+  },
+  variantButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  variantButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    gap: 4,
+  },
+  variantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  variantTitle: {
+    letterSpacing: 0.2,
+  },
+  variantSub: {
+    marginTop: 2,
+  },
+  variantWarningCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+  },
+  variantWarningText: {
+    flex: 1,
+    lineHeight: 18,
   },
 });

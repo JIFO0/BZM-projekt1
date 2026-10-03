@@ -40,6 +40,10 @@ export default function SearchScreen() {
     debugState,
     setActiveRouteReport,
     setActiveWalkingRoute,
+    setActiveRouteFacts,
+    setActiveRouteIsSample,
+    setRouteVariants,
+    selectRouteVariant,
     setActivePlaceReport,
     colors,
     fontSize,
@@ -103,6 +107,14 @@ export default function SearchScreen() {
 
       setActiveWalkingRoute(result.walkingRoute);
       setActiveRouteReport(result.report);
+      setActiveRouteFacts(result.facts);
+      setActiveRouteIsSample(result.isSample);
+      if (result.variants) {
+        setRouteVariants(result.variants);
+      }
+      if (result.selectedVariant) {
+        selectRouteVariant(result.selectedVariant);
+      }
       router.push('/route' as any);
     } catch (err: any) {
       setErrorMsg(
@@ -161,7 +173,7 @@ export default function SearchScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'searchTitle') }} />
 
-      <KrakowHeader />
+      <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
 
       <DemoBanner />
 

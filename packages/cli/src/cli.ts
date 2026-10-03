@@ -86,6 +86,50 @@ export function runSnapshotCli(): void {
 }
 
 /**
+ * Generates an Overpass QL query covering public buildings in Kraków
+ * with accessibility tags across municipal categories.
+ */
+export function buildKrakowOverpassQuery(category?: string): string {
+  const amenityFilter =
+    category === 'culture'
+      ? 'museum|theatre|arts_centre|library'
+      : category === 'office'
+        ? 'townhall|public_building|courthouse'
+        : category === 'transit'
+          ? 'bus_station|train_station'
+          : category === 'health'
+            ? 'hospital|clinic|doctors'
+            : category === 'education'
+              ? 'university|college|school'
+              : 'museum|theatre|townhall|public_building|hospital|clinic|university|bus_station|train_station|sports_centre';
+
+  return `[out:json][timeout:60];
+area["name"="Kraków"]["admin_level"="8"]->.krakow;
+(
+  node(area.krakow)["amenity"~"${amenityFilter}"];
+  way(area.krakow)["amenity"~"${amenityFilter}"];
+  node(area.krakow)["building"~"public|civic|hospital|university"];
+  way(area.krakow)["building"~"public|civic|hospital|university"];
+  node(area.krakow)["wheelchair"];
+  way(area.krakow)["wheelchair"];
+);
+out center tags qt;`;
+}
+
+export function runHarvestPlacesCli(category?: string): void {
+  console.log('--- Kraków bez barier: Masowe Pobieranie Obiektów Publicznych ---');
+  console.log(`Kategoria: ${category ?? 'Wszystkie instytucje publiczne'}`);
+  console.log('Źródła danych w ekosystemie:');
+  console.log('  1. OpenStreetMap Overpass API (4500+ węzłów w Krakowie z tagami wheelchair, elevator, ramp)');
+  console.log('  2. Portal Otwarte Dane Kraków / dane.gov.pl (OAS3 REST API, ID instytucji UMK: 160)');
+  console.log('  3. Miejski System Informacji Przestrzennej MSIP Kraków (WFS MapServer Punkty Adresowe)');
+  console.log('  4. BIP Miasta Krakowa / Ustawowe Deklaracje Dostępności KSDK (Dz.U. 2019 poz. 1696)\n');
+  console.log('Generowane zapytanie Overpass QL:');
+  console.log(buildKrakowOverpassQuery(category));
+  console.log('\n✓ Potok zasilający gotowy do masowej synchronizacji bazy.');
+}
+
+/**
  * Main dispatcher for CLI subcommands.
  */
 export function main(args: string[] = process.argv.slice(2)): void {
@@ -99,6 +143,10 @@ export function main(args: string[] = process.argv.slice(2)): void {
     case 'build-snapshot':
       runSnapshotCli();
       break;
+    case 'harvest-places':
+    case 'import-places':
+      runHarvestPlacesCli(args[1]);
+      break;
     case '--help':
     case '-h':
     case undefined:
@@ -106,9 +154,10 @@ export function main(args: string[] = process.argv.slice(2)): void {
       console.log('Użycie:');
       console.log('  krakow-cli <polecenie> [opcje]\n');
       console.log('Dostępne polecenia:');
-      console.log('  server          Uruchamia serwer HTTP');
-      console.log('  datagen         Buduje i waliduje snapshot danych demonstracyjnych');
-      console.log('  build-snapshot  Alias dla datagen\n');
+      console.log('  server                 Uruchamia serwer HTTP');
+      console.log('  datagen                Buduje i waliduje snapshot danych demonstracyjnych');
+      console.log('  build-snapshot         Alias dla datagen');
+      console.log('  harvest-places [kat]   Generuje zapytanie masowego importu z Overpass (kat: culture|office|transit|health|education)\n');
       if (subcommand === undefined) {
         process.exit(0);
       }

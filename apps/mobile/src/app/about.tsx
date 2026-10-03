@@ -42,7 +42,7 @@ export default function AboutScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'about') }} />
-      <KrakowHeader />
+      <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
 
       <ScrollView
         contentContainerStyle={[

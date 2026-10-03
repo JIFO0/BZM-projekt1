@@ -1,14 +1,27 @@
 import {
   city,
 } from '@/config/city';
-import type {
-  BarrierThresholds,
-  PlaceAnalysisReport,
-  ProfileId,
-  RouteReport,
-  WalkingRoute,
+import {
+  analyzeRoute,
+  type BarrierThresholds,
+  type Fact,
+  type LonLat,
+  type PlaceAnalysisReport,
+  type ProfileId,
+  type RouteReport,
+  type WalkingRoute,
 } from '@krakow-bez-barier/core';
-import { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from 'react';
+import type { RouteVariant, RouteVariantId } from '@/services/api';
 
 import type { Locale } from '@/i18n/strings';
 import {
@@ -51,8 +64,11 @@ interface SessionValue {
   customThresholds: BarrierThresholds;
   setCustomThresholds: (thresholds: BarrierThresholds) => void;
   activeThresholds: BarrierThresholds;
+  updateActiveThresholds: (partial: Partial<BarrierThresholds>) => void;
   toggleBlockedRoadType: (roadType: string) => void;
   setBlockedRoadTypes: (roadTypes: string[]) => void;
+  pendingDestination: { name: string; position: LonLat } | null;
+  setPendingDestination: (dest: { name: string; position: LonLat } | null) => void;
   debugState: DebugState;
   setDebugState: (updater: (prev: DebugState) => DebugState) => void;
   localReports: LocalReport[];
@@ -61,6 +77,14 @@ interface SessionValue {
   setActiveRouteReport: (report: RouteReport | null) => void;
   activeWalkingRoute: WalkingRoute | null;
   setActiveWalkingRoute: (route: WalkingRoute | null) => void;
+  activeRouteFacts: Fact[];
+  setActiveRouteFacts: (facts: Fact[]) => void;
+  activeRouteIsSample: boolean;
+  setActiveRouteIsSample: (isSample: boolean) => void;
+  routeVariants: Record<RouteVariantId, RouteVariant> | null;
+  setRouteVariants: (variants: Record<RouteVariantId, RouteVariant> | null) => void;
+  selectedRouteVariant: RouteVariantId;
+  selectRouteVariant: (variantId: RouteVariantId) => void;
   activePlaceReport: PlaceAnalysisReport | null;
   setActivePlaceReport: (report: PlaceAnalysisReport | null) => void;
 
@@ -191,6 +215,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     [profileId, customThresholds, setCustomThresholds],
   );
+
+  const updateActiveThresholds = useCallback(
+    (partial: Partial<BarrierThresholds>) => {
+      if (profileId === 'custom') {
+        const updated: BarrierThresholds = { ...customThresholds, ...partial };
+        setCustomThresholds(updated);
+      } else {
+        setProfileThresholds((prev) => ({
+          ...prev,
+          [profileId]: {
+            ...prev[profileId],
+            ...partial,
+          },
+        }));
+      }
+    },
+    [profileId, customThresholds, setCustomThresholds],
+  );
+
+  const [pendingDestination, setPendingDestination] = useState<{
+    name: string;
+    position: LonLat;
+  } | null>(null);
+
   const [debugState, setDebugStateInternal] = useState<DebugState>({
     simulateOverpassDown: false,
     simulateMapyDown: false,
@@ -206,7 +254,100 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   ]);
   const [activeRouteReport, setActiveRouteReport] = useState<RouteReport | null>(null);
   const [activeWalkingRoute, setActiveWalkingRoute] = useState<WalkingRoute | null>(null);
+  const [activeRouteFacts, setActiveRouteFacts] = useState<Fact[]>([]);
+  const [activeRouteIsSample, setActiveRouteIsSample] = useState<boolean>(false);
+  const [routeVariants, setRouteVariants] = useState<Record<RouteVariantId, RouteVariant> | null>(null);
+  const [selectedRouteVariant, setSelectedRouteVariant] = useState<RouteVariantId>('accessible');
   const [activePlaceReport, setActivePlaceReport] = useState<PlaceAnalysisReport | null>(null);
+
+  const routeVariantsRef = useRef(routeVariants);
+  routeVariantsRef.current = routeVariants;
+  const selectedRouteVariantRef = useRef(selectedRouteVariant);
+  selectedRouteVariantRef.current = selectedRouteVariant;
+  const activeWalkingRouteRef = useRef(activeWalkingRoute);
+  activeWalkingRouteRef.current = activeWalkingRoute;
+  const activeRouteFactsRef = useRef(activeRouteFacts);
+  activeRouteFactsRef.current = activeRouteFacts;
+  const activeRouteReportRef = useRef(activeRouteReport);
+  activeRouteReportRef.current = activeRouteReport;
+  const activeRouteIsSampleRef = useRef(activeRouteIsSample);
+  activeRouteIsSampleRef.current = activeRouteIsSample;
+
+  const selectRouteVariant = useCallback(
+    (variantId: RouteVariantId) => {
+      setSelectedRouteVariant(variantId);
+      if (routeVariants && routeVariants[variantId]) {
+        const v = routeVariants[variantId];
+        setActiveWalkingRoute(v.walkingRoute);
+        setActiveRouteReport(v.report);
+        setActiveRouteFacts(v.facts);
+        setActiveRouteIsSample(v.isSample);
+      }
+    },
+    [routeVariants],
+  );
+
+  // Dynamic real-time blocker recalculation whenever thresholds or mobility profile changes
+  useEffect(() => {
+    const curVariants = routeVariantsRef.current;
+    if (curVariants) {
+      const updatedAccessibleReport = analyzeRoute({
+        routeId: curVariants.accessible.report.routeId,
+        profileId,
+        routeCoordinates: curVariants.accessible.walkingRoute.coordinates,
+        facts: curVariants.accessible.facts,
+        config: city,
+        thresholds: activeThresholds,
+        isSample: curVariants.accessible.isSample,
+      });
+
+      const updatedShortestReport = analyzeRoute({
+        routeId: curVariants.shortest.report.routeId,
+        profileId,
+        routeCoordinates: curVariants.shortest.walkingRoute.coordinates,
+        facts: curVariants.shortest.facts,
+        config: city,
+        thresholds: activeThresholds,
+        isSample: curVariants.shortest.isSample,
+      });
+
+      const nextVariants: Record<RouteVariantId, RouteVariant> = {
+        accessible: {
+          ...curVariants.accessible,
+          report: updatedAccessibleReport,
+        },
+        shortest: {
+          ...curVariants.shortest,
+          report: updatedShortestReport,
+        },
+      };
+
+      setRouteVariants(nextVariants);
+
+      const activeVar = nextVariants[selectedRouteVariantRef.current];
+      if (activeVar) {
+        setActiveWalkingRoute(activeVar.walkingRoute);
+        setActiveRouteReport(activeVar.report);
+        setActiveRouteFacts(activeVar.facts);
+        setActiveRouteIsSample(activeVar.isSample);
+      }
+    } else if (
+      activeWalkingRouteRef.current &&
+      activeRouteFactsRef.current &&
+      activeRouteFactsRef.current.length > 0
+    ) {
+      const updated = analyzeRoute({
+        routeId: activeRouteReportRef.current?.routeId ?? `route-${Date.now()}`,
+        profileId,
+        routeCoordinates: activeWalkingRouteRef.current.coordinates,
+        facts: activeRouteFactsRef.current,
+        config: city,
+        thresholds: activeThresholds,
+        isSample: activeRouteIsSampleRef.current,
+      });
+      setActiveRouteReport(updated);
+    }
+  }, [profileId, activeThresholds]);
 
   // User GPS location state
   const [userLocation, setUserLocation] = useState<UserCoordinates | null>(null);
@@ -342,8 +483,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       customThresholds,
       setCustomThresholds,
       activeThresholds,
+      updateActiveThresholds,
       toggleBlockedRoadType,
       setBlockedRoadTypes,
+      pendingDestination,
+      setPendingDestination,
       debugState,
       setDebugState: (fn: (prev: DebugState) => DebugState) => setDebugStateInternal(fn),
       localReports,
@@ -352,6 +496,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setActiveRouteReport,
       activeWalkingRoute,
       setActiveWalkingRoute,
+      activeRouteFacts,
+      setActiveRouteFacts,
+      activeRouteIsSample,
+      setActiveRouteIsSample,
+      routeVariants,
+      setRouteVariants,
+      selectedRouteVariant,
+      selectRouteVariant,
       activePlaceReport,
       setActivePlaceReport,
       userLocation,
@@ -403,12 +555,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       customThresholds,
       setCustomThresholds,
       activeThresholds,
+      updateActiveThresholds,
       toggleBlockedRoadType,
       setBlockedRoadTypes,
+      pendingDestination,
+      setPendingDestination,
       debugState,
       localReports,
       activeRouteReport,
       activeWalkingRoute,
+      activeRouteFacts,
+      activeRouteIsSample,
+      routeVariants,
+      selectedRouteVariant,
+      selectRouteVariant,
       activePlaceReport,
       userLocation,
       isLocating,

@@ -13,10 +13,12 @@ import {
   Check,
   Crosshair,
   Info,
+  Lightning,
   MagnifyingGlass,
   NavigationArrow,
   PathIcon as Path,
   Prohibit,
+  ShieldCheck,
   SlidersHorizontal,
   Warning,
   X,
@@ -44,7 +46,7 @@ import { KrakowHeader } from '@/components/KrakowHeader';
 import { LocationPicker } from '@/components/LocationPicker';
 import { MapView } from '@/components/MapView';
 import { t } from '@/i18n/strings';
-import { inspectPlace, planAndAnalyzeRoute, reverseGeocodeLocation } from '@/services/api';
+import { DEFAULT_PRESET_PLACES, inspectPlace, planAndAnalyzeRoute, reverseGeocodeLocation } from '@/services/api';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -100,15 +102,22 @@ export default function MapHomeScreen() {
     locale,
     profileId,
     setProfileId,
-    customThresholds,
-    setCustomThresholds,
     activeThresholds,
+    updateActiveThresholds,
     toggleBlockedRoadType,
+    pendingDestination,
+    setPendingDestination,
     debugState,
     activeRouteReport,
     setActiveRouteReport,
     activeWalkingRoute,
     setActiveWalkingRoute,
+    setActiveRouteFacts,
+    setActiveRouteIsSample,
+    routeVariants,
+    setRouteVariants,
+    selectedRouteVariant,
+    selectRouteVariant,
     activePlaceReport,
     setActivePlaceReport,
     localReports,
@@ -126,6 +135,20 @@ export default function MapHomeScreen() {
     lat: 50.0619,
     lon: 19.9373,
   });
+
+  // Handle pending destination set from place screen or external sources
+  useEffect(() => {
+    if (pendingDestination) {
+      setToQuery(pendingDestination.name);
+      setToPos(pendingDestination.position);
+      setActiveTab('route');
+      setPopupExpanded(true);
+      setMapCenter({ lat: pendingDestination.position.lat, lon: pendingDestination.position.lon });
+      setStatusMessage(`Ustawiono cel trasy: ${pendingDestination.name}`);
+      setPendingDestination(null);
+      setTimeout(() => setStatusMessage(null), 3000);
+    }
+  }, [pendingDestination, setPendingDestination]);
 
   // Proactively request / fetch location on mount
   useEffect(() => {
@@ -147,6 +170,8 @@ export default function MapHomeScreen() {
   const [toPos, setToPos] = useState<LonLat>({ lon: 19.9354, lat: 50.0544 });
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
+  const [placeCategoryFilter, setPlaceCategoryFilter] = useState<string>('all');
+  const [placeCatalogSearch, setPlaceCatalogSearch] = useState<string>('');
 
   // Report input state
   const [reportDesc, setReportDesc] = useState('');
@@ -299,6 +324,12 @@ export default function MapHomeScreen() {
 
       setActiveWalkingRoute(result.walkingRoute);
       setActiveRouteReport(result.report);
+      setActiveRouteFacts(result.facts);
+      setActiveRouteIsSample(result.isSample);
+      setRouteVariants(result.variants ?? null);
+      if (result.selectedVariant) {
+        selectRouteVariant(result.selectedVariant);
+      }
       setPopupExpanded(true);
       setActiveTab('route');
 
@@ -354,6 +385,12 @@ export default function MapHomeScreen() {
       });
       setActiveWalkingRoute(result.walkingRoute);
       setActiveRouteReport(result.report);
+      setActiveRouteFacts(result.facts);
+      setActiveRouteIsSample(result.isSample);
+      setRouteVariants(result.variants ?? null);
+      if (result.selectedVariant) {
+        selectRouteVariant(result.selectedVariant);
+      }
       if (result.walkingRoute.coordinates.length > 0) {
         setMapCenter({
           lat: result.walkingRoute.coordinates[0]![1],
@@ -387,10 +424,62 @@ export default function MapHomeScreen() {
     }
   };
 
+  const PLACE_CATEGORIES = [
+    { id: 'all', label: 'Wszystkie' },
+    { id: 'culture', label: '🏛️ Kultura i KSDK' },
+    { id: 'office', label: '🏢 Urzędy UMK' },
+    { id: 'transit', label: '🚆 Dworce i Węzły' },
+    { id: 'health', label: '🏥 Szpitale' },
+    { id: 'education', label: '🎓 Uczelnie' },
+    { id: 'sport', label: '🏟️ Sport' },
+  ];
+
+  const filteredPlaces = DEFAULT_PRESET_PLACES.filter((p) => {
+    if (placeCategoryFilter !== 'all' && p.category !== placeCategoryFilter) {
+      return false;
+    }
+    if (!placeCatalogSearch.trim()) {
+      return true;
+    }
+    const q = placeCatalogSearch.toLowerCase().trim();
+    const matchName = p.name.toLowerCase().includes(q);
+    const matchLabel = p.label.toLowerCase().includes(q);
+    const matchTag = p.tags && p.tags.some((t) => t.toLowerCase().includes(q));
+    return matchName || matchLabel || matchTag;
+  });
+
+  const handleSelectPresetPlace = async (p: (typeof DEFAULT_PRESET_PLACES)[number]) => {
+    setPlaceQuery(p.name);
+    setPlacePos(p.position);
+    setLoadingPlace(true);
+    setStatusMessage(`Pobieranie danych dla: ${p.name}`);
+    try {
+      const result = await inspectPlace(p.name, p.position, debugState);
+      setActivePlaceReport(result.report);
+      setPopupExpanded(true);
+      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+    } catch (err: any) {
+      Alert.alert('Błąd sprawdzania obiektu', err.message || 'Nie udało się pobrać danych.');
+    } finally {
+      setLoadingPlace(false);
+      setStatusMessage(null);
+    }
+  };
+
+  const handleSetPlaceAsDestination = (p: (typeof DEFAULT_PRESET_PLACES)[number]) => {
+    setToQuery(p.name);
+    setToPos(p.position);
+    setActiveTab('route');
+    setStatusMessage(`Ustawiono cel trasy: ${p.name}`);
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
+
   // Clear Active Route
   const handleClearRoute = () => {
     setActiveWalkingRoute(null);
     setActiveRouteReport(null);
+    setActiveRouteFacts([]);
+    setRouteVariants(null);
   };
 
   // Submit local report
@@ -868,6 +957,136 @@ export default function MapHomeScreen() {
                   {/* Active Route Result Card (if present) */}
                   {activeRouteReport && activeWalkingRoute ? (
                     <GovCard variant="accent">
+                      {/* Route Variant Selection (Shortest vs Barrier-Free) */}
+                      {routeVariants ? (
+                        <View style={styles.variantSection}>
+                          <Text style={[styles.variantSectionTitle, { color: colors.text, fontSize: fontSize(13.5), fontWeight: '700' }]}>
+                            Wybór wariantu trasy:
+                          </Text>
+                          <View style={styles.variantButtonsRow}>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityState={{ selected: selectedRouteVariant === 'accessible' }}
+                              onPress={() => selectRouteVariant('accessible')}
+                              style={[
+                                styles.variantButton,
+                                {
+                                  backgroundColor:
+                                    selectedRouteVariant === 'accessible' ? colors.accent : colors.background,
+                                  borderColor:
+                                    selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
+                                  borderWidth: selectedRouteVariant === 'accessible' ? 2 : 1,
+                                },
+                              ]}
+                            >
+                              <View style={styles.variantHeader}>
+                                <ShieldCheck
+                                  size={16}
+                                  weight="bold"
+                                  color={selectedRouteVariant === 'accessible' ? colors.accentText : colors.accent}
+                                />
+                                <Text
+                                  style={[
+                                    styles.variantTitle,
+                                    {
+                                      color: selectedRouteVariant === 'accessible' ? colors.accentText : colors.text,
+                                      fontSize: fontSize(13),
+                                      fontWeight: selectedRouteVariant === 'accessible' ? '800' : '600',
+                                    },
+                                  ]}
+                                >
+                                  Bez barier
+                                </Text>
+                              </View>
+                              <Text
+                                style={[
+                                  styles.variantSub,
+                                  {
+                                    color: selectedRouteVariant === 'accessible' ? colors.accentText : colors.muted,
+                                    fontSize: fontSize(11.5),
+                                  },
+                                ]}
+                              >
+                                {routeVariants.accessible.report.lengthMetres} m • {routeVariants.accessible.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                              </Text>
+                            </Pressable>
+
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityState={{ selected: selectedRouteVariant === 'shortest' }}
+                              onPress={() => selectRouteVariant('shortest')}
+                              style={[
+                                styles.variantButton,
+                                {
+                                  backgroundColor:
+                                    selectedRouteVariant === 'shortest' ? colors.accent : colors.background,
+                                  borderColor:
+                                    selectedRouteVariant === 'shortest' ? colors.accent : colors.border,
+                                  borderWidth: selectedRouteVariant === 'shortest' ? 2 : 1,
+                                },
+                              ]}
+                            >
+                              <View style={styles.variantHeader}>
+                                <Lightning
+                                  size={16}
+                                  weight="bold"
+                                  color={selectedRouteVariant === 'shortest' ? colors.accentText : colors.warningText}
+                                />
+                                <Text
+                                  style={[
+                                    styles.variantTitle,
+                                    {
+                                      color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.text,
+                                      fontSize: fontSize(13),
+                                      fontWeight: selectedRouteVariant === 'shortest' ? '800' : '600',
+                                    },
+                                  ]}
+                                >
+                                  Najkrótsza
+                                </Text>
+                              </View>
+                              <Text
+                                style={[
+                                  styles.variantSub,
+                                  {
+                                    color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.muted,
+                                    fontSize: fontSize(11.5),
+                                  },
+                                ]}
+                              >
+                                {routeVariants.shortest.report.lengthMetres} m • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                              </Text>
+                            </Pressable>
+                          </View>
+
+                          {selectedRouteVariant === 'shortest' &&
+                            routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length > 0 && (
+                              <View
+                                style={[
+                                  styles.variantWarningCallout,
+                                  {
+                                    backgroundColor: colors.warningBg,
+                                    borderColor: colors.warningBorder,
+                                    borderWidth: 1.5,
+                                  },
+                                ]}
+                              >
+                                <Warning size={18} weight="bold" color={colors.warningText} />
+                                <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
+                                  Trasa najkrótsza jest o{' '}
+                                  {Math.max(
+                                    0,
+                                    routeVariants.accessible.report.lengthMetres - routeVariants.shortest.report.lengthMetres,
+                                  )}{' '}
+                                  m krótsza, ale zawiera{' '}
+                                  {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length}{' '}
+                                  blokad(y) dla Twojego profilu. Trasa bez barier omija przeszkody.
+                                </Text>
+                              </View>
+                            )}
+                        </View>
+                      ) : null}
+
                       <View style={styles.cardHeaderRow}>
                         <Text style={[styles.resultTitle, { color: colors.text, fontSize: fontSize(16) }]}>
                           {t(locale, 'summaryCardTitle')}:
@@ -943,7 +1162,7 @@ export default function MapHomeScreen() {
                 </View>
               ) : null}
 
-              {/* TAB 2: OBIEKT (PLACE INSPECTION) */}
+              {/* TAB 2: OBIEKT (PLACE INSPECTION & EXTENDED PUBLIC CATALOG) */}
               {activeTab === 'place' ? (
                 <View style={styles.formSection}>
                   <LocationPicker
@@ -967,45 +1186,228 @@ export default function MapHomeScreen() {
                     onPress={handleInspectPlace}
                   />
 
+                  {/* Active Inspected Place Card */}
                   {activePlaceReport ? (
                     <GovCard variant="accent">
-                      <Text style={[styles.resultTitle, { color: colors.text, fontSize: fontSize(16) }]}>
-                        {activePlaceReport.placeName}
-                      </Text>
+                      <View style={styles.cardHeaderRow}>
+                        <Text style={[styles.resultTitle, { color: colors.text, fontSize: fontSize(16), flex: 1 }]}>
+                          {activePlaceReport.placeName}
+                        </Text>
+                      </View>
                       <Text style={[styles.resultSub, { color: colors.muted, fontSize: fontSize(13) }]}>
                         {activePlaceReport.summaryMessage}
                       </Text>
-                      <GovButton
-                        title={t(locale, 'openPlaceCard')}
-                        icon={<ArrowRight size={16} weight="bold" color={colors.accent} />}
-                        variant="outline"
-                        onPress={() => router.push('/place')}
-                        style={{ marginTop: 8 }}
-                      />
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                        <GovButton
+                          title="Pełna karta"
+                          icon={<ArrowRight size={14} weight="bold" color={colors.accent} />}
+                          variant="outline"
+                          onPress={() => router.push('/place')}
+                          style={{ flex: 1 }}
+                        />
+                        <GovButton
+                          title="Trasa tutaj"
+                          icon={<NavigationArrow size={14} weight="bold" color={colors.accentText} />}
+                          variant="primary"
+                          onPress={() => {
+                            setToQuery(activePlaceReport.placeName);
+                            setToPos(placePos);
+                            setActiveTab('route');
+                            setStatusMessage(`Ustawiono cel trasy: ${activePlaceReport.placeName}`);
+                            setTimeout(() => setStatusMessage(null), 3000);
+                          }}
+                          style={{ flex: 1 }}
+                        />
+                      </View>
                     </GovCard>
                   ) : null}
 
-                  {/* Fast Demo Places */}
-                  <View style={styles.demoSection}>
-                    <Text style={[styles.demoSectionTitle, { color: colors.muted, fontSize: fontSize(12.5) }]}>
-                      {t(locale, 'popularDemoPlaces')}
-                    </Text>
-                    <View style={styles.demoButtonsRow}>
-                      <GovButton
-                        variant="outline"
-                        title="Sukiennice"
-                        icon={<Buildings size={14} weight="bold" color={colors.accent} />}
-                        onPress={() => loadDemoPlace(0)}
-                        style={styles.halfBtn}
-                      />
-                      <GovButton
-                        variant="outline"
-                        title="Wawel (R7)"
-                        icon={<Buildings size={14} weight="bold" color={colors.accent} />}
-                        onPress={() => loadDemoPlace(1)}
-                        style={styles.halfBtn}
-                      />
+                  {/* Civic Building Catalog Header */}
+                  <View style={[styles.demoSection, { marginTop: 4 }]}>
+                    <View style={styles.fieldHeader}>
+                      <Text style={[styles.demoSectionTitle, { color: colors.accent, fontSize: fontSize(13) }]}>
+                        KATALOG OBIEKTÓW PUBLICZNYCH ({filteredPlaces.length})
+                      </Text>
                     </View>
+
+                    {/* Category Filter Chips Horizontal Scroll */}
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.placeCategoryScroll}
+                    >
+                      {PLACE_CATEGORIES.map((cat) => {
+                        const active = placeCategoryFilter === cat.id;
+                        return (
+                          <Pressable
+                            key={cat.id}
+                            onPress={() => setPlaceCategoryFilter(cat.id)}
+                            style={[
+                              styles.placeCatChip,
+                              {
+                                backgroundColor: active ? colors.accent : colors.background,
+                                borderColor: active ? colors.accent : colors.border,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.placeCatChipText,
+                                {
+                                  color: active ? colors.accentText : colors.text,
+                                  fontSize: fontSize(12),
+                                },
+                              ]}
+                            >
+                              {cat.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+
+                    {/* Catalog Search & Filter Input */}
+                    <View
+                      style={[
+                        styles.catalogSearchBox,
+                        {
+                          backgroundColor: colors.background,
+                          borderColor: colors.border,
+                          borderWidth: isHighContrast ? 2 : 1,
+                        },
+                      ]}
+                    >
+                      <MagnifyingGlass size={15} color={colors.muted} weight="bold" />
+                      <TextInput
+                        value={placeCatalogSearch}
+                        onChangeText={setPlaceCatalogSearch}
+                        placeholder="Filtruj obiekty (nazwa, ulica, pętla, winda)..."
+                        placeholderTextColor={colors.muted}
+                        style={[
+                          styles.catalogSearchInput,
+                          {
+                            color: colors.text,
+                            fontSize: fontSize(13),
+                          },
+                        ]}
+                      />
+                      {placeCatalogSearch ? (
+                        <Pressable onPress={() => setPlaceCatalogSearch('')} hitSlop={8}>
+                          <X size={15} color={colors.muted} weight="bold" />
+                        </Pressable>
+                      ) : null}
+                    </View>
+
+                    {/* Filtered Building Cards List */}
+                    {filteredPlaces.length === 0 ? (
+                      <GovCard variant="default">
+                        <Text style={{ color: colors.muted, fontSize: fontSize(13) }}>
+                          Brak obiektów spełniających filtr „{placeCatalogSearch}”. Wpisz adres u góry, by zbadać go na żywo z OSM.
+                        </Text>
+                      </GovCard>
+                    ) : (
+                      filteredPlaces.map((p) => {
+                        return (
+                          <View
+                            key={p.id}
+                            style={[
+                              styles.placeCard,
+                              {
+                                backgroundColor: colors.surface,
+                                borderColor: colors.border,
+                                borderWidth: isHighContrast ? 2 : 1,
+                              },
+                            ]}
+                          >
+                            <View style={styles.placeCardHeader}>
+                              <Text
+                                style={[
+                                  styles.placeCardTitle,
+                                  { color: colors.text, fontSize: fontSize(14.5) },
+                                ]}
+                              >
+                                {p.name}
+                              </Text>
+                              {p.category ? (
+                                <View
+                                  style={[
+                                    styles.placeCardBadge,
+                                    { backgroundColor: colors.background },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.placeCardBadgeText,
+                                      { color: colors.accent, fontSize: fontSize(11) },
+                                    ]}
+                                  >
+                                    {p.category.toUpperCase()}
+                                  </Text>
+                                </View>
+                              ) : null}
+                            </View>
+
+                            <Text
+                              style={[
+                                styles.placeCardAddress,
+                                { color: colors.muted, fontSize: fontSize(12.5) },
+                              ]}
+                            >
+                              {p.label}
+                            </Text>
+
+                            {p.tags && p.tags.length > 0 ? (
+                              <View style={styles.placeCardTagsRow}>
+                                {p.tags.map((t, idx) => (
+                                  <View
+                                    key={idx}
+                                    style={[
+                                      styles.placeCardTag,
+                                      {
+                                        backgroundColor: t.includes('⚠️') || t.includes('❌')
+                                          ? colors.blockerBg
+                                          : colors.background,
+                                      },
+                                    ]}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.placeCardTagText,
+                                        {
+                                          color: t.includes('⚠️') || t.includes('❌')
+                                            ? colors.blockerText
+                                            : colors.text,
+                                          fontSize: fontSize(11),
+                                        },
+                                      ]}
+                                    >
+                                      {t}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            ) : null}
+
+                            <View style={styles.placeCardActions}>
+                              <GovButton
+                                title="Sprawdź"
+                                variant="outline"
+                                icon={<Buildings size={13} weight="bold" color={colors.accent} />}
+                                onPress={() => handleSelectPresetPlace(p)}
+                                style={{ flex: 1 }}
+                              />
+                              <GovButton
+                                title="Cel trasy"
+                                variant="outline"
+                                icon={<NavigationArrow size={13} weight="bold" color={colors.text} />}
+                                onPress={() => handleSetPlaceAsDestination(p)}
+                                style={{ flex: 1 }}
+                              />
+                            </View>
+                          </View>
+                        );
+                      })
+                    )}
                   </View>
                 </View>
               ) : null}
@@ -1100,63 +1502,95 @@ export default function MapHomeScreen() {
                     </View>
                   </GovCard>
 
-                  {/* Custom Thresholds if custom profile selected */}
-                  {profileId === 'custom' ? (
-                    <GovCard variant="accent">
-                      <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
-                        {t(locale, 'customThresholdsTitle')}
+                  {/* Detailed Thresholds */}
+                  <GovCard variant="accent">
+                    <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
+                      {t(locale, 'customThresholdsTitle')} ({profileId === 'wheelchair' ? t(locale, 'wheelchair') : profileId === 'custom' ? t(locale, 'custom') : profileId}):
+                    </Text>
+
+                    <View style={styles.thresholdRow}>
+                      <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
+                        {t(locale, 'maxKerb')} <Text style={{ fontWeight: '800' }}>{activeThresholds.maxKerbMillimetres} mm</Text>
                       </Text>
-
-                      <View style={styles.thresholdRow}>
-                        <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                          {t(locale, 'maxKerb')} <Text style={{ fontWeight: '800' }}>{customThresholds.maxKerbMillimetres} mm</Text>
-                        </Text>
-                        <View style={styles.stepBtnRow}>
-                          <GovButton
-                            variant="outline"
-                            title="-10 mm"
-                            onPress={() =>
-                              setCustomThresholds({
-                                ...customThresholds,
-                                maxKerbMillimetres: Math.max(10, customThresholds.maxKerbMillimetres - 10),
-                              })
-                            }
-                            style={styles.smallStepBtn}
-                          />
-                          <GovButton
-                            variant="outline"
-                            title="+10 mm"
-                            onPress={() =>
-                              setCustomThresholds({
-                                ...customThresholds,
-                                maxKerbMillimetres: customThresholds.maxKerbMillimetres + 10,
-                              })
-                            }
-                            style={styles.smallStepBtn}
-                          />
-                        </View>
-                      </View>
-
-                      <View style={styles.thresholdRow}>
-                        <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
-                          {t(locale, 'stepsTreatment')}{' '}
-                          <Text style={{ fontWeight: '800', color: customThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
-                            {customThresholds.stepsAreBlocker ? t(locale, 'blockedStatusBlocked') : t(locale, 'severityWarning')}
-                          </Text>
-                        </Text>
+                      <View style={styles.stepBtnRow}>
                         <GovButton
-                          variant="secondary"
-                          title={t(locale, 'toggleStepsStatus')}
+                          variant="outline"
+                          title="-10 mm"
                           onPress={() =>
-                            setCustomThresholds({
-                              ...customThresholds,
-                              stepsAreBlocker: !customThresholds.stepsAreBlocker,
+                            updateActiveThresholds({
+                              maxKerbMillimetres: Math.max(10, activeThresholds.maxKerbMillimetres - 10),
                             })
                           }
+                          style={styles.smallStepBtn}
+                        />
+                        <GovButton
+                          variant="outline"
+                          title="+10 mm"
+                          onPress={() =>
+                            updateActiveThresholds({
+                              maxKerbMillimetres: activeThresholds.maxKerbMillimetres + 10,
+                            })
+                          }
+                          style={styles.smallStepBtn}
                         />
                       </View>
-                    </GovCard>
-                  ) : null}
+                      <View style={styles.presetChipsRow}>
+                        {[20, 30, 50, 80, 140].map((kVal) => {
+                          const isSelected = activeThresholds.maxKerbMillimetres === kVal;
+                          return (
+                            <Pressable
+                              key={kVal}
+                              accessibilityRole="button"
+                              onPress={() =>
+                                updateActiveThresholds({
+                                  maxKerbMillimetres: kVal,
+                                })
+                              }
+                              style={[
+                                styles.presetChip,
+                                {
+                                  backgroundColor: isSelected ? colors.accent : colors.background,
+                                  borderColor: isSelected ? colors.accent : colors.border,
+                                  borderWidth: isSelected ? 2 : 1,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.presetChipText,
+                                  {
+                                    color: isSelected ? colors.accentText : colors.text,
+                                    fontSize: fontSize(12),
+                                    fontWeight: isSelected ? '800' : '600',
+                                  },
+                                ]}
+                              >
+                                {kVal} mm
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    <View style={styles.thresholdRow}>
+                      <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
+                        {t(locale, 'stepsTreatment')}{' '}
+                        <Text style={{ fontWeight: '800', color: activeThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
+                          {activeThresholds.stepsAreBlocker ? t(locale, 'blockedStatusBlocked') : t(locale, 'severityWarning')}
+                        </Text>
+                      </Text>
+                      <GovButton
+                        variant="secondary"
+                        title={activeThresholds.stepsAreBlocker ? (locale === 'pl' ? 'Zmień na: Ostrzeżenie (nie blokada)' : t(locale, 'toggleStepsStatus')) : (locale === 'pl' ? 'Zmień na: Blokada trasy' : t(locale, 'toggleStepsStatus'))}
+                        onPress={() =>
+                          updateActiveThresholds({
+                            stepsAreBlocker: !activeThresholds.stepsAreBlocker,
+                          })
+                        }
+                      />
+                    </View>
+                  </GovCard>
                 </View>
               ) : null}
 
@@ -1560,6 +1994,136 @@ const styles = StyleSheet.create({
   },
   smallStepBtn: {
     flex: 1,
+  },
+  variantSection: {
+    gap: 8,
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+  variantSectionTitle: {
+    letterSpacing: 0.2,
+  },
+  variantButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  variantButton: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    gap: 3,
+  },
+  variantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  variantTitle: {
+    letterSpacing: 0.2,
+  },
+  variantSub: {
+    marginTop: 2,
+  },
+  variantWarningCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  variantWarningText: {
+    flex: 1,
+    lineHeight: 18,
+  },
+  presetChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  presetChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  presetChipText: {
+    letterSpacing: 0.2,
+  },
+  placeCategoryScroll: {
+    paddingVertical: 4,
+    gap: 8,
+  },
+  placeCatChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  placeCatChipText: {
+    fontWeight: '700',
+  },
+  catalogSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 8,
+    marginTop: 4,
+  },
+  catalogSearchInput: {
+    flex: 1,
+    paddingVertical: 0,
+  },
+  placeCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+    marginTop: 4,
+  },
+  placeCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  placeCardTitle: {
+    fontWeight: '800',
+    flex: 1,
+  },
+  placeCardBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  placeCardBadgeText: {
+    fontWeight: '700',
+  },
+  placeCardAddress: {
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+  placeCardTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  placeCardTag: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  placeCardTagText: {
+    fontWeight: '600',
+  },
+  placeCardActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
   },
   swapBtnRow: {
     alignItems: 'center',

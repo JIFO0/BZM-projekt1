@@ -22,83 +22,586 @@
       "id": "sample-route-rynek-wawel",
       "title": "Rynek Główny → Wawel (ul. Grodzka)",
       "isSample": true,
-      "start": { "name": "Rynek Główny", "position": { "lon": 19.9373, "lat": 50.0619 } },
-      "end": { "name": "Zamek Królewski na Wawelu", "position": { "lon": 19.9354, "lat": 50.0544 } },
+      "start": {
+        "name": "Rynek Główny",
+        "position": {
+          "lon": 19.9373,
+          "lat": 50.0619
+        }
+      },
+      "end": {
+        "name": "Zamek Królewski na Wawelu",
+        "position": {
+          "lon": 19.9354,
+          "lat": 50.0544
+        }
+      },
       "walkingRoute": {
         "provider": "Mapy.com (DANE PRZYKŁADOWE)",
-        "lengthMetres": 920,
-        "durationSeconds": 750,
+        "lengthMetres": 1051,
+        "durationSeconds": 1017,
         "retrievedAt": "2026-10-03T11:00:00Z",
         "coordinates": [
-          [19.9373, 50.0619],
-          [19.9374, 50.0610],
-          [19.9377, 50.0598],
-          [19.9380, 50.0583],
-          [19.9383, 50.0569],
-          [19.9370, 50.0556],
-          [19.9354, 50.0544]
+          [
+            19.93747,
+            50.061844
+          ],
+          [
+            19.937353,
+            50.0617
+          ],
+          [
+            19.937578,
+            50.061619
+          ],
+          [
+            19.937686,
+            50.061602
+          ],
+          [
+            19.937479,
+            50.061181
+          ],
+          [
+            19.937308,
+            50.060829
+          ],
+          [
+            19.937407,
+            50.06076
+          ],
+          [
+            19.937488,
+            50.060696
+          ],
+          [
+            19.937533,
+            50.06065
+          ],
+          [
+            19.937569,
+            50.060598
+          ],
+          [
+            19.937596,
+            50.060558
+          ],
+          [
+            19.937623,
+            50.060512
+          ],
+          [
+            19.937641,
+            50.060471
+          ],
+          [
+            19.937659,
+            50.060431
+          ],
+          [
+            19.937659,
+            50.060373
+          ],
+          [
+            19.937659,
+            50.060333
+          ],
+          [
+            19.937677,
+            50.060206
+          ],
+          [
+            19.937695,
+            50.060131
+          ],
+          [
+            19.937695,
+            50.060085
+          ],
+          [
+            19.937703,
+            50.060039
+          ],
+          [
+            19.937721,
+            50.059923
+          ],
+          [
+            19.93773,
+            50.059883
+          ],
+          [
+            19.937748,
+            50.059791
+          ],
+          [
+            19.937748,
+            50.059773
+          ],
+          [
+            19.937757,
+            50.059727
+          ],
+          [
+            19.937766,
+            50.059647
+          ],
+          [
+            19.937775,
+            50.059577
+          ],
+          [
+            19.937811,
+            50.059393
+          ],
+          [
+            19.937811,
+            50.05937
+          ],
+          [
+            19.937838,
+            50.059214
+          ],
+          [
+            19.937847,
+            50.059156
+          ],
+          [
+            19.937847,
+            50.059139
+          ],
+          [
+            19.937847,
+            50.059122
+          ],
+          [
+            19.937847,
+            50.05911
+          ],
+          [
+            19.937856,
+            50.05907
+          ],
+          [
+            19.937874,
+            50.05892
+          ],
+          [
+            19.937883,
+            50.058908
+          ],
+          [
+            19.937901,
+            50.058764
+          ],
+          [
+            19.93791,
+            50.058707
+          ],
+          [
+            19.937928,
+            50.058637
+          ],
+          [
+            19.937928,
+            50.058609
+          ],
+          [
+            19.937937,
+            50.058585
+          ],
+          [
+            19.937946,
+            50.058516
+          ],
+          [
+            19.937946,
+            50.058476
+          ],
+          [
+            19.937955,
+            50.058447
+          ],
+          [
+            19.937964,
+            50.058407
+          ],
+          [
+            19.938,
+            50.058164
+          ],
+          [
+            19.938,
+            50.058141
+          ],
+          [
+            19.938009,
+            50.058113
+          ],
+          [
+            19.938027,
+            50.057997
+          ],
+          [
+            19.938081,
+            50.057663
+          ],
+          [
+            19.93809,
+            50.057542
+          ],
+          [
+            19.938108,
+            50.057403
+          ],
+          [
+            19.938117,
+            50.057363
+          ],
+          [
+            19.938117,
+            50.057305
+          ],
+          [
+            19.938126,
+            50.057196
+          ],
+          [
+            19.938135,
+            50.057132
+          ],
+          [
+            19.938135,
+            50.057069
+          ],
+          [
+            19.938144,
+            50.056959
+          ],
+          [
+            19.938072,
+            50.056953
+          ],
+          [
+            19.93791,
+            50.056936
+          ],
+          [
+            19.937596,
+            50.056907
+          ],
+          [
+            19.937542,
+            50.056901
+          ],
+          [
+            19.937533,
+            50.056809
+          ],
+          [
+            19.937524,
+            50.0567
+          ],
+          [
+            19.937506,
+            50.056619
+          ],
+          [
+            19.937488,
+            50.056532
+          ],
+          [
+            19.937461,
+            50.056463
+          ],
+          [
+            19.937452,
+            50.056428
+          ],
+          [
+            19.937434,
+            50.056359
+          ],
+          [
+            19.937407,
+            50.056267
+          ],
+          [
+            19.937389,
+            50.056238
+          ],
+          [
+            19.937344,
+            50.056134
+          ],
+          [
+            19.93729,
+            50.056065
+          ],
+          [
+            19.937218,
+            50.056002
+          ],
+          [
+            19.937138,
+            50.055909
+          ],
+          [
+            19.937048,
+            50.055794
+          ],
+          [
+            19.937003,
+            50.055731
+          ],
+          [
+            19.936931,
+            50.055633
+          ],
+          [
+            19.936931,
+            50.055621
+          ],
+          [
+            19.936868,
+            50.05554
+          ],
+          [
+            19.936832,
+            50.055483
+          ],
+          [
+            19.93676,
+            50.055483
+          ],
+          [
+            19.936706,
+            50.055477
+          ],
+          [
+            19.936688,
+            50.055436
+          ],
+          [
+            19.93667,
+            50.055379
+          ],
+          [
+            19.936518,
+            50.055402
+          ],
+          [
+            19.9365,
+            50.055356
+          ],
+          [
+            19.936419,
+            50.055333
+          ],
+          [
+            19.935161,
+            50.05505
+          ],
+          [
+            19.935116,
+            50.055015
+          ],
+          [
+            19.935009,
+            50.054987
+          ],
+          [
+            19.934982,
+            50.054981
+          ],
+          [
+            19.934955,
+            50.054964
+          ],
+          [
+            19.934928,
+            50.05494
+          ],
+          [
+            19.934919,
+            50.054929
+          ],
+          [
+            19.934856,
+            50.054814
+          ],
+          [
+            19.934811,
+            50.054802
+          ],
+          [
+            19.93482,
+            50.054767
+          ],
+          [
+            19.934829,
+            50.054739
+          ],
+          [
+            19.934829,
+            50.054733
+          ],
+          [
+            19.934856,
+            50.054652
+          ],
+          [
+            19.934892,
+            50.05456
+          ],
+          [
+            19.934946,
+            50.05445
+          ],
+          [
+            19.934982,
+            50.054398
+          ],
+          [
+            19.935035,
+            50.054341
+          ],
+          [
+            19.935125,
+            50.05426
+          ],
+          [
+            19.935152,
+            50.054289
+          ],
+          [
+            19.935188,
+            50.054306
+          ],
+          [
+            19.935224,
+            50.054323
+          ],
+          [
+            19.935422,
+            50.054375
+          ]
         ]
       },
       "facts": [
         {
           "id": "fact-sett-rynek",
-          "subject": { "type": "segment", "ref": "way/rynek-glowny", "lat": 50.0618, "lon": 19.9373 },
+          "subject": {
+            "type": "segment",
+            "ref": "way/rynek-glowny",
+            "lat": 50.0618,
+            "lon": 19.9373
+          },
           "criterion": "surface",
           "value": "cobblestone",
           "status": "community",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/way/rynek-glowny", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/way/rynek-glowny",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastEditedAt": "2025-05-12T14:20:00Z"
         },
         {
           "id": "fact-crossing-dominikanska",
-          "subject": { "type": "crossing", "ref": "node/cross-dominikanska", "lat": 50.0598, "lon": 19.9377 },
+          "subject": {
+            "type": "crossing",
+            "ref": "node/cross-dominikanska",
+            "lat": 50.0598,
+            "lon": 19.9377
+          },
           "criterion": "crossing",
           "value": "traffic_signals=yes, tactile_paving=yes",
           "status": "verified",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/node/cross-dominikanska", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/node/cross-dominikanska",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastConfirmedAt": "2026-04-10T09:00:00Z"
         },
         {
           "id": "fact-kerb-dominikanska",
-          "subject": { "type": "crossing", "ref": "node/kerb-dominikanska", "lat": 50.0598, "lon": 19.9377 },
+          "subject": {
+            "type": "crossing",
+            "ref": "node/kerb-dominikanska",
+            "lat": 50.0598,
+            "lon": 19.9377
+          },
           "criterion": "kerb",
           "value": "15 mm",
           "unit": "mm",
           "status": "verified",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/node/kerb-dominikanska", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/node/kerb-dominikanska",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastConfirmedAt": "2026-04-10T09:00:00Z"
         },
         {
           "id": "fact-steps-kosciol-piotra",
-          "subject": { "type": "segment", "ref": "way/steps-piotr", "lat": 50.0569, "lon": 19.9383 },
+          "subject": {
+            "type": "segment",
+            "ref": "way/steps-piotr",
+            "lat": 50.0569,
+            "lon": 19.9383
+          },
           "criterion": "steps",
           "value": "7 stopni, ramp=yes",
           "status": "community",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/way/steps-piotr", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/way/steps-piotr",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastEditedAt": "2024-08-20T10:15:00Z"
         },
         {
           "id": "fact-kerb-senatorska-high",
-          "subject": { "type": "crossing", "ref": "node/kerb-senatorska", "lat": 50.0556, "lon": 19.9370 },
+          "subject": {
+            "type": "crossing",
+            "ref": "node/kerb-senatorska",
+            "lat": 50.0556,
+            "lon": 19.937
+          },
           "criterion": "kerb",
           "value": "140 mm",
           "unit": "mm",
           "status": "community",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/node/kerb-senatorska", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/node/kerb-senatorska",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastEditedAt": "2023-11-04T12:00:00Z"
         },
         {
           "id": "fact-crossing-wawel-unknown",
-          "subject": { "type": "crossing", "ref": "node/cross-podzamcze", "lat": 50.0545, "lon": 19.9355 },
+          "subject": {
+            "type": "crossing",
+            "ref": "node/cross-podzamcze",
+            "lat": 50.0545,
+            "lon": 19.9355
+          },
           "criterion": "kerb",
           "value": "brak pomiaru",
           "status": "unknown",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/node/cross-podzamcze", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/node/cross-podzamcze",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z"
         }
       ]
@@ -107,48 +610,382 @@
       "id": "sample-route-kazimierz-planty",
       "title": "Kazimierz (Plac Nowy) → Planty",
       "isSample": true,
-      "start": { "name": "Plac Nowy", "position": { "lon": 19.9449, "lat": 50.0519 } },
-      "end": { "name": "Planty (Poczta Główna)", "position": { "lon": 19.9423, "lat": 50.0592 } },
+      "start": {
+        "name": "Plac Nowy",
+        "position": {
+          "lon": 19.9449,
+          "lat": 50.0519
+        }
+      },
+      "end": {
+        "name": "Planty (Poczta Główna)",
+        "position": {
+          "lon": 19.9423,
+          "lat": 50.0592
+        }
+      },
       "walkingRoute": {
         "provider": "Mapy.com (DANE PRZYKŁADOWE)",
-        "lengthMetres": 870,
-        "durationSeconds": 700,
+        "lengthMetres": 994,
+        "durationSeconds": 917,
         "retrievedAt": "2026-10-03T11:00:00Z",
         "coordinates": [
-          [19.9449, 50.0519],
-          [19.9458, 50.0531],
-          [19.9448, 50.0555],
-          [19.9436, 50.0573],
-          [19.9423, 50.0592]
+          [
+            19.944899,
+            50.051849
+          ],
+          [
+            19.944971,
+            50.051849
+          ],
+          [
+            19.944998,
+            50.051849
+          ],
+          [
+            19.945079,
+            50.052074
+          ],
+          [
+            19.945151,
+            50.052114
+          ],
+          [
+            19.945195,
+            50.052137
+          ],
+          [
+            19.945222,
+            50.052149
+          ],
+          [
+            19.945672,
+            50.052362
+          ],
+          [
+            19.945779,
+            50.052408
+          ],
+          [
+            19.94577,
+            50.052449
+          ],
+          [
+            19.946363,
+            50.052726
+          ],
+          [
+            19.946408,
+            50.052749
+          ],
+          [
+            19.946291,
+            50.052962
+          ],
+          [
+            19.946246,
+            50.053049
+          ],
+          [
+            19.94622,
+            50.053135
+          ],
+          [
+            19.946184,
+            50.053204
+          ],
+          [
+            19.946085,
+            50.053377
+          ],
+          [
+            19.945995,
+            50.05355
+          ],
+          [
+            19.945932,
+            50.053677
+          ],
+          [
+            19.945923,
+            50.053695
+          ],
+          [
+            19.945869,
+            50.053781
+          ],
+          [
+            19.945797,
+            50.053925
+          ],
+          [
+            19.945725,
+            50.054058
+          ],
+          [
+            19.94569,
+            50.054121
+          ],
+          [
+            19.945618,
+            50.054179
+          ],
+          [
+            19.945519,
+            50.05426
+          ],
+          [
+            19.945312,
+            50.054427
+          ],
+          [
+            19.945258,
+            50.054473
+          ],
+          [
+            19.945151,
+            50.05456
+          ],
+          [
+            19.944998,
+            50.054687
+          ],
+          [
+            19.944818,
+            50.054837
+          ],
+          [
+            19.94471,
+            50.054917
+          ],
+          [
+            19.944621,
+            50.054998
+          ],
+          [
+            19.944674,
+            50.055073
+          ],
+          [
+            19.944836,
+            50.055275
+          ],
+          [
+            19.944863,
+            50.05531
+          ],
+          [
+            19.944989,
+            50.055477
+          ],
+          [
+            19.945124,
+            50.05565
+          ],
+          [
+            19.945186,
+            50.055725
+          ],
+          [
+            19.945249,
+            50.055817
+          ],
+          [
+            19.945429,
+            50.056065
+          ],
+          [
+            19.945456,
+            50.056111
+          ],
+          [
+            19.945402,
+            50.056129
+          ],
+          [
+            19.945375,
+            50.05614
+          ],
+          [
+            19.945375,
+            50.056152
+          ],
+          [
+            19.945375,
+            50.056169
+          ],
+          [
+            19.945366,
+            50.056186
+          ],
+          [
+            19.945366,
+            50.056209
+          ],
+          [
+            19.945366,
+            50.056227
+          ],
+          [
+            19.945348,
+            50.05629
+          ],
+          [
+            19.94533,
+            50.056302
+          ],
+          [
+            19.945312,
+            50.056325
+          ],
+          [
+            19.945303,
+            50.05633
+          ],
+          [
+            19.945294,
+            50.056336
+          ],
+          [
+            19.945285,
+            50.056348
+          ],
+          [
+            19.945213,
+            50.0564
+          ],
+          [
+            19.945168,
+            50.056446
+          ],
+          [
+            19.945133,
+            50.056469
+          ],
+          [
+            19.945097,
+            50.056498
+          ],
+          [
+            19.945079,
+            50.056509
+          ],
+          [
+            19.945106,
+            50.056555
+          ],
+          [
+            19.945115,
+            50.056601
+          ],
+          [
+            19.945106,
+            50.056613
+          ],
+          [
+            19.944998,
+            50.056711
+          ],
+          [
+            19.944863,
+            50.056838
+          ],
+          [
+            19.944621,
+            50.057069
+          ],
+          [
+            19.944405,
+            50.057271
+          ],
+          [
+            19.944189,
+            50.057467
+          ],
+          [
+            19.944037,
+            50.057605
+          ],
+          [
+            19.943965,
+            50.057674
+          ],
+          [
+            19.943623,
+            50.057991
+          ],
+          [
+            19.943381,
+            50.058216
+          ],
+          [
+            19.943165,
+            50.058424
+          ],
+          [
+            19.942779,
+            50.058787
+          ],
+          [
+            19.942321,
+            50.059214
+          ]
         ]
       },
       "facts": [
         {
           "id": "fact-surface-plac-nowy",
-          "subject": { "type": "segment", "ref": "way/plac-nowy", "lat": 50.0520, "lon": 19.9450 },
+          "subject": {
+            "type": "segment",
+            "ref": "way/plac-nowy",
+            "lat": 50.052,
+            "lon": 19.945
+          },
           "criterion": "surface",
           "value": "paving_stones",
           "status": "community",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/way/plac-nowy", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/way/plac-nowy",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z"
         },
         {
           "id": "fact-kerb-miodowa",
-          "subject": { "type": "crossing", "ref": "node/kerb-miodowa", "lat": 50.0532, "lon": 19.9457 },
+          "subject": {
+            "type": "crossing",
+            "ref": "node/kerb-miodowa",
+            "lat": 50.0532,
+            "lon": 19.9457
+          },
           "criterion": "kerb",
           "value": "20 mm",
           "unit": "mm",
           "status": "community",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/node/kerb-miodowa", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/node/kerb-miodowa",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z"
         },
         {
           "id": "fact-tram-starowislna",
-          "subject": { "type": "crossing", "ref": "way/tram-starowislna", "lat": 50.0555, "lon": 19.9448 },
+          "subject": {
+            "type": "crossing",
+            "ref": "way/tram-starowislna",
+            "lat": 50.0555,
+            "lon": 19.9448
+          },
           "criterion": "crossing",
           "value": "torowisko tramwajowe, sygnalizacja",
           "status": "community",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/way/tram-starowislna", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/way/tram-starowislna",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z"
         }
       ]
@@ -159,46 +996,85 @@
       "id": "sample-place-sukiennice",
       "name": "Sukiennice (Galeria Sztuki)",
       "label": "Rynek Główny 1/3, Kraków",
-      "position": { "lon": 19.9373, "lat": 50.0619 },
+      "position": {
+        "lon": 19.9373,
+        "lat": 50.0619
+      },
       "isSample": true,
       "facts": [
         {
           "id": "place-sukiennice-entrance",
-          "subject": { "type": "entrance", "ref": "node/sukiennice-entrance", "lat": 50.0619, "lon": 19.9373 },
+          "subject": {
+            "type": "entrance",
+            "ref": "node/sukiennice-entrance",
+            "lat": 50.0619,
+            "lon": 19.9373
+          },
           "criterion": "entrance:wheelchair",
           "value": "yes (wejście płaskie od strony Wieży Ratuszowej, drzwi automatyczne szer. 110 cm)",
           "status": "verified",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/node/sukiennice-entrance", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/node/sukiennice-entrance",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastConfirmedAt": "2026-03-15T12:00:00Z"
         },
         {
           "id": "place-sukiennice-elevator",
-          "subject": { "type": "place", "ref": "node/sukiennice-lift", "lat": 50.0619, "lon": 19.9373 },
+          "subject": {
+            "type": "place",
+            "ref": "node/sukiennice-lift",
+            "lat": 50.0619,
+            "lon": 19.9373
+          },
           "criterion": "highway:elevator",
           "value": "winda osobowa dostępna na piętro (I piętro Galeria Malarstwa)",
           "status": "verified",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/node/sukiennice-lift", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/node/sukiennice-lift",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastConfirmedAt": "2026-03-15T12:00:00Z"
         },
         {
           "id": "place-sukiennice-toilet",
-          "subject": { "type": "place", "ref": "node/sukiennice-wc", "lat": 50.0619, "lon": 19.9373 },
+          "subject": {
+            "type": "place",
+            "ref": "node/sukiennice-wc",
+            "lat": 50.0619,
+            "lon": 19.9373
+          },
           "criterion": "toilets:wheelchair",
           "value": "yes (toaleta przystosowana, poręcze, przestrzeń manewrowa 160x160 cm)",
           "status": "verified",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/node/sukiennice-wc", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/node/sukiennice-wc",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastConfirmedAt": "2026-03-15T12:00:00Z"
         },
         {
           "id": "place-sukiennice-surroundings",
-          "subject": { "type": "place", "ref": "way/sukiennice-podcienia", "lat": 50.0619, "lon": 19.9373 },
+          "subject": {
+            "type": "place",
+            "ref": "way/sukiennice-podcienia",
+            "lat": 50.0619,
+            "lon": 19.9373
+          },
           "criterion": "surface:surroundings",
           "value": "płyty kamienne równe, podcienia bezprogowe",
           "status": "community",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/way/sukiennice-podcienia", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/way/sukiennice-podcienia",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z"
         }
       ]
@@ -207,26 +1083,47 @@
       "id": "sample-place-conflict-demo",
       "name": "Kamienica Grodzka (Symulacja R7: Dane Sprzeczne)",
       "label": "ul. Grodzka 12, Kraków",
-      "position": { "lon": 19.9378, "lat": 50.0585 },
+      "position": {
+        "lon": 19.9378,
+        "lat": 50.0585
+      },
       "isSample": true,
       "facts": [
         {
           "id": "fact-conflict-1",
-          "subject": { "type": "place", "ref": "building/grodzka-12", "lat": 50.0585, "lon": 19.9378 },
+          "subject": {
+            "type": "place",
+            "ref": "building/grodzka-12",
+            "lat": 50.0585,
+            "lon": 19.9378
+          },
           "criterion": "wheelchair",
           "value": "yes (oznaczono budynek jako dostępny)",
           "status": "community",
-          "source": { "name": "OpenStreetMap (tag budynku)", "url": "https://osm.org/way/12345", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap (tag budynku)",
+            "url": "https://osm.org/way/12345",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastEditedAt": "2023-01-10T12:00:00Z"
         },
         {
           "id": "fact-conflict-2",
-          "subject": { "type": "entrance", "ref": "building/grodzka-12", "lat": 50.0585, "lon": 19.9378 },
+          "subject": {
+            "type": "entrance",
+            "ref": "building/grodzka-12",
+            "lat": 50.0585,
+            "lon": 19.9378
+          },
           "criterion": "wheelchair",
           "value": "no (węzeł wejścia: 5 stromych stopni bez podjazdu)",
           "status": "community",
-          "source": { "name": "OpenStreetMap (węzeł drzwi)", "url": "https://osm.org/node/67890", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap (węzeł drzwi)",
+            "url": "https://osm.org/node/67890",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastEditedAt": "2024-05-15T08:30:00Z"
         }
@@ -236,16 +1133,28 @@
       "id": "sample-place-stale-demo",
       "name": "Restauracja Staromiejska (Symulacja R8: Dane Przedawnione)",
       "label": "ul. Szewska 8, Kraków",
-      "position": { "lon": 19.9355, "lat": 50.0628 },
+      "position": {
+        "lon": 19.9355,
+        "lat": 50.0628
+      },
       "isSample": true,
       "facts": [
         {
           "id": "fact-stale-1",
-          "subject": { "type": "place", "ref": "node/szewska-8", "lat": 50.0628, "lon": 19.9355 },
+          "subject": {
+            "type": "place",
+            "ref": "node/szewska-8",
+            "lat": 50.0628,
+            "lon": 19.9355
+          },
           "criterion": "wheelchair",
           "value": "limited",
           "status": "community",
-          "source": { "name": "OpenStreetMap", "url": "https://osm.org/node/szewska-8", "licence": "ODbL" },
+          "source": {
+            "name": "OpenStreetMap",
+            "url": "https://osm.org/node/szewska-8",
+            "licence": "ODbL"
+          },
           "retrievedAt": "2026-10-03T11:00:00Z",
           "lastEditedAt": "2021-02-14T10:00:00Z",
           "lastConfirmedAt": "2021-02-14T10:00:00Z"

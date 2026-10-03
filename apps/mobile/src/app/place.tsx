@@ -15,6 +15,7 @@ import {
   Toilet,
   Tree,
   NotePencil,
+  NavigationArrow,
 } from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
@@ -31,6 +32,7 @@ export default function PlaceScreen() {
   const {
     locale,
     activePlaceReport,
+    setPendingDestination,
     colors,
     fontSize,
     isHighContrast,
@@ -44,7 +46,7 @@ export default function PlaceScreen() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false, title: t(locale, 'placeDetailTitle') }} />
-        <KrakowHeader />
+        <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
         <View style={styles.emptyContainer}>
           <GovCard variant="warning">
             <Text style={[styles.title, { color: colors.text, fontSize: fontSize(18) }]}>
@@ -79,10 +81,22 @@ export default function PlaceScreen() {
       (!f.lastConfirmedAt && isStale(f.lastEditedAt, now, 24)),
   );
 
+  const handleRouteHere = () => {
+    setPendingDestination({
+      name: report.placeName,
+      position: report.position,
+    });
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: report.placeName }} />
-      <KrakowHeader />
+      <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
 
       <DemoBanner isSample={report.isSample} />
 
@@ -165,6 +179,13 @@ export default function PlaceScreen() {
             </View>
           </View>
 
+          <GovButton
+            title="Wyznacz trasę do tego obiektu"
+            icon={<NavigationArrow size={18} color={colors.accentText} weight="bold" />}
+            variant="primary"
+            onPress={handleRouteHere}
+            style={{ marginTop: 14 }}
+          />
         </GovCard>
 
         {/* Conflicting Data Warning (R7) */}

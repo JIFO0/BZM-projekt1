@@ -52,6 +52,18 @@ const osmNominatim = new OsmNominatimGeocodingProvider({
 const osmRouting = new OsmRoutingProvider();
 
 
+export type RouteVariantId = 'accessible' | 'shortest';
+
+export interface RouteVariant {
+  id: RouteVariantId;
+  title: string;
+  description: string;
+  walkingRoute: WalkingRoute;
+  report: RouteReport;
+  facts: Fact[];
+  isSample: boolean;
+}
+
 export interface PlanRouteParams {
   start: { name: string; position: LonLat };
   end: { name: string; position: LonLat };
@@ -60,13 +72,22 @@ export interface PlanRouteParams {
   debugState: DebugState;
 }
 
-export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
+export interface PlanRouteResult {
   walkingRoute: WalkingRoute;
   report: RouteReport;
+  facts: Fact[];
   fallbackNotice?: string;
   isSample: boolean;
-}> {
+  variants?: Record<RouteVariantId, RouteVariant>;
+  selectedVariant?: RouteVariantId;
+}
+
+export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<PlanRouteResult> {
   const { start, end, profileId, debugState } = params;
+
+  const isRynekWawel =
+    (start.name.toLowerCase().includes('rynek') && end.name.toLowerCase().includes('wawel')) ||
+    (Math.abs(start.position.lat - 50.0619) < 0.005 && Math.abs(end.position.lat - 50.0544) < 0.005);
 
   let walkingRoute: WalkingRoute = DEMO_SNAPSHOT.routes[0]!.walkingRoute;
   let isSample = false;
@@ -157,7 +178,6 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
     debugState.simulateOverpassDown || debugState.simulateOffline || isSample;
 
   if (mustUseFallbackOsm) {
-    // Use snapshot facts for demo route
     facts = DEMO_SNAPSHOT.routes[0]!.facts;
     if (debugState.simulateOverpassDown) {
       fallbackNotice =
@@ -172,7 +192,6 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
       });
       facts = bundle.facts;
     } catch {
-      // Overpass failed (R12): fall back to snapshot facts and notify user
       facts = DEMO_SNAPSHOT.routes[0]!.facts;
       isSample = true;
       fallbackNotice =
@@ -192,11 +211,74 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<{
     isSample,
   });
 
+  // 4. Route variant selection (Najkrótsza vs Bez barier)
+  // For demo corridor (Rynek -> Wawel) or fallback mode, provide both variants
+  let variants: Record<RouteVariantId, RouteVariant> | undefined;
+  const sampleShortest = DEMO_SNAPSHOT.routes[0]!;
+  const sampleAccessible =
+    DEMO_SNAPSHOT.routes.find((r) => r.id === 'sample-route-rynek-wawel-accessible') ??
+    DEMO_SNAPSHOT.routes[1]!;
+
+  if (isSample || isRynekWawel) {
+    const shortestReport = analyzeRoute({
+      routeId: `route-shortest-${Date.now()}`,
+      profileId,
+      routeCoordinates: sampleShortest.walkingRoute.coordinates,
+      facts: sampleShortest.facts,
+      config: city,
+      thresholds: params.thresholds,
+      isSample: true,
+    });
+
+    const accessibleReport = analyzeRoute({
+      routeId: `route-accessible-${Date.now()}`,
+      profileId,
+      routeCoordinates: sampleAccessible.walkingRoute.coordinates,
+      facts: sampleAccessible.facts,
+      config: city,
+      thresholds: params.thresholds,
+      isSample: true,
+    });
+
+    variants = {
+      accessible: {
+        id: 'accessible',
+        title: 'Bez barier (Planty)',
+        description: 'Trasa bez schodów i wysokich krawężników przez Park Planty',
+        walkingRoute: sampleAccessible.walkingRoute,
+        report: accessibleReport,
+        facts: sampleAccessible.facts,
+        isSample: true,
+      },
+      shortest: {
+        id: 'shortest',
+        title: 'Najkrótsza (ul. Grodzka)',
+        description: 'Najkrótszy dystans (920 m), zawiera zabytkowy bruk i schody',
+        walkingRoute: sampleShortest.walkingRoute,
+        report: shortestReport,
+        facts: sampleShortest.facts,
+        isSample: true,
+      },
+    };
+
+    return {
+      walkingRoute: variants.accessible.walkingRoute,
+      report: variants.accessible.report,
+      facts: variants.accessible.facts,
+      fallbackNotice,
+      isSample: true,
+      variants,
+      selectedVariant: 'accessible',
+    };
+  }
+
   return {
     walkingRoute,
     report,
+    facts,
     fallbackNotice,
     isSample,
+    selectedVariant: 'accessible',
   };
 }
 
@@ -209,22 +291,38 @@ export async function inspectPlace(
   fallbackNotice?: string;
   isSample: boolean;
 }> {
-  // Check if simulation or offline
+  const normQuery = placeName.trim().toLowerCase();
+  const sampleMatch = DEMO_SNAPSHOT.places.find((p) => {
+    const pName = p.name.toLowerCase();
+    const pLabel = (p.label ?? '').toLowerCase();
+    return (
+      pName.includes(normQuery) ||
+      normQuery.includes(pName) ||
+      pLabel.includes(normQuery) ||
+      (Math.abs(p.position.lat - position.lat) < 0.0015 &&
+        Math.abs(p.position.lon - position.lon) < 0.0015)
+    );
+  });
+
   const mustUseFallback = debugState.simulateOverpassDown || debugState.simulateOffline;
 
-  if (mustUseFallback) {
-    const samplePlace = DEMO_SNAPSHOT.places[0]!;
+  if (mustUseFallback || (sampleMatch && sampleMatch.name.includes('KSDK'))) {
+    const placeToUse = sampleMatch ?? DEMO_SNAPSHOT.places[0]!;
+    const isKsdk =
+      placeToUse.name.includes('KSDK') ||
+      placeToUse.facts.some((f) => f.source.licence === 'Informacja Publiczna');
     const report = analyzePlace(
-      samplePlace.name,
-      samplePlace.position,
-      samplePlace.facts,
+      placeToUse.name,
+      placeToUse.position,
+      placeToUse.facts,
       city.placeMatchMaxMetres,
       true,
     );
     return {
       report,
-      fallbackNotice:
-        'Symulacja: Wyświetlono obiekt ze snapshotu demonstracyjnego (Sukiennice Kraków).',
+      fallbackNotice: isKsdk
+        ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Ustawa o zapewnianiu dostępności).'
+        : `Symulacja: Wyświetlono obiekt ze snapshotu demonstracyjnego (${placeToUse.name}).`,
       isSample: true,
     };
   }
@@ -236,80 +334,310 @@ export async function inspectPlace(
       maxDistanceMetres: city.placeMatchMaxMetres,
     });
 
+    const factsToUse = bundle.facts.length > 0 ? bundle.facts : (sampleMatch?.facts ?? []);
     const report = analyzePlace(
       placeName,
       position,
-      bundle.facts,
+      factsToUse,
       city.placeMatchMaxMetres,
-      false,
+      bundle.facts.length === 0,
     );
 
     return {
       report,
-      isSample: false,
+      fallbackNotice:
+        sampleMatch && sampleMatch.name.includes('KSDK')
+          ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa).'
+          : undefined,
+      isSample: bundle.facts.length === 0,
     };
   } catch {
-    const samplePlace = DEMO_SNAPSHOT.places[0]!;
+    const placeToUse = sampleMatch ?? DEMO_SNAPSHOT.places[0]!;
+    const isKsdk = placeToUse.name.includes('KSDK');
     const report = analyzePlace(
-      samplePlace.name,
-      samplePlace.position,
-      samplePlace.facts,
+      placeToUse.name,
+      placeToUse.position,
+      placeToUse.facts,
       city.placeMatchMaxMetres,
       true,
     );
     return {
       report,
-      fallbackNotice:
-        'Błąd połączenia z OpenStreetMap. Wyświetlono obiekt z lokalnego snapshotu demo.',
+      fallbackNotice: isKsdk
+        ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Muzeum Krakowa).'
+        : 'Błąd połączenia z OpenStreetMap. Wyświetlono obiekt z lokalnego snapshotu demo.',
       isSample: true,
     };
   }
 }
 
-const DEFAULT_DEMO_LOCATIONS: PlaceHit[] = [
+export const DEFAULT_PRESET_PLACES: PlaceHit[] = [
+  // 🏛️ KULTURA I KSDK
+  {
+    id: 'ksdk-krzysztofory',
+    name: 'Pałac Krzysztofory (KSDK)',
+    label: 'Rynek Główny 35, Kraków • Muzeum Krakowa (Główna siedziba, winda, pętla)',
+    position: { lon: 19.937, lat: 50.062 },
+    kind: 'poi',
+    category: 'culture',
+    tags: ['♿ Winda', '⚡ Pętla indukcyjna', '🚻 Toaleta PRM', '🛡️ KSDK'],
+  },
+  {
+    id: 'ksdk-wieza',
+    name: 'Wieża Ratuszowa (KSDK)',
+    label: 'Rynek Główny 1, Kraków • 110 stromych schodów kamiennych, brak windy',
+    position: { lon: 19.9368, lat: 50.0615 },
+    kind: 'poi',
+    category: 'culture',
+    tags: ['⚠️ Schody 110 st.', '❌ Brak windy', '🛡️ KSDK'],
+  },
+  {
+    id: 'ksdk-barbakan',
+    name: 'Barbakan (KSDK)',
+    label: 'ul. Basztowa / Planty, Kraków • Bruk dziedzińca, pochylnia wejściowa',
+    position: { lon: 19.9417, lat: 50.0655 },
+    kind: 'poi',
+    category: 'culture',
+    tags: ['🪵 Pochylnia', '⚠️ Zabytkowy bruk', '🛡️ KSDK'],
+  },
+  {
+    id: 'ksdk-synagoga',
+    name: 'Stara Synagoga (KSDK)',
+    label: 'ul. Szeroka 24, Kraków (Kazimierz) • Schody przy wejściu',
+    position: { lon: 19.9485, lat: 50.0506 },
+    kind: 'poi',
+    category: 'culture',
+    tags: ['⚠️ Schody wejściowe', '❌ Brak windy', '🛡️ KSDK'],
+  },
+  {
+    id: 'ksdk-podgorze',
+    name: 'Muzeum Podgórza (KSDK)',
+    label: 'ul. Limanowskiego 51, Kraków • Bez barier, winda 1.58x2.10m, pętla',
+    position: { lon: 19.9547, lat: 50.0441 },
+    kind: 'poi',
+    category: 'culture',
+    tags: ['♿ Wejście płaskie', '🛗 Winda 1.58x2.1m', '🚻 Toaleta PRM', '🛡️ KSDK'],
+  },
   {
     id: 'sug-1',
-    name: 'Rynek Główny',
-    label: 'Rynek Główny, Kraków',
+    name: 'Sukiennice (Galeria Sztuki)',
+    label: 'Rynek Główny 1/3, Kraków • Winda, toaleta przystosowana',
     position: { lon: 19.9373, lat: 50.0619 },
     kind: 'poi',
+    category: 'culture',
+    tags: ['♿ Wejście bezprogowe', '🛗 Winda', '🚻 Toaleta PRM'],
   },
   {
-    id: 'sug-2',
-    name: 'Zamek Królewski na Wawelu',
-    label: 'Wawel 5, Kraków',
-    position: { lon: 19.9354, lat: 50.0544 },
+    id: 'place-mocak',
+    name: 'MOCAK Muzeum Sztuki Współczesnej (KSDK)',
+    label: 'ul. Lipowa 4, Kraków (Zabłocie) • 100% dostępne, windy, toalety PRM',
+    position: { lon: 19.9612, lat: 50.0475 },
     kind: 'poi',
+    category: 'culture',
+    tags: ['♿ Bez barier', '🛗 2 windy', '🚻 Toalety PRM', '🛡️ KSDK'],
   },
   {
-    id: 'sug-3',
-    name: 'Plac Nowy (Kazimierz)',
-    label: 'Plac Nowy, Kraków',
-    position: { lon: 19.9449, lat: 50.0519 },
+    id: 'place-mnk',
+    name: 'MNK Gmach Główny (Muzeum Narodowe)',
+    label: 'al. 3 Maja 1, Kraków • Rampa od Błoń, windy panoramiczne',
+    position: { lon: 19.9248, lat: 50.0598 },
     kind: 'poi',
+    category: 'culture',
+    tags: ['♿ Pochylnia wejściowa', '🛗 Windy', '🚻 Toaleta PRM'],
   },
   {
-    id: 'sug-4',
-    name: 'Sukiennice',
-    label: 'Rynek Główny 1/3, Kraków',
-    position: { lon: 19.9373, lat: 50.0619 },
+    id: 'place-cricoteka',
+    name: 'Cricoteka (Ośrodek Sztuki T. Kantora)',
+    label: 'ul. Nadwiślańska 2-4, Kraków (Podgórze) • Bezstopniowe wejście, windy',
+    position: { lon: 19.9532, lat: 50.0463 },
     kind: 'poi',
+    category: 'culture',
+    tags: ['♿ Wejście z bulwarów', '🛗 Windy przeszklone', '🛡️ KSDK'],
   },
   {
-    id: 'sug-5',
-    name: 'Planty (Poczta Główna)',
-    label: 'ul. Westerplatte / Wielopole, Kraków',
-    position: { lon: 19.9423, lat: 50.0592 },
+    id: 'place-slowacki',
+    name: 'Teatr im. Juliusza Słowackiego (KSDK)',
+    label: 'pl. Świętego Ducha 1, Kraków • Podjazd od Plant, platforma',
+    position: { lon: 19.9431, lat: 50.0635 },
     kind: 'poi',
+    category: 'culture',
+    tags: ['♿ Wejście boczne z rampą', '⚡ Pętla indukcyjna', '🛡️ KSDK'],
   },
   {
-    id: 'sug-6',
-    name: 'Dworzec Główny PKP',
-    label: 'Plac Jana Nowaka-Jeziorańskiego 3, Kraków',
+    id: 'place-nck',
+    name: 'Nowohuckie Centrum Kultury (NCK)',
+    label: 'al. Jana Pawła II 232, Kraków • Płaski parking, wejście bezprogowe',
+    position: { lon: 20.0368, lat: 50.0712 },
+    kind: 'poi',
+    category: 'culture',
+    tags: ['♿ Wejście z placu', '🛗 Winda', '🚻 Toalety PRM', '🛡️ KSDK'],
+  },
+
+  // 🏢 URZĘDY MIASTA KRAKOWA (UMK)
+  {
+    id: 'umk-glowny',
+    name: 'Urząd Miasta Krakowa - Siedziba Główna',
+    label: 'pl. Wszystkich Świętych 3-4, Kraków • Podjazd, winda z brajlem, PJM',
+    position: { lon: 19.9383, lat: 50.0592 },
+    kind: 'office',
+    category: 'office',
+    tags: ['♿ Wejście z podjazdem', '🛗 Winda Braille', '🤟 Tłumacz PJM', '⚡ Pętla'],
+  },
+  {
+    id: 'umk-powstania',
+    name: 'UMK Wydział Spraw Administracyjnych',
+    label: 'al. Powstania Warszawskiego 10, Kraków • Pełna dostępność, drzwi foto',
+    position: { lon: 19.9615, lat: 50.0595 },
+    kind: 'office',
+    category: 'office',
+    tags: ['♿ Bez barier', '🛗 Windy', '🔊 Kolejkomat audio', '⚡ Pętla'],
+  },
+  {
+    id: 'umk-wielicka',
+    name: 'UMK Wydział Architektury i Urbanistyki',
+    label: 'ul. Wielicka 28a, Kraków • Szeroka rampa 5%, 2 windy',
+    position: { lon: 19.9644, lat: 50.0381 },
+    kind: 'office',
+    category: 'office',
+    tags: ['♿ Rampa 5%', '🛗 2 windy', '🅿️ Miejsca PRM', '🚻 Toaleta PRM'],
+  },
+  {
+    id: 'umk-zgody',
+    name: 'UMK Obsługa Mieszkańców (Nowa Huta)',
+    label: 'os. Zgody 2, Kraków • Wejście w poziomie chodnika, obniżone lady',
+    position: { lon: 20.0382, lat: 50.0735 },
+    kind: 'office',
+    category: 'office',
+    tags: ['♿ Poziom chodnika', '🪑 Obniżone lady', '🚻 Toaleta PRM'],
+  },
+  {
+    id: 'usc-grunwaldzka',
+    name: 'Urząd Stanu Cywilnego w Krakowie',
+    label: 'ul. Grunwaldzka 8, Kraków • Rampa zewnętrzna, winda osobowa',
+    position: { lon: 19.9658, lat: 50.0638 },
+    kind: 'office',
+    category: 'office',
+    tags: ['♿ Zewnętrzna rampa', '🛗 Winda', '💍 Sala ślubów parter'],
+  },
+
+  // 🚆 DWORCE I WĘZŁY PRZESIADKOWE
+  {
+    id: 'dworzec-pkp',
+    name: 'Dworzec Główny PKP Kraków',
+    label: 'pl. Jana Nowaka-Jeziorańskiego 3, Kraków • Windy na perony 1-5, asysta PRM',
     position: { lon: 19.9482, lat: 50.0664 },
-    kind: 'station',
+    kind: 'transit',
+    category: 'transit',
+    tags: ['♿ Pełna dostępność', '🛗 Windy peronowe 1-5', '🦯 Ścieżki dotykowe', '🤝 Asysta PKP'],
+  },
+  {
+    id: 'stacja-plaszow',
+    name: 'Stacja Kolejowa Kraków Płaszów',
+    label: 'pl. Braci Dudzińskich 1, Kraków • Windy z tunelu na perony, zadaszona rampa',
+    position: { lon: 19.9772, lat: 50.0348 },
+    kind: 'transit',
+    category: 'transit',
+    tags: ['♿ Windy na perony', '🦯 Ścieżki uwagi', '☂️ Zadaszona rampa'],
+  },
+  {
+    id: 'mda-bosacka',
+    name: 'MDA Dworzec Autobusowy Kraków',
+    label: 'ul. Bosacka 18, Kraków • Windy łączące płytę górną i dolną, kasy PRM',
+    position: { lon: 19.9497, lat: 50.0683 },
+    kind: 'transit',
+    category: 'transit',
+    tags: ['♿ Windy płyty górna/dolna', '🎫 Kasy PRM', '🚻 Toalety bez barier'],
+  },
+  {
+    id: 'rondo-mogilskie',
+    name: 'Węzeł Przesiadkowy Rondo Mogilskie',
+    label: 'Rondo Mogilskie, Kraków • 4 windy na poziom tramwajów -1, pochylnie',
+    position: { lon: 19.9602, lat: 50.0652 },
+    kind: 'transit',
+    category: 'transit',
+    tags: ['🛗 4 windy', '♿ Pochylnie zjazdowe', '🚊 Tramwaj poziom -1'],
+  },
+
+  // 🏥 SZPITALE I OCHRONA ZDROWIA
+  {
+    id: 'szpital-narutowicz',
+    name: 'Szpital Specjalistyczny im. G. Narutowicza',
+    label: 'ul. Prądnicka 35, Kraków • Podjazd dla wózków, windy łóżkowe i osobowe',
+    position: { lon: 19.9372, lat: 50.0825 },
+    kind: 'health',
+    category: 'health',
+    tags: ['♿ Podjazd SOR', '🛗 Windy łóżkowe/osobowe', '🚻 Toaleta PRM'],
+  },
+  {
+    id: 'szpital-uniwersytecki',
+    name: 'Szpital Uniwersytecki (Nowy Prokocim)',
+    label: 'ul. Jakubowskiego 2, Kraków • Najnowocześniejszy kampus 100% bez barier',
+    position: { lon: 20.0076, lat: 50.0094 },
+    kind: 'health',
+    category: 'health',
+    tags: ['♿ 100% bez barier', '🛗 Windy audio-synteza', '🦯 Ścieżki dotykowe'],
+  },
+  {
+    id: 'szpital-zeromski',
+    name: 'Szpital Specjalistyczny im. S. Żeromskiego',
+    label: 'os. Na Skarpie 66, Kraków (Nowa Huta) • Pochylnie wejściowe, windy',
+    position: { lon: 20.0452, lat: 50.0691 },
+    kind: 'health',
+    category: 'health',
+    tags: ['♿ Pochylnie wejściowe', '🛗 Windy pawilonów', '🅿️ Parking PRM'],
+  },
+
+  // 🎓 UCZELNIE I EDUKACJA
+  {
+    id: 'uj-novum',
+    name: 'UJ - Collegium Novum',
+    label: 'ul. Gołębia 24, Kraków • Rampa od dziedzińca, przeszklona winda',
+    position: { lon: 19.9328, lat: 50.0602 },
+    kind: 'education',
+    category: 'education',
+    tags: ['♿ Wejście od dziedzińca', '🛗 Winda', '🏛️ Aula Główna'],
+  },
+  {
+    id: 'agh-a0',
+    name: 'AGH Budynek Główny A-0',
+    label: 'al. Mickiewicza 30, Kraków • Winda panoramiczna, rampa dostępowa',
+    position: { lon: 19.9192, lat: 50.0656 },
+    kind: 'education',
+    category: 'education',
+    tags: ['♿ Rampa z tyłu', '🛗 Winda panoramiczna', '🚻 Toaleta PRM'],
+  },
+  {
+    id: 'pk-wil',
+    name: 'Politechnika Krakowska (Kampus Warszawska)',
+    label: 'ul. Warszawska 24, Kraków • Pochylnia dziedzińca, platforma schodowa',
+    position: { lon: 19.9458, lat: 50.0718 },
+    kind: 'education',
+    category: 'education',
+    tags: ['♿ Pochylnia wejściowa', '🛗 Platforma przyschodowa'],
+  },
+
+  // 🏟️ SPORT I REKREACJA
+  {
+    id: 'tauron-arena',
+    name: 'TAURON Arena Kraków',
+    label: 'ul. Stanisława Lema 7, Kraków • Sektory dla wózków, 8 wind wielkogabarytowych',
+    position: { lon: 19.9845, lat: 50.0682 },
+    kind: 'sport',
+    category: 'sport',
+    tags: ['♿ Sektory wózkowe', '🛗 8 wind', '🅿️ Parking PRM', '🚻 Toalety PRM'],
+  },
+  {
+    id: 'cracovia-sport',
+    name: 'Centrum Sportu Niepełnosprawnych (Cracovia)',
+    label: 'al. Marszałka Ferdinanda Focha 40, Kraków • Wzorcowy obiekt bez barier',
+    position: { lon: 19.9075, lat: 50.0578 },
+    kind: 'sport',
+    category: 'sport',
+    tags: ['♿ Referencyjny bez barier', '⚡ Pętla indukcyjna', '🚻 Pełna dostępność', '🛡️ KSDK'],
   },
 ];
+
+export const DEFAULT_DEMO_LOCATIONS: PlaceHit[] = DEFAULT_PRESET_PLACES;
 
 export async function suggestPlaces(
   query: string,
@@ -317,7 +645,7 @@ export async function suggestPlaces(
 ): Promise<PlaceHit[]> {
   const trimmed = query.trim();
   if (!trimmed) {
-    return DEFAULT_DEMO_LOCATIONS;
+    return DEFAULT_PRESET_PLACES;
   }
 
   // 1. Direct coordinate check (lat, lon or lon, lat)
@@ -357,12 +685,13 @@ export async function suggestPlaces(
     }
   }
 
-  // 4. Local fallback filter for demo locations
+  // 4. Local fallback filter for preset places
   const qLower = trimmed.toLowerCase();
-  const matched = DEFAULT_DEMO_LOCATIONS.filter(
+  const matched = DEFAULT_PRESET_PLACES.filter(
     (loc) =>
       loc.name.toLowerCase().includes(qLower) ||
-      loc.label.toLowerCase().includes(qLower),
+      loc.label.toLowerCase().includes(qLower) ||
+      (loc.tags && loc.tags.some((t) => t.toLowerCase().includes(qLower))),
   );
   return matched;
 }
@@ -378,4 +707,3 @@ export async function reverseGeocodeLocation(
     return null;
   }
 }
-
