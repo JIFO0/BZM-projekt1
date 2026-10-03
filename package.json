@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "start": "npm run start -w krakow-bez-barier-mobile",
+    "server": "npm run start -w @krakow-bez-barier/cli",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint -w krakow-bez-barier-mobile",
     "test": "jest --colors=false",
