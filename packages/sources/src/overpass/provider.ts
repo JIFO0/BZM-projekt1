@@ -19,6 +19,7 @@ export interface OverpassProviderOptions {
   userAgent?: string;
   stalenessMonths?: number;
   fetchFn?: typeof fetch;
+  timeoutMs?: number;
 }
 
 export class OsmOverpassProvider implements AccessibilityDataSource {
@@ -26,6 +27,7 @@ export class OsmOverpassProvider implements AccessibilityDataSource {
   private readonly userAgent: string;
   private readonly stalenessMonths: number;
   private readonly fetchFn: typeof fetch;
+  private readonly timeoutMs: number;
 
   constructor(options: OverpassProviderOptions = {}) {
     this.endpoint = options.endpoint ?? OVERPASS_INTERPRETER;
@@ -33,6 +35,7 @@ export class OsmOverpassProvider implements AccessibilityDataSource {
       options.userAgent ?? 'KrakowBezBarier/0.1 (HackYeah 2026 prototype; contact@example.com)';
     this.stalenessMonths = options.stalenessMonths ?? 24;
     this.fetchFn = options.fetchFn ?? globalThis.fetch.bind(globalThis);
+    this.timeoutMs = options.timeoutMs ?? 4000;
   }
 
   describe(): SourceDescriptor {
@@ -119,6 +122,8 @@ out center tags qt;`;
 
   private async executeQuery(ql: string): Promise<AccessibilityBundle> {
     const retrievedAt = new Date().toISOString();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await this.fetchFn(this.endpoint, {
         method: 'POST',
@@ -127,7 +132,9 @@ out center tags qt;`;
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: `data=${encodeURIComponent(ql)}`,
+        signal: controller.signal,
       });
+      clearTimeout(timer);
 
       if (!response.ok) {
         throw failureFromHttp('OpenStreetMap (Overpass)', response.status);

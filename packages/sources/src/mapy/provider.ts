@@ -63,24 +63,31 @@ export class MapyRoutingProvider implements RoutingProvider {
 
       // Extract geometry from GeoJSON format
       let coordinates: Array<[number, number]> = [];
-      let lengthMetres = 0;
-      let durationSeconds = 0;
-
-      if (data?.geometry?.coordinates) {
+      if (Array.isArray(data?.geometry?.geometry?.coordinates)) {
+        coordinates = data.geometry.geometry.coordinates;
+      } else if (Array.isArray(data?.geometry?.coordinates)) {
         coordinates = data.geometry.coordinates;
-        lengthMetres = data.properties?.length ?? 0;
-        durationSeconds = data.properties?.duration ?? 0;
-      } else if (data?.features?.[0]?.geometry?.coordinates) {
-        const feature = data.features[0];
-        coordinates = feature.geometry.coordinates;
-        lengthMetres = feature.properties?.length ?? 0;
-        durationSeconds = feature.properties?.duration ?? 0;
-      } else if (data?.routes?.[0]?.geometry?.coordinates) {
-        const route = data.routes[0];
-        coordinates = route.geometry.coordinates;
-        lengthMetres = route.length ?? 0;
-        durationSeconds = route.duration ?? 0;
+      } else if (Array.isArray(data?.features?.[0]?.geometry?.coordinates)) {
+        coordinates = data.features[0].geometry.coordinates;
+      } else if (Array.isArray(data?.routes?.[0]?.geometry?.coordinates)) {
+        coordinates = data.routes[0].geometry.coordinates;
       }
+
+      const lengthMetres =
+        data?.length ??
+        data?.properties?.length ??
+        data?.geometry?.properties?.length ??
+        data?.features?.[0]?.properties?.length ??
+        data?.routes?.[0]?.length ??
+        0;
+
+      const durationSeconds =
+        data?.duration ??
+        data?.properties?.duration ??
+        data?.geometry?.properties?.duration ??
+        data?.features?.[0]?.properties?.duration ??
+        data?.routes?.[0]?.duration ??
+        0;
 
       return {
         provider: 'Mapy.com',
