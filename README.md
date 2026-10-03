@@ -51,7 +51,7 @@ npm run server
 
 ## Najważniejsze funkcje i spełnione wymagania
 
-- **R1. Wybór profilu bez pytania o niepełnosprawność:** Profile *Wózek* (schody blokują, krawężnik do 30 mm), *Wózek dziecięcy* (schody ostrzeżeniem, krawężnik do 60 mm), *Profil własny* (suwaki progów).
+- **R1. Wybór profilu bez pytania o niepełnosprawność:** Profile *Wózek* (schody blokują, krawężnik do 30 mm, omijanie kocich łbów i piasku), *Profil własny* (suwaki progów, brak domyślnie blokowanych nawierzchni).
 - **R2. Wyszukiwanie trasy A → B oraz inspekcja miejsc:** Geokodowanie Mapy.com, lokalizacja użytkownika wyłącznie na jawne żądanie (przycisk „📍 Użyj mojej lokalizacji”).
 - **R3. Analiza barier wzdłuż trasy:** Posortowane w kolejności pokonywania trasy z odległością od startu (np. „Po 120 m: schody, 14 stopni, brak podjazdu”).
 - **R4. Karta miejsca w 4 kategoriach wyzwania:** *Wejście / Wnętrze / Toaleta / Otoczenie*.

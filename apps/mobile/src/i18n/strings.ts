@@ -6,11 +6,9 @@ const pl = {
   profileLead:
     'Wybierz profil do analizy barier. Aplikacja nie zbiera danych o niepełnosprawności, nie zakłada kont i działa w 100% lokalnie na urządzeniu.',
   wheelchair: 'Wózek',
-  wheelchairHint: 'Schody blokują trasę (blocker). Krawężnik max 30 mm.',
-  stroller: 'Wózek dziecięcy',
-  strollerHint: 'Schody są ostrzeżeniem (warning). Krawężnik max 60 mm.',
+  wheelchairHint: 'Schody blokują trasę (blocker). Krawężnik max 30 mm. Omija kocie łby i piasek.',
   custom: 'Profil własny',
-  customHint: 'Dostosuj własne limity krawężnika, nachylenia i stopni.',
+  customHint: 'Dostosuj własne limity krawężnika, nachylenia, stopni i nawierzchni.',
   selected: 'Wybrany profil',
   blockedRoadTypesTitle: 'Blokowane typy nawierzchni i dróg',
   blockedRoadTypesSubtitle:
@@ -209,11 +207,9 @@ const en: typeof pl = {
   profileLead:
     'Select a profile for barrier analysis. The app does not collect disability data, does not require accounts, and runs 100% locally on your device.',
   wheelchair: 'Wheelchair',
-  wheelchairHint: 'Steps block route (blocker). Kerb max 30 mm.',
-  stroller: 'Stroller',
-  strollerHint: 'Steps are a warning. Kerb max 60 mm.',
+  wheelchairHint: 'Steps block route (blocker). Kerb max 30 mm. Avoids cobblestone and sand.',
   custom: 'Custom profile',
-  customHint: 'Configure custom thresholds for kerb, incline and steps.',
+  customHint: 'Configure custom thresholds for kerb, incline, steps and surfaces.',
   selected: 'Selected profile',
   blockedRoadTypesTitle: 'Blocked road and surface types',
   blockedRoadTypesSubtitle:

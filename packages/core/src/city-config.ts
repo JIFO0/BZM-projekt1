@@ -159,7 +159,6 @@ export function parseCityConfig(input: unknown): CityConfig {
     },
     profiles: {
       wheelchair: readThresholds(profiles.wheelchair, 'wheelchair'),
-      stroller: readThresholds(profiles.stroller, 'stroller'),
       custom: readThresholds(profiles.custom, 'custom'),
     },
     overpass: {
