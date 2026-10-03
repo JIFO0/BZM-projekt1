@@ -26,6 +26,7 @@ export class MemoryReportsRepository implements ReportsRepository {
     email?: string;
     position?: { lat: number; lon: number };
     category?: HazardCategory;
+    photoUrl?: string;
   }): Promise<RouteHazard> {
     const id = `hazard-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
@@ -39,12 +40,21 @@ export class MemoryReportsRepository implements ReportsRepository {
       email: data.email,
       position: data.position,
       category: data.category,
+      photoUrl: data.photoUrl,
+      validations: [],
       stillHereCount: 0,
       fixedCount: 0,
     };
 
     this.hazards.set(id, hazard);
     return { ...hazard };
+  }
+
+  public async getRandomHazard(): Promise<RouteHazard | null> {
+    const list = Array.from(this.hazards.values());
+    if (list.length === 0) return null;
+    const index = Math.floor(Math.random() * list.length);
+    return { ...list[index]! };
   }
 
   public async getHazard(id: string): Promise<RouteHazard | null> {
@@ -107,7 +117,8 @@ export class MemoryReportsRepository implements ReportsRepository {
   public async verifyHazard(
     hazardId: string,
     action: HazardVoteAction,
-    voterKey: string
+    voterKey: string,
+    options?: { photoUrl?: string; comment?: string }
   ): Promise<VerifyHazardResult> {
     const hazard = this.hazards.get(hazardId);
     if (!hazard) {
@@ -145,9 +156,26 @@ export class MemoryReportsRepository implements ReportsRepository {
         hazardId,
         voterKey: normKey,
         currentVote: 'still_here',
+        photoUrl: options?.photoUrl,
+        comment: options?.comment,
         updatedAt: now,
       });
       hazard.updatedAt = now;
+
+      if (!hazard.validations) hazard.validations = [];
+      if (options?.photoUrl || options?.comment) {
+        hazard.validations.push({
+          id: `val-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          voterKey: normKey,
+          action: 'still_here',
+          photoUrl: options.photoUrl,
+          comment: options.comment,
+          createdAt: now,
+        });
+      }
+      if (options?.photoUrl) {
+        hazard.photoUrl = options.photoUrl;
+      }
 
       return {
         hazard: { ...hazard },
@@ -176,9 +204,26 @@ export class MemoryReportsRepository implements ReportsRepository {
         hazardId,
         voterKey: normKey,
         currentVote: 'fixed',
+        photoUrl: options?.photoUrl,
+        comment: options?.comment,
         updatedAt: now,
       });
       hazard.updatedAt = now;
+
+      if (!hazard.validations) hazard.validations = [];
+      if (options?.photoUrl || options?.comment) {
+        hazard.validations.push({
+          id: `val-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          voterKey: normKey,
+          action: 'fixed',
+          photoUrl: options.photoUrl,
+          comment: options.comment,
+          createdAt: now,
+        });
+      }
+      if (options?.photoUrl) {
+        hazard.photoUrl = options.photoUrl;
+      }
 
       return {
         hazard: { ...hazard },
@@ -216,6 +261,7 @@ export class MemoryReportsRepository implements ReportsRepository {
     comment: string;
     category?: PlaceFeatureCategory;
     email?: string;
+    photoUrl?: string;
   }): Promise<PlaceComment | null> {
     const place = this.placesRegistry.getPlace(data.placeId);
     if (!place) {
@@ -237,6 +283,7 @@ export class MemoryReportsRepository implements ReportsRepository {
       comment: data.comment,
       category: data.category,
       email: data.email,
+      photoUrl: data.photoUrl,
       createdAt: now,
     };
 
@@ -327,5 +374,80 @@ export class MemoryReportsRepository implements ReportsRepository {
     this.hazards.clear();
     this.votes.clear();
     this.comments.clear();
+  }
+
+  public seedDefaultHazards(): void {
+    if (this.hazards.size > 0) return;
+
+    const sampleHazards: Array<Omit<RouteHazard, 'id' | 'createdAt' | 'updatedAt'>> = [
+      {
+        description: 'Wysoki krawężnik (14 cm) bez zjazdu na przejściu dla pieszych przy Rynku Głównym',
+        status: 'reported',
+        category: 'obstacle',
+        position: { lat: 50.0619, lon: 19.9373 },
+        stillHereCount: 4,
+        fixedCount: 0,
+        photoUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&auto=format&fit=crop&q=60',
+        validations: [
+          {
+            id: 'val-seed-1',
+            voterKey: 'audytor@krakow.pl',
+            action: 'still_here',
+            comment: 'Potwierdzam, brak obniżenia krawężnika.',
+            photoUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&auto=format&fit=crop&q=60',
+            createdAt: '2026-10-03T10:00:00Z',
+          },
+        ],
+      },
+      {
+        description: 'Głęboka wyrwa i popękane płyty chodnikowe na ul. Floriańskiej',
+        status: 'confirmed',
+        category: 'hole',
+        position: { lat: 50.0631, lon: 19.9401 },
+        stillHereCount: 6,
+        fixedCount: 1,
+        photoUrl: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600&auto=format&fit=crop&q=60',
+        validations: [
+          {
+            id: 'val-seed-2',
+            voterKey: 'mieszkaniec@krakow.pl',
+            action: 'still_here',
+            comment: 'Koło wózka utknęło w szczelinie.',
+            photoUrl: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600&auto=format&fit=crop&q=60',
+            createdAt: '2026-10-03T12:30:00Z',
+          },
+        ],
+      },
+      {
+        description: 'Zalane przejście podziemne przy Dworcu Głównym po deszczu',
+        status: 'reported',
+        category: 'flood',
+        position: { lat: 50.0664, lon: 19.9482 },
+        stillHereCount: 3,
+        fixedCount: 0,
+        photoUrl: 'https://images.unsplash.com/photo-1547683905-f686c993aae5?w=600&auto=format&fit=crop&q=60',
+      },
+      {
+        description: 'Nierówny, stary bruk kamienny uniemożliwiający przejazd wózkiem na ul. Kanoniczej',
+        status: 'reported',
+        category: 'surface',
+        position: { lat: 50.0563, lon: 19.9371 },
+        stillHereCount: 5,
+        fixedCount: 0,
+        photoUrl: 'https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?w=600&auto=format&fit=crop&q=60',
+      },
+    ];
+
+    const now = new Date().toISOString();
+    sampleHazards.forEach((sh, idx) => {
+      const id = `hazard-sample-${idx + 1}`;
+      this.hazards.set(id, {
+        ...sh,
+        id,
+        createdAt: now,
+        updatedAt: now,
+        validations: sh.validations || [],
+      });
+    });
   }
 }
