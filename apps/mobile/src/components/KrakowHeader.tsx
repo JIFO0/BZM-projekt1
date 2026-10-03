@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Globe, SpeakerHigh, Stop, Wheelchair, Wrench } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
@@ -6,19 +6,24 @@ import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
-interface KrakowHeaderProps {
+export interface KrakowHeaderProps {
   onOpenDemo?: () => void;
   onReadScreen?: () => void;
   isSpeaking?: boolean;
+  compact?: boolean;
 }
 
 /**
  * KrakowHeader - Oficjalny nagłówek miejski Krakowa
- * Czysty styl public-sector (Gov / Municipal Design System).
- * Zawiera herb, tytuł instytucjonalny oraz dedykowany przycisk Centrum Dostępności.
- * Zero emotikon - wyłącznie wektory i ikony Phosphor.
+ * W wersji przeglądarkowej zachowuje pełny wygląd (pasek miejski, herb, tytuły, przyciski),
+ * a w wersji mobilnej (Platform.OS !== 'web') składa się wyłącznie z paska przycisków funkcyjnych.
  */
-export function KrakowHeader({ onOpenDemo, onReadScreen, isSpeaking }: KrakowHeaderProps) {
+export function KrakowHeader({
+  onOpenDemo,
+  onReadScreen,
+  isSpeaking,
+  compact,
+}: KrakowHeaderProps) {
   const {
     locale,
     setLocale,
@@ -32,6 +37,187 @@ export function KrakowHeader({ onOpenDemo, onReadScreen, isSpeaking }: KrakowHea
 
   const minTouch = increasedSpacing ? spacing.touchExpanded : spacing.touch - 4;
 
+  const renderButtons = () => (
+    <>
+      {/* 1. Dedicated Accessibility Button */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t(locale, 'accessibilityHeaderButton')}
+        accessibilityHint="Otwiera dedykowane Centrum Ułatwień Dostępności cyfrowej"
+        onPress={() => setAccessibilityModalVisible(true)}
+        style={[
+          styles.a11yBtn,
+          {
+            backgroundColor: isHighContrast ? colors.accent : '#003865',
+            borderColor: isHighContrast ? colors.focus : '#38BDF8',
+            borderWidth: isHighContrast ? 2.5 : 1.5,
+            borderBottomWidth: highlightLinks ? 4 : isHighContrast ? 2.5 : 1.5,
+            minHeight: minTouch,
+          },
+        ]}
+      >
+        <Wheelchair
+          size={17}
+          weight="bold"
+          color={isHighContrast ? colors.accentText : '#FFFFFF'}
+        />
+        <Text
+          style={[
+            styles.a11yBtnText,
+            {
+              color: isHighContrast ? colors.accentText : '#FFFFFF',
+              fontSize: fontSize(12),
+              textDecorationLine: highlightLinks ? 'underline' : 'none',
+            },
+          ]}
+        >
+          {t(locale, 'accessibilityMenuBtn')}
+        </Text>
+      </Pressable>
+
+      {/* 2. Language Toggle */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          locale === 'pl' ? 'Switch language to English' : 'Przełącz język na polski'
+        }
+        onPress={() => setLocale(locale === 'pl' ? 'en' : 'pl')}
+        style={[
+          styles.secondaryBtn,
+          {
+            borderColor: colors.border,
+            backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.12)',
+            minHeight: minTouch,
+          },
+        ]}
+      >
+        <Globe
+          size={15}
+          weight="bold"
+          color={isHighContrast ? colors.text : colors.headerText}
+        />
+        <Text
+          style={[
+            styles.secondaryBtnText,
+            {
+              color: isHighContrast ? colors.text : colors.headerText,
+              fontSize: fontSize(12),
+            },
+          ]}
+        >
+          {locale.toUpperCase()}
+        </Text>
+      </Pressable>
+
+      {/* 3. Voice Assistance (TTS Lektor) */}
+      {onReadScreen ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isSpeaking ? 'Zatrzymaj lektora' : 'Włącz lektora ekranu'}
+          onPress={onReadScreen}
+          style={[
+            styles.secondaryBtn,
+            {
+              borderColor: isSpeaking ? '#EF4444' : colors.border,
+              backgroundColor: isSpeaking
+                ? '#DC2626'
+                : isHighContrast
+                ? colors.background
+                : 'rgba(255,255,255,0.12)',
+              minHeight: minTouch,
+            },
+          ]}
+        >
+          {isSpeaking ? (
+            <Stop size={15} weight="bold" color="#FFFFFF" />
+          ) : (
+            <SpeakerHigh
+              size={15}
+              weight="bold"
+              color={isHighContrast ? colors.text : colors.headerText}
+            />
+          )}
+          <Text
+            style={[
+              styles.secondaryBtnText,
+              {
+                color: isSpeaking
+                  ? '#FFFFFF'
+                  : isHighContrast
+                  ? colors.text
+                  : colors.headerText,
+                fontSize: fontSize(12),
+              },
+            ]}
+          >
+            {isSpeaking ? 'Stop' : 'Lektor'}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {/* 4. Demo Simulations Trigger */}
+      {onOpenDemo ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Panel symulacji demonstracyjnych"
+          onPress={onOpenDemo}
+          style={[
+            styles.secondaryBtn,
+            {
+              borderColor: colors.border,
+              backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.12)',
+              minHeight: minTouch,
+            },
+          ]}
+        >
+          <Wrench
+            size={15}
+            weight="bold"
+            color={isHighContrast ? colors.text : colors.headerText}
+          />
+          <Text
+            style={[
+              styles.secondaryBtnText,
+              {
+                color: isHighContrast ? colors.text : colors.headerText,
+                fontSize: fontSize(12),
+              },
+            ]}
+          >
+            Demo
+          </Text>
+        </Pressable>
+      ) : null}
+    </>
+  );
+
+  // Wersja przeglądarkowa zachowuje pełny wygląd instytucjonalny (herb, tytuł, pasek miejski),
+  // a wersja mobilna składa się wyłącznie z paska przycisków funkcyjnych.
+  const isCompact = compact !== undefined ? compact : Platform.OS !== 'web';
+
+  if (isCompact) {
+    return (
+      <View
+        style={[
+          styles.compactContainer,
+          {
+            backgroundColor: isHighContrast ? colors.surface : colors.headerBg,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.compactScroll}
+        >
+          {renderButtons()}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // Pełna wersja instytucjonalna (np. na tablety lub desktopy)
   return (
     <View style={styles.container}>
       {/* 1. Official Municipal Gov Strip */}
@@ -125,161 +311,27 @@ export function KrakowHeader({ onOpenDemo, onReadScreen, isSpeaking }: KrakowHea
         </View>
 
         {/* Header Action Buttons */}
-        <View style={styles.headerActions}>
-          {/* Dedicated Prestigious Accessibility Button */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(locale, 'accessibilityHeaderButton')}
-            accessibilityHint="Otwiera dedykowane Centrum Ułatwień Dostępności cyfrowej"
-            onPress={() => setAccessibilityModalVisible(true)}
-            style={[
-              styles.a11yBtn,
-              {
-                backgroundColor: isHighContrast ? colors.accent : '#003865',
-                borderColor: isHighContrast ? colors.focus : '#38BDF8',
-                borderWidth: isHighContrast ? 2.5 : 1.5,
-                borderBottomWidth: highlightLinks ? 4 : isHighContrast ? 2.5 : 1.5,
-                minHeight: minTouch,
-              },
-            ]}
-          >
-            <Wheelchair
-              size={18}
-              weight="bold"
-              color={isHighContrast ? colors.accentText : '#FFFFFF'}
-            />
-            <Text
-              style={[
-                styles.a11yBtnText,
-                {
-                  color: isHighContrast ? colors.accentText : '#FFFFFF',
-                  fontSize: fontSize(12.5),
-                  textDecorationLine: highlightLinks ? 'underline' : 'none',
-                },
-              ]}
-            >
-              {t(locale, 'accessibilityMenuBtn')}
-            </Text>
-          </Pressable>
-
-          {/* Language Toggle */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={locale === 'pl' ? 'Switch language to English' : 'Przełącz język na polski'}
-            onPress={() => setLocale(locale === 'pl' ? 'en' : 'pl')}
-            style={[
-              styles.secondaryBtn,
-              {
-                borderColor: colors.border,
-                backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.12)',
-                minHeight: minTouch,
-              },
-            ]}
-          >
-            <Globe
-              size={16}
-              weight="bold"
-              color={isHighContrast ? colors.text : colors.headerText}
-            />
-            <Text
-              style={[
-                styles.secondaryBtnText,
-                {
-                  color: isHighContrast ? colors.text : colors.headerText,
-                  fontSize: fontSize(12),
-                },
-              ]}
-            >
-              {locale.toUpperCase()}
-            </Text>
-          </Pressable>
-
-          {/* Voice Assistance (Lektor) */}
-          {onReadScreen ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isSpeaking ? 'Zatrzymaj lektora' : 'Włącz lektora ekranu'}
-              onPress={onReadScreen}
-              style={[
-                styles.secondaryBtn,
-                {
-                  borderColor: isSpeaking ? '#EF4444' : colors.border,
-                  backgroundColor: isSpeaking
-                    ? '#DC2626'
-                    : isHighContrast
-                    ? colors.background
-                    : 'rgba(255,255,255,0.12)',
-                  minHeight: minTouch,
-                },
-              ]}
-            >
-              {isSpeaking ? (
-                <Stop size={16} weight="bold" color="#FFFFFF" />
-              ) : (
-                <SpeakerHigh
-                  size={16}
-                  weight="bold"
-                  color={isHighContrast ? colors.text : colors.headerText}
-                />
-              )}
-              <Text
-                style={[
-                  styles.secondaryBtnText,
-                  {
-                    color: isSpeaking
-                      ? '#FFFFFF'
-                      : isHighContrast
-                      ? colors.text
-                      : colors.headerText,
-                    fontSize: fontSize(12),
-                  },
-                ]}
-              >
-                {isSpeaking ? 'Stop' : 'Lektor'}
-              </Text>
-            </Pressable>
-          ) : null}
-
-          {/* Demo Simulations Trigger */}
-          {onOpenDemo ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Panel symulacji demonstracyjnych"
-              onPress={onOpenDemo}
-              style={[
-                styles.secondaryBtn,
-                {
-                  borderColor: colors.border,
-                  backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.12)',
-                  minHeight: minTouch,
-                },
-              ]}
-            >
-              <Wrench
-                size={16}
-                weight="bold"
-                color={isHighContrast ? colors.text : colors.headerText}
-              />
-              <Text
-                style={[
-                  styles.secondaryBtnText,
-                  {
-                    color: isHighContrast ? colors.text : colors.headerText,
-                    fontSize: fontSize(12),
-                  },
-                ]}
-              >
-                Demo
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
+        <View style={styles.headerActions}>{renderButtons()}</View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  compactContainer: {
+    width: '100%',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    zIndex: 10,
+  },
+  compactScroll: {
+    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   container: {
     width: '100%',
   },
@@ -360,10 +412,10 @@ const styles = StyleSheet.create({
   a11yBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
     borderRadius: 8,
-    gap: 6,
+    gap: 5,
   },
   a11yBtnText: {
     fontWeight: '800',
@@ -373,7 +425,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 9,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1.5,
     gap: 4,
