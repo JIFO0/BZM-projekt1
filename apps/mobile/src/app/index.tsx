@@ -2079,13 +2079,6 @@ export default function MapHomeScreen() {
                       <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
                         {t(locale, 'maxKerb')}
                       </Text>
-                      <Text style={{ color: colors.muted, fontSize: fontSize(12), lineHeight: 16 }}>
-                        {locale === 'pl'
-                          ? `Aktualna dopuszczalna wysokość: ${activeThresholds.maxKerbMillimetres} mm (${(activeThresholds.maxKerbMillimetres / 10).toFixed(0)} cm). Krawężniki wyższe od tej wartości będą traktowane jako bariera blokująca trasę.`
-                          : locale === 'uk'
-                          ? `Поточна допустима висота: ${activeThresholds.maxKerbMillimetres} мм (${(activeThresholds.maxKerbMillimetres / 10).toFixed(0)} см). Вищі бордюри блокуватимуть маршрут.`
-                          : `Current allowable height: ${activeThresholds.maxKerbMillimetres} mm (${(activeThresholds.maxKerbMillimetres / 10).toFixed(0)} cm). Kerbs higher than this will block the route.`}
-                      </Text>
                       <View style={styles.presetChipsRow}>
                         {KERB_LEVELS.map((level) => {
                           const selected = activeThresholds.maxKerbMillimetres === level.mm;
@@ -2119,60 +2112,6 @@ export default function MapHomeScreen() {
                             </Pressable>
                           );
                         })}
-                      </View>
-                      <View style={styles.stepBtnRow}>
-                        <GovButton
-                          variant="outline"
-                          title="-10 mm"
-                          accessibilityLabel={`${t(locale, 'maxKerb')} -10 mm`}
-                          onPress={() =>
-                            updateActiveThresholds({
-                              maxKerbMillimetres: Math.max(10, activeThresholds.maxKerbMillimetres - 10),
-                            })
-                          }
-                          style={styles.smallStepBtn}
-                        />
-                        <View
-                          accessibilityLiveRegion="polite"
-                          accessibilityLabel={`${t(locale, 'maxKerb')} ${activeThresholds.maxKerbMillimetres} mm`}
-                          style={[
-                            styles.kerbValue,
-                            {
-                              borderColor: colors.border,
-                              backgroundColor: colors.background,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={{
-                              color: colors.text,
-                              fontSize: fontSize(14),
-                              fontWeight: '800',
-                            }}
-                          >
-                            {activeThresholds.maxKerbMillimetres} mm
-                          </Text>
-                          <Text
-                            style={{
-                              color: colors.muted,
-                              fontSize: fontSize(11),
-                              fontWeight: '600',
-                            }}
-                          >
-                            {(activeThresholds.maxKerbMillimetres / 10).toFixed(0)} cm
-                          </Text>
-                        </View>
-                        <GovButton
-                          variant="outline"
-                          title="+10 mm"
-                          accessibilityLabel={`${t(locale, 'maxKerb')} +10 mm`}
-                          onPress={() =>
-                            updateActiveThresholds({
-                              maxKerbMillimetres: activeThresholds.maxKerbMillimetres + 10,
-                            })
-                          }
-                          style={styles.smallStepBtn}
-                        />
                       </View>
                     </View>
 
