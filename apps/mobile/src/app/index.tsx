@@ -1139,14 +1139,14 @@ export default function MapHomeScreen() {
 
                   {localReports && localReports.length > 0 ? (
                     <View style={{ marginTop: 12 }}>
-                      <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSize(12) }]}>
+                      <Text style={[styles.sectionSubtitle, { color: colors.muted, fontSize: fontSize(12) }]}>
                         ZAPISANE ZGŁOSZENIA LOKALNE ({localReports.length}):
                       </Text>
                       {localReports.map((r) => (
                         <GovCard key={r.id} style={{ marginTop: 6 }}>
                           <Text style={{ color: colors.text, fontSize: fontSize(13) }}>{r.description}</Text>
-                          <Text style={{ color: colors.textSecondary, fontSize: fontSize(11), marginTop: 4 }}>
-                            {new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          <Text style={{ color: colors.muted, fontSize: fontSize(11), marginTop: 4 }}>
+                            {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </Text>
                         </GovCard>
                       ))}
