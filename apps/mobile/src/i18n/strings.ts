@@ -385,6 +385,12 @@ const pl = {
   barrierModeRouteHint: 'Pokaż tylko bariery wzdłuż wyznaczonej trasy',
   barrierModeAllHint: 'Pokaż wszystkie znane bariery architektoniczne w Krakowie',
   noActiveRouteForBarriers: 'Brak aktywnej trasy. Zaplanuj trasę, aby zobaczyć jej bariery.',
+  mapClickPopupTitle: 'Wybrany punkt na mapie',
+  pointOnMap: 'Punkt na mapie',
+  mapClickActionSearchPlace: 'Wyszukaj obiekt',
+  mapClickActionSetStart: 'Start (A)',
+  mapClickActionSetEnd: 'Cel (B)',
+  resolvingAddress: 'Ustalanie adresu...',
 };
 
 const en: typeof pl = {
@@ -769,6 +775,12 @@ const en: typeof pl = {
   barrierModeRouteHint: 'Show only barriers along the planned route',
   barrierModeAllHint: 'Show all known architectural barriers across Kraków',
   noActiveRouteForBarriers: 'No active route. Plan a route to see its barriers.',
+  mapClickPopupTitle: 'Selected point on map',
+  pointOnMap: 'Point on map',
+  mapClickActionSearchPlace: 'Search place',
+  mapClickActionSetStart: 'Start (A)',
+  mapClickActionSetEnd: 'Destination (B)',
+  resolvingAddress: 'Resolving address...',
 };
 
 const uk: typeof pl = {
@@ -1158,6 +1170,12 @@ const uk: typeof pl = {
   barrierModeRouteHint: 'Показати лише бар\'єри вздовж запланованого маршруту',
   barrierModeAllHint: 'Показати всі відомі архітектурні бар\'єри в Кракові',
   noActiveRouteForBarriers: 'Немає активного маршруту. Сплануйте маршрут, щоб побачити бар\'єри.',
+  mapClickPopupTitle: 'Вибрана точка на карті',
+  pointOnMap: 'Точка на карті',
+  mapClickActionSearchPlace: 'Пошук об\'єкта',
+  mapClickActionSetStart: 'Старт (A)',
+  mapClickActionSetEnd: 'Ціль (B)',
+  resolvingAddress: 'Визначення адреси...',
 };
 
 const dictionaries: Record<Locale, typeof pl> = { pl, en, uk };
