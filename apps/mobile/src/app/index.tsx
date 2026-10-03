@@ -1,25 +1,50 @@
-import type { ProfileId } from '@krakow-bez-barier/core';
+import {
+  DEMO_SNAPSHOT,
+  type LonLat,
+  type ProfileId,
+} from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Speech from 'expo-speech';
 import {
   ArrowRight,
   Baby,
+  Buildings,
+  CaretDown,
+  CaretUp,
   Check,
+  Crosshair,
   Info,
-  LockKey,
+  MagnifyingGlass,
+  NavigationArrow,
+  PathIcon as Path,
+  Prohibit,
   SlidersHorizontal,
+  Warning,
   Wheelchair,
+  X,
 } from 'phosphor-react-native';
+import { useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
-import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
+import { MapView } from '@/components/MapView';
 import { t } from '@/i18n/strings';
+import { inspectPlace, planAndAnalyzeRoute } from '@/services/api';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -27,48 +52,44 @@ const ROAD_TYPE_OPTIONS = [
   {
     id: 'cobblestone',
     nameKey: 'surfaceCobblestone' as const,
-    icon: '🪨',
     descPl: 'Bruk i kocie łby, trudne do przejazdu',
     descEn: 'Cobblestone and historic paving',
   },
   {
     id: 'gravel',
     nameKey: 'surfaceGravel' as const,
-    icon: '⚪',
     descPl: 'Gruby żwir i szuter, utrudniający toczenie się kół',
     descEn: 'Coarse gravel hindering wheel rolling',
   },
   {
     id: 'sand',
     nameKey: 'surfaceSand' as const,
-    icon: '🏖️',
     descPl: 'Sypki piasek grzęznący dla wózków',
     descEn: 'Loose sand causing wheels to sink',
   },
   {
     id: 'dirt',
     nameKey: 'surfaceDirt' as const,
-    icon: '🌱',
     descPl: 'Drogi gruntowe i ziemne, błotniste po deszczu',
     descEn: 'Dirt and soil tracks, muddy in rain',
   },
   {
     id: 'unpaved',
     nameKey: 'surfaceUnpaved' as const,
-    icon: '🚧',
     descPl: 'Wszelkie nawierzchnie nieutwardzone',
     descEn: 'Any general unpaved terrain',
   },
   {
     id: 'compacted',
     nameKey: 'surfaceCompacted' as const,
-    icon: '🛤️',
     descPl: 'Nawierzchnia szutrowa utwardzona / ubita',
     descEn: 'Compacted gravel or stabilized surface',
   },
 ];
 
-export default function ProfileScreen() {
+type PopupTab = 'route' | 'place' | 'profile' | 'report';
+
+export default function MapHomeScreen() {
   const {
     locale,
     profileId,
@@ -77,417 +98,1066 @@ export default function ProfileScreen() {
     setCustomThresholds,
     activeThresholds,
     toggleBlockedRoadType,
+    debugState,
+    activeRouteReport,
+    setActiveRouteReport,
+    activeWalkingRoute,
+    setActiveWalkingRoute,
+    activePlaceReport,
+    setActivePlaceReport,
+    localReports,
+    addLocalReport,
     colors,
     fontSize,
-    lineHeight,
-    letterSpacing,
     isHighContrast,
-    increasedSpacing,
   } = useSession();
 
+  // Map state
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lon: number }>({
+    lat: 50.0619,
+    lon: 19.9373,
+  });
+
+  // Popup menu / sheet state (Google/Apple Maps style)
+  const [popupExpanded, setPopupExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<PopupTab>('route');
+
+  // Search & Routing state
+  const [fromQuery, setFromQuery] = useState('Rynek Główny');
+  const [fromPos, setFromPos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
+  const [toQuery, setToQuery] = useState('Zamek Królewski na Wawelu');
+  const [toPos, setToPos] = useState<LonLat>({ lon: 19.9354, lat: 50.0544 });
+  const [placeQuery, setPlaceQuery] = useState('Sukiennice');
+  const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
+
+  // Report input state
+  const [reportDesc, setReportDesc] = useState('');
+  const [reportSuccess, setReportSuccess] = useState(false);
+
+  // Loading & Audio state
+  const [loadingRoute, setLoadingRoute] = useState(false);
+  const [loadingPlace, setLoadingPlace] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const blockedList =
     activeThresholds?.blockedRoadTypes ?? activeThresholds?.blockedSurfaces ?? [];
 
-  const getProfileIcon = (id: ProfileId) => {
+  const getProfileIcon = (id: ProfileId, size = 18) => {
     switch (id) {
       case 'wheelchair':
-        return <Wheelchair size={22} weight="bold" color={colors.accent} />;
+        return <Wheelchair size={size} weight="bold" color={colors.accent} />;
       case 'stroller':
-        return <Baby size={22} weight="bold" color={colors.accent} />;
+        return <Baby size={size} weight="bold" color={colors.accent} />;
       case 'custom':
       default:
-        return <SlidersHorizontal size={22} weight="bold" color={colors.accent} />;
+        return <SlidersHorizontal size={size} weight="bold" color={colors.accent} />;
     }
   };
 
-  const OPTIONS: {
-    id: ProfileId;
-    title: 'wheelchair' | 'stroller' | 'custom';
-    hint: 'wheelchairHint' | 'strollerHint' | 'customHint';
-  }[] = [
-    { id: 'wheelchair', title: 'wheelchair', hint: 'wheelchairHint' },
-    { id: 'stroller', title: 'stroller', hint: 'strollerHint' },
-    { id: 'custom', title: 'custom', hint: 'customHint' },
-  ];
+  const getProfileLabel = (id: ProfileId) => {
+    switch (id) {
+      case 'wheelchair':
+        return t(locale, 'wheelchair');
+      case 'stroller':
+        return t(locale, 'stroller');
+      case 'custom':
+      default:
+        return t(locale, 'custom');
+    }
+  };
+
+  // 1. Locate Me / Reset Map
+  const handleCenterKrakow = () => {
+    setMapCenter({ lat: 50.0619, lon: 19.9373 });
+    setStatusMessage('Wycentrowano mapę na Rynku Głównym w Krakowie.');
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
+
+  const handleUseMyLocation = () => {
+    setFromQuery('Moja lokalizacja (Centrum)');
+    setFromPos({ lon: 19.9373, lat: 50.0619 });
+    setMapCenter({ lat: 50.0619, lon: 19.9373 });
+  };
+
+  // 2. Plan & Analyze Route
+  const handleAnalyzeRoute = async () => {
+    setLoadingRoute(true);
+    setStatusMessage(null);
+    try {
+      const result = await planAndAnalyzeRoute({
+        start: { name: fromQuery, position: fromPos },
+        end: { name: toQuery, position: toPos },
+        profileId,
+        thresholds: activeThresholds,
+        debugState,
+      });
+
+      setActiveWalkingRoute(result.walkingRoute);
+      setActiveRouteReport(result.report);
+      setPopupExpanded(true);
+      setActiveTab('route');
+
+      // Center map on route start
+      if (result.walkingRoute.coordinates.length > 0) {
+        setMapCenter({
+          lat: result.walkingRoute.coordinates[0]![1],
+          lon: result.walkingRoute.coordinates[0]![0],
+        });
+      }
+    } catch (err: any) {
+      Alert.alert('Błąd wyznaczania trasy', err.message || 'Nie udało się obliczyć trasy.');
+    } finally {
+      setLoadingRoute(false);
+    }
+  };
+
+  // 3. Inspect Place
+  const handleInspectPlace = async () => {
+    setLoadingPlace(true);
+    setStatusMessage(null);
+    try {
+      const result = await inspectPlace(placeQuery, placePos, debugState);
+      setActivePlaceReport(result.report);
+      setPopupExpanded(true);
+      setActiveTab('place');
+      setMapCenter({ lat: placePos.lat, lon: placePos.lon });
+    } catch (err: any) {
+      Alert.alert('Błąd sprawdzania obiektu', err.message || 'Nie udało się pobrać danych.');
+    } finally {
+      setLoadingPlace(false);
+    }
+  };
+
+  // Quick Demo Route Loader
+  const loadDemoRoute = async (index: number) => {
+    const routeData = DEMO_SNAPSHOT.routes[index];
+    if (!routeData) return;
+    setFromQuery(routeData.start.name);
+    setFromPos(routeData.start.position);
+    setToQuery(routeData.end.name);
+    setToPos(routeData.end.position);
+    setActiveTab('route');
+    setPopupExpanded(true);
+    setLoadingRoute(true);
+    try {
+      const result = await planAndAnalyzeRoute({
+        start: { name: routeData.start.name, position: routeData.start.position },
+        end: { name: routeData.end.name, position: routeData.end.position },
+        profileId,
+        thresholds: activeThresholds,
+        debugState,
+      });
+      setActiveWalkingRoute(result.walkingRoute);
+      setActiveRouteReport(result.report);
+      if (result.walkingRoute.coordinates.length > 0) {
+        setMapCenter({
+          lat: result.walkingRoute.coordinates[0]![1],
+          lon: result.walkingRoute.coordinates[0]![0],
+        });
+      }
+    } catch (err: any) {
+      Alert.alert('Błąd', err.message || 'Nie udało się załadować trasy demo.');
+    } finally {
+      setLoadingRoute(false);
+    }
+  };
+
+  // Quick Demo Place Loader
+  const loadDemoPlace = async (index: number) => {
+    const placeData = DEMO_SNAPSHOT.places[index];
+    if (!placeData) return;
+    setPlaceQuery(placeData.name);
+    setPlacePos(placeData.position);
+    setActiveTab('place');
+    setPopupExpanded(true);
+    setLoadingPlace(true);
+    try {
+      const result = await inspectPlace(placeData.name, placeData.position, debugState);
+      setActivePlaceReport(result.report);
+      setMapCenter({ lat: placeData.position.lat, lon: placeData.position.lon });
+    } catch (err: any) {
+      Alert.alert('Błąd', err.message || 'Nie udało się załadować obiektu demo.');
+    } finally {
+      setLoadingPlace(false);
+    }
+  };
+
+  // Clear Active Route
+  const handleClearRoute = () => {
+    setActiveWalkingRoute(null);
+    setActiveRouteReport(null);
+  };
+
+  // Submit local report
+  const handleSubmitLocalReport = () => {
+    if (!reportDesc.trim()) {
+      Alert.alert('Uwaga', 'Wpisz opis przeszkody przed zapisem.');
+      return;
+    }
+    addLocalReport(reportDesc.trim());
+    setReportDesc('');
+    setReportSuccess(true);
+    setTimeout(() => setReportSuccess(false), 3500);
+  };
+
+  // Screen Reader Narrative
+  const handleReadScreen = () => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+    let narrative = `${t(locale, 'appName')}. Mapa dostępności Krakowa w stylu map mobilnych. Aktualny profil poruszania: ${getProfileLabel(
+      profileId,
+    )}. `;
+    if (activeWalkingRoute && activeRouteReport) {
+      narrative += `Aktywna trasa z ${fromQuery} do ${toQuery} o długości ${activeRouteReport.lengthMetres} metrów. `;
+      const blockers = activeRouteReport.findings.filter((f) => f.severity === 'blocker');
+      const warnings = activeRouteReport.findings.filter((f) => f.severity === 'warning');
+      narrative += `Wykryto ${blockers.length} blokad oraz ${warnings.length} ostrzeżeń. `;
+    } else {
+      narrative += 'Brak aktywnej trasy. Użyj dolnego menu wyszukiwania, aby wyznaczyć trasę lub sprawdzić obiekt.';
+    }
+
+    setIsSpeaking(true);
+    Speech.speak(narrative, {
+      language: locale === 'pl' ? 'pl-PL' : 'en-US',
+      onDone: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+      edges={['top', 'bottom']}
+    >
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'appName') }} />
 
-      {/* Official Krakow Gov Header with Dedicated Accessibility Trigger */}
-      <KrakowHeader onOpenDemo={() => setDebugVisible(true)} />
+      {/* 1. TOP HEADER (Google / Apple Maps Style Floating Top Bar) */}
+      <KrakowHeader
+        onOpenDemo={() => setDebugVisible(true)}
+        onReadScreen={handleReadScreen}
+        isSpeaking={isSpeaking}
+      />
 
       <DemoBanner />
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
+      {/* 2. MAP CANVAS (CENTRAL FULL-SCREEN VIEWPORT) */}
+      <View style={styles.mapCanvasWrapper}>
+        <MapView
+          fullScreen
+          route={activeWalkingRoute}
+          findings={activeRouteReport?.findings || []}
+          center={mapCenter}
+          startLocation={
+            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+              ? { name: fromQuery, lat: activeWalkingRoute.coordinates[0]![1], lon: activeWalkingRoute.coordinates[0]![0] }
+              : undefined
+          }
+          endLocation={
+            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+              ? {
+                  name: toQuery,
+                  lat: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1],
+                  lon: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0],
+                }
+              : undefined
+          }
+        />
+
+        {/* Floating Map Action Buttons (Apple / Google Maps style) */}
+        <View style={styles.floatingControlsRight}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Wycentruj na centrum Krakowa"
+            onPress={handleCenterKrakow}
+            style={[
+              styles.floatingBtn,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderWidth: isHighContrast ? 2.5 : 1.5,
+              },
+            ]}
+          >
+            <Crosshair size={22} weight="bold" color={colors.accent} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Zmień profil poruszania się"
+            onPress={() => {
+              setActiveTab('profile');
+              setPopupExpanded(true);
+            }}
+            style={[
+              styles.floatingBtn,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderWidth: isHighContrast ? 2.5 : 1.5,
+              },
+            ]}
+          >
+            {getProfileIcon(profileId, 20)}
+          </Pressable>
+
+          {activeWalkingRoute ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Wyczyść aktywną trasę"
+              onPress={handleClearRoute}
+              style={[
+                styles.floatingBtn,
+                {
+                  backgroundColor: colors.blockerBg,
+                  borderColor: colors.blockerBorder,
+                  borderWidth: isHighContrast ? 2.5 : 1.5,
+                },
+              ]}
+            >
+              <X size={20} weight="bold" color={colors.blockerText} />
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Active Route Floating Pill (if route is active) */}
+        {activeWalkingRoute && activeRouteReport ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Pokaż podsumowanie aktywnej trasy"
+            onPress={() => {
+              setActiveTab('route');
+              setPopupExpanded(true);
+            }}
+            style={[
+              styles.floatingRoutePill,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.accent,
+                borderWidth: isHighContrast ? 2.5 : 1.5,
+              },
+            ]}
+          >
+            <Path size={18} weight="bold" color={colors.accent} />
+            <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
+              {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
+              {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length} blokad
+            </Text>
+            <CaretUp size={16} weight="bold" color={colors.accent} />
+          </Pressable>
+        ) : null}
+
+        {/* Status Toast Notification */}
+        {statusMessage ? (
+          <View style={[styles.statusToast, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Info size={16} weight="bold" color={colors.accent} />
+            <Text style={[styles.statusToastText, { color: colors.text, fontSize: fontSize(12.5) }]}>
+              {statusMessage}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {/* 3. POPUP MENU / BOTTOM SHEET (Apple Maps / Google Maps Drawer) */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={[
+          styles.bottomSheetContainer,
+          popupExpanded ? styles.bottomSheetExpanded : styles.bottomSheetCollapsed,
           {
-            padding: increasedSpacing ? 24 : spacing.screen,
-            gap: increasedSpacing ? 18 : spacing.stack,
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            borderWidth: isHighContrast ? 2.5 : 1.5,
           },
         ]}
       >
-        {/* Welcome & Municipal Program Card */}
-        <GovCard variant="accent">
-          <View style={styles.cardHeaderRow}>
-            <Text style={[styles.krakowBadge, { color: colors.accent, fontSize: fontSize(12) }]}>
-              PROTOTYP PUBLICZNY • MIASTO KRAKÓW
-            </Text>
+        {/* Drag Handle Bar / Tap to toggle */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={popupExpanded ? 'Zwiń dolne menu' : 'Rozwiń dolne menu wyszukiwania'}
+          onPress={() => setPopupExpanded(!popupExpanded)}
+          style={styles.sheetHandleRow}
+        >
+          <View
+            style={[
+              styles.sheetHandleBar,
+              { backgroundColor: isHighContrast ? colors.accent : colors.muted },
+            ]}
+          />
+          <View style={styles.sheetHandleHeader}>
+            <View style={styles.sheetHeaderLeft}>
+              {getProfileIcon(profileId, 16)}
+              <Text style={[styles.sheetProfileName, { color: colors.accent, fontSize: fontSize(12.5) }]}>
+                {getProfileLabel(profileId)}
+              </Text>
+            </View>
+            <View style={styles.sheetToggleBtn}>
+              <Text style={[styles.toggleText, { color: colors.muted, fontSize: fontSize(12) }]}>
+                {popupExpanded ? 'Ukryj menu' : 'Rozwiń menu'}
+              </Text>
+              {popupExpanded ? (
+                <CaretDown size={14} weight="bold" color={colors.accent} />
+              ) : (
+                <CaretUp size={14} weight="bold" color={colors.accent} />
+              )}
+            </View>
           </View>
-          <Text
-            accessibilityRole="header"
-            style={[
-              styles.leadTitle,
-              {
-                color: colors.text,
-                fontSize: fontSize(21),
-                lineHeight: lineHeight(21),
-                letterSpacing,
-              },
-            ]}
-          >
-            {t(locale, 'profileTitle')}
-          </Text>
-          <Text
-            style={[
-              styles.bodyText,
-              {
-                color: colors.muted,
-                fontSize: fontSize(14.5),
-                lineHeight: lineHeight(14.5),
-                letterSpacing,
-              },
-            ]}
-          >
-            {t(locale, 'profileLead')}
-          </Text>
-        </GovCard>
+        </Pressable>
 
-        {/* Mobility Profile Radio Group */}
-        <View accessibilityRole="radiogroup" style={styles.optionsList}>
-          {OPTIONS.map((option) => {
-            const selected = profileId === option.id;
-            return (
+        {/* Peek (Collapsed) Quick Search Row */}
+        {!popupExpanded ? (
+          <View style={styles.peekContent}>
+            {/* Quick search bar */}
+            <Pressable
+              onPress={() => {
+                setActiveTab('route');
+                setPopupExpanded(true);
+              }}
+              style={[
+                styles.peekSearchBar,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  borderWidth: isHighContrast ? 2 : 1,
+                },
+              ]}
+            >
+              <MagnifyingGlass size={18} weight="bold" color={colors.accent} />
+              <Text style={[styles.peekSearchPlaceholder, { color: colors.muted, fontSize: fontSize(14) }]}>
+                Dokąd w Krakowie? Szukaj trasy lub miejsca...
+              </Text>
+            </Pressable>
+
+            {/* Quick Action Destination Chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickChipsScroll}>
               <Pressable
-                key={option.id}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: selected }}
-                aria-checked={selected}
-                accessibilityLabel={`${t(locale, option.title)}. ${t(locale, option.hint)}. ${
-                  selected ? t(locale, 'selected') : ''
-                }`}
-                onPress={() => setProfileId(option.id)}
+                onPress={() => loadDemoRoute(0)}
+                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
+              >
+                <Path size={14} weight="bold" color={colors.accent} />
+                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
+                  Rynek → Wawel
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => loadDemoRoute(1)}
+                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
+              >
+                <Path size={14} weight="bold" color={colors.accent} />
+                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
+                  Dworzec → Sukiennice
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => loadDemoPlace(0)}
+                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
+              >
+                <Buildings size={14} weight="bold" color={colors.accent} />
+                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
+                  Sukiennice
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setActiveTab('profile');
+                  setPopupExpanded(true);
+                }}
+                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
+              >
+                <SlidersHorizontal size={14} weight="bold" color={colors.accent} />
+                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
+                  Nawierzchnie ({blockedList.length})
+                </Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        ) : (
+          /* Expanded Full Popup View with Tabs */
+          <View style={styles.expandedContent}>
+            {/* Tabs Header */}
+            <View
+              accessibilityRole="tablist"
+              style={[
+                styles.tabBar,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  borderWidth: isHighContrast ? 2 : 1,
+                },
+              ]}
+            >
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'route' }}
+                onPress={() => setActiveTab('route')}
                 style={[
-                  styles.optionCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: selected ? colors.focus : colors.border,
-                    borderWidth: selected ? 3 : isHighContrast ? 2 : 1.5,
-                    minHeight: increasedSpacing ? 70 : 58,
-                    padding: increasedSpacing ? 18 : 14,
-                  },
+                  styles.tabItem,
+                  activeTab === 'route' && { backgroundColor: colors.accent },
                 ]}
               >
-                <View style={styles.optionTopRow}>
-                  <View style={styles.optionTitleRow}>
-                    {getProfileIcon(option.id)}
-                    <Text
-                      style={[
-                        styles.optionTitle,
-                        {
-                          color: colors.text,
-                          fontSize: fontSize(17),
-                          fontWeight: selected ? '800' : '600',
-                          letterSpacing,
-                        },
-                      ]}
-                    >
-                      {t(locale, option.title)}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      {
-                        borderColor: selected ? colors.focus : colors.border,
-                        backgroundColor: selected ? colors.accent : colors.surface,
-                      },
-                    ]}
-                  >
-                    {selected ? (
-                      <View
-                        style={[
-                          styles.radioInnerDot,
-                          { backgroundColor: colors.accentText },
-                        ]}
-                      />
-                    ) : null}
-                  </View>
-                </View>
-
+                <Path
+                  size={16}
+                  weight="bold"
+                  color={activeTab === 'route' ? colors.accentText : colors.text}
+                />
                 <Text
                   style={[
-                    styles.optionHint,
+                    styles.tabItemText,
                     {
-                      color: colors.muted,
-                      fontSize: fontSize(13.5),
-                      lineHeight: lineHeight(13.5),
-                      letterSpacing,
+                      color: activeTab === 'route' ? colors.accentText : colors.text,
+                      fontSize: fontSize(13),
                     },
                   ]}
                 >
-                  {t(locale, option.hint)}
+                  Trasa
                 </Text>
-
-                {selected ? (
-                  <View
-                    style={[
-                      styles.selectedTag,
-                      {
-                        backgroundColor: isHighContrast ? colors.background : colors.badgeBg,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    <Check size={14} weight="bold" color={colors.accent} />
-                    <Text style={[styles.selectedText, { color: colors.accent, fontSize: fontSize(12) }]}>
-                      {t(locale, 'selected')}
-                    </Text>
-                  </View>
-                ) : null}
               </Pressable>
-            );
-          })}
-        </View>
 
-        {/* Blocked Road Types / Surfaces Selection (eg. cobblestone) */}
-        <GovCard variant="default">
-          <View style={styles.sectionHeaderWrap}>
-            <Text
-              accessibilityRole="header"
-              style={[
-                styles.customTitle,
-                { color: colors.text, fontSize: fontSize(16) },
-              ]}
-            >
-              🚫 {t(locale, 'blockedRoadTypesTitle')}
-            </Text>
-            <Text
-              style={[
-                styles.bodyText,
-                {
-                  color: colors.muted,
-                  fontSize: fontSize(13),
-                  lineHeight: fontSize(18),
-                  marginTop: 2,
-                },
-              ]}
-            >
-              {t(locale, 'blockedRoadTypesSubtitle')}
-            </Text>
-          </View>
-
-          <View style={styles.roadTypesGrid}>
-            {ROAD_TYPE_OPTIONS.map((rt) => {
-              const isBlocked = blockedList.includes(rt.id);
-              const label = t(locale, rt.nameKey);
-
-              return (
-                <Pressable
-                  key={rt.id}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isBlocked }}
-                  aria-checked={isBlocked}
-                  accessibilityLabel={`${label}. ${
-                    isBlocked
-                      ? t(locale, 'blockedStatusBlocked')
-                      : t(locale, 'blockedStatusAllowed')
-                  }`}
-                  onPress={() => toggleBlockedRoadType(rt.id)}
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'place' }}
+                onPress={() => setActiveTab('place')}
+                style={[
+                  styles.tabItem,
+                  activeTab === 'place' && { backgroundColor: colors.accent },
+                ]}
+              >
+                <Buildings
+                  size={16}
+                  weight="bold"
+                  color={activeTab === 'place' ? colors.accentText : colors.text}
+                />
+                <Text
                   style={[
-                    styles.roadTypeCard,
+                    styles.tabItemText,
                     {
-                      backgroundColor: isBlocked
-                        ? isHighContrast
-                          ? colors.background
-                          : colors.surface
-                        : colors.surface,
-                      borderColor: isBlocked ? colors.blockerBorder : colors.border,
-                      borderWidth: isBlocked ? 2.5 : 1.5,
-                      padding: increasedSpacing ? 12 : 9,
+                      color: activeTab === 'place' ? colors.accentText : colors.text,
+                      fontSize: fontSize(13),
                     },
                   ]}
                 >
-                  <View style={styles.roadTypeLeft}>
-                    <Text style={{ fontSize: fontSize(19) }}>{rt.icon}</Text>
-                    <View style={styles.roadTypeInfo}>
-                      <Text
-                        style={[
-                          styles.roadTypeLabel,
-                          {
-                            color: isBlocked ? colors.blockerText : colors.text,
-                            fontSize: fontSize(13.5),
-                            fontWeight: isBlocked ? '800' : '600',
-                          },
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.roadTypeDesc,
-                          {
-                            color: colors.muted,
-                            fontSize: fontSize(11.5),
-                          },
-                        ]}
-                      >
-                        {locale === 'pl' ? rt.descPl : rt.descEn}
-                      </Text>
-                    </View>
-                  </View>
+                  Obiekt
+                </Text>
+              </Pressable>
 
-                  <View
-                    style={[
-                      styles.roadTypeStatusBadge,
-                      {
-                        backgroundColor: isBlocked
-                          ? colors.blockerBorder
-                          : isHighContrast
-                            ? colors.background
-                            : colors.badgeBg,
-                        borderColor: isBlocked ? colors.blockerBorder : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'profile' }}
+                onPress={() => setActiveTab('profile')}
+                style={[
+                  styles.tabItem,
+                  activeTab === 'profile' && { backgroundColor: colors.accent },
+                ]}
+              >
+                <SlidersHorizontal
+                  size={16}
+                  weight="bold"
+                  color={activeTab === 'profile' ? colors.accentText : colors.text}
+                />
+                <Text
+                  style={[
+                    styles.tabItemText,
+                    {
+                      color: activeTab === 'profile' ? colors.accentText : colors.text,
+                      fontSize: fontSize(13),
+                    },
+                  ]}
+                >
+                  Profil
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'report' }}
+                onPress={() => setActiveTab('report')}
+                style={[
+                  styles.tabItem,
+                  activeTab === 'report' && { backgroundColor: colors.accent },
+                ]}
+              >
+                <Warning
+                  size={16}
+                  weight="bold"
+                  color={activeTab === 'report' ? colors.accentText : colors.text}
+                />
+                <Text
+                  style={[
+                    styles.tabItemText,
+                    {
+                      color: activeTab === 'report' ? colors.accentText : colors.text,
+                      fontSize: fontSize(13),
+                    },
+                  ]}
+                >
+                  Zgłoś
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* TAB CONTENT SCROLLVIEW */}
+            <ScrollView
+              contentContainerStyle={[
+                styles.tabContentScroll,
+                { paddingBottom: spacing.touch + 20 },
+              ]}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* TAB 1: TRASA (ROUTE PLANNING & ANALYSIS) */}
+              {activeTab === 'route' ? (
+                <View style={styles.formSection}>
+                  {/* Origin */}
+                  <View style={styles.fieldBox}>
+                    <View style={styles.fieldHeader}>
+                      <Text style={[styles.fieldLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
+                        {t(locale, 'from')}
+                      </Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Użyj mojej bieżącej lokalizacji"
+                        onPress={handleUseMyLocation}
+                        style={styles.myLocationPill}
+                      >
+                        <NavigationArrow size={12} weight="bold" color={colors.accent} />
+                        <Text style={[styles.myLocationText, { color: colors.accent, fontSize: fontSize(12) }]}>
+                          Moja lokalizacja
+                        </Text>
+                      </Pressable>
+                    </View>
+                    <TextInput
+                      value={fromQuery}
+                      onChangeText={setFromQuery}
+                      placeholder={t(locale, 'fromPlaceholder')}
+                      placeholderTextColor={colors.muted}
                       style={[
-                        styles.roadTypeStatusText,
+                        styles.input,
                         {
-                          color: isBlocked ? '#FFFFFF' : colors.text,
-                          fontSize: fontSize(11),
+                          color: colors.text,
+                          borderColor: colors.border,
+                          backgroundColor: colors.background,
+                          fontSize: fontSize(14.5),
+                          borderWidth: isHighContrast ? 2 : 1,
                         },
                       ]}
-                    >
-                      {isBlocked
-                        ? `🚫 ${t(locale, 'blockedStatusBlocked')}`
-                        : `✓ ${t(locale, 'blockedStatusAllowed')}`}
-                    </Text>
+                    />
                   </View>
-                </Pressable>
-              );
-            })}
+
+                  {/* Destination */}
+                  <View style={styles.fieldBox}>
+                    <Text style={[styles.fieldLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
+                      {t(locale, 'to')}
+                    </Text>
+                    <TextInput
+                      value={toQuery}
+                      onChangeText={setToQuery}
+                      placeholder={t(locale, 'toPlaceholder')}
+                      placeholderTextColor={colors.muted}
+                      style={[
+                        styles.input,
+                        {
+                          color: colors.text,
+                          borderColor: colors.border,
+                          backgroundColor: colors.background,
+                          fontSize: fontSize(14.5),
+                          borderWidth: isHighContrast ? 2 : 1,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  {/* Plan Route Action */}
+                  <GovButton
+                    title={t(locale, 'searchButton')}
+                    icon={<NavigationArrow size={16} weight="bold" color={colors.accentText} />}
+                    variant="primary"
+                    loading={loadingRoute}
+                    onPress={handleAnalyzeRoute}
+                  />
+
+                  {/* Active Route Result Card (if present) */}
+                  {activeRouteReport && activeWalkingRoute ? (
+                    <GovCard variant="accent">
+                      <View style={styles.cardHeaderRow}>
+                        <Text style={[styles.resultTitle, { color: colors.text, fontSize: fontSize(16) }]}>
+                          Podsumowanie trasy:
+                        </Text>
+                        <Text style={[styles.metricVal, { color: colors.accent, fontSize: fontSize(15) }]}>
+                          {activeRouteReport.lengthMetres} m • {Math.round((activeWalkingRoute.durationSeconds || 60) / 60)} min
+                        </Text>
+                      </View>
+
+                      {/* Barrier count grid */}
+                      <View style={styles.barriersQuickGrid}>
+                        <View style={[styles.barrierMiniBadge, { backgroundColor: colors.blockerBg, borderColor: colors.blockerBorder }]}>
+                          <Text style={[styles.barrierMiniNum, { color: colors.blockerText, fontSize: fontSize(17) }]}>
+                            {activeRouteReport.findings.filter((f) => f.severity === 'blocker').length}
+                          </Text>
+                          <Text style={[styles.barrierMiniLabel, { color: colors.blockerText, fontSize: fontSize(11) }]}>
+                            Blokady
+                          </Text>
+                        </View>
+
+                        <View style={[styles.barrierMiniBadge, { backgroundColor: colors.warningBg, borderColor: colors.warningBorder }]}>
+                          <Text style={[styles.barrierMiniNum, { color: colors.warningText, fontSize: fontSize(17) }]}>
+                            {activeRouteReport.findings.filter((f) => f.severity === 'warning').length}
+                          </Text>
+                          <Text style={[styles.barrierMiniLabel, { color: colors.warningText, fontSize: fontSize(11) }]}>
+                            Ostrzeżenia
+                          </Text>
+                        </View>
+
+                        <View style={[styles.barrierMiniBadge, { backgroundColor: colors.okBg, borderColor: colors.okBorder }]}>
+                          <Text style={[styles.barrierMiniNum, { color: colors.okText, fontSize: fontSize(17) }]}>
+                            {activeRouteReport.findings.filter((f) => f.severity === 'ok').length}
+                          </Text>
+                          <Text style={[styles.barrierMiniLabel, { color: colors.okText, fontSize: fontSize(11) }]}>
+                            Udogodnienia
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.routeActionRow}>
+                        <GovButton
+                          title="Pokaż pełny raport i manewry"
+                          icon={<ArrowRight size={16} weight="bold" color={colors.accent} />}
+                          variant="outline"
+                          onPress={() => router.push('/route')}
+                        />
+                      </View>
+                    </GovCard>
+                  ) : null}
+
+                  {/* Fast Demo Scenarios */}
+                  <View style={styles.demoSection}>
+                    <Text style={[styles.demoSectionTitle, { color: colors.muted, fontSize: fontSize(12.5) }]}>
+                      SZYBKIE TRASY DEMO (KRAKÓW):
+                    </Text>
+                    <View style={styles.demoButtonsRow}>
+                      <GovButton
+                        variant="outline"
+                        title="Rynek → Wawel"
+                        icon={<Path size={14} weight="bold" color={colors.accent} />}
+                        onPress={() => loadDemoRoute(0)}
+                        style={styles.halfBtn}
+                      />
+                      <GovButton
+                        variant="outline"
+                        title="Dworzec → Sukiennice"
+                        icon={<Path size={14} weight="bold" color={colors.accent} />}
+                        onPress={() => loadDemoRoute(1)}
+                        style={styles.halfBtn}
+                      />
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* TAB 2: OBIEKT (PLACE INSPECTION) */}
+              {activeTab === 'place' ? (
+                <View style={styles.formSection}>
+                  <View style={styles.fieldBox}>
+                    <Text style={[styles.fieldLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
+                      {t(locale, 'placeLabel')}
+                    </Text>
+                    <TextInput
+                      value={placeQuery}
+                      onChangeText={setPlaceQuery}
+                      placeholder={t(locale, 'placePlaceholder')}
+                      placeholderTextColor={colors.muted}
+                      style={[
+                        styles.input,
+                        {
+                          color: colors.text,
+                          borderColor: colors.border,
+                          backgroundColor: colors.background,
+                          fontSize: fontSize(14.5),
+                          borderWidth: isHighContrast ? 2 : 1,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <GovButton
+                    title={t(locale, 'searchPlaceButton')}
+                    icon={<Buildings size={16} weight="bold" color={colors.accentText} />}
+                    variant="primary"
+                    loading={loadingPlace}
+                    onPress={handleInspectPlace}
+                  />
+
+                  {activePlaceReport ? (
+                    <GovCard variant="accent">
+                      <Text style={[styles.resultTitle, { color: colors.text, fontSize: fontSize(16) }]}>
+                        {activePlaceReport.placeName}
+                      </Text>
+                      <Text style={[styles.resultSub, { color: colors.muted, fontSize: fontSize(13) }]}>
+                        {activePlaceReport.summaryMessage}
+                      </Text>
+                      <GovButton
+                        title="Otwórz pełną kartę obiektu"
+                        icon={<ArrowRight size={16} weight="bold" color={colors.accent} />}
+                        variant="outline"
+                        onPress={() => router.push('/place')}
+                        style={{ marginTop: 8 }}
+                      />
+                    </GovCard>
+                  ) : null}
+
+                  {/* Fast Demo Places */}
+                  <View style={styles.demoSection}>
+                    <Text style={[styles.demoSectionTitle, { color: colors.muted, fontSize: fontSize(12.5) }]}>
+                      POPULARNE OBIEKTY DEMO:
+                    </Text>
+                    <View style={styles.demoButtonsRow}>
+                      <GovButton
+                        variant="outline"
+                        title="Sukiennice"
+                        icon={<Buildings size={14} weight="bold" color={colors.accent} />}
+                        onPress={() => loadDemoPlace(0)}
+                        style={styles.halfBtn}
+                      />
+                      <GovButton
+                        variant="outline"
+                        title="Wawel (R7)"
+                        icon={<Buildings size={14} weight="bold" color={colors.accent} />}
+                        onPress={() => loadDemoPlace(1)}
+                        style={styles.halfBtn}
+                      />
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* TAB 3: PROFIL I NAWIERZCHNIE (PROFILE & ROAD SURFACES) */}
+              {activeTab === 'profile' ? (
+                <View style={styles.formSection}>
+                  <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
+                    Wybierz profil mobilności:
+                  </Text>
+
+                  {/* Profile Cards */}
+                  <View style={styles.profilesGrid}>
+                    {(['wheelchair', 'stroller', 'custom'] as ProfileId[]).map((pid) => {
+                      const selected = profileId === pid;
+                      return (
+                        <Pressable
+                          key={pid}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked: selected }}
+                          onPress={() => setProfileId(pid)}
+                          style={[
+                            styles.profileMiniCard,
+                            {
+                              backgroundColor: colors.background,
+                              borderColor: selected ? colors.accent : colors.border,
+                              borderWidth: selected ? 2.5 : 1,
+                            },
+                          ]}
+                        >
+                          {getProfileIcon(pid, 20)}
+                          <Text
+                            style={[
+                              styles.profileMiniTitle,
+                              {
+                                color: selected ? colors.accent : colors.text,
+                                fontSize: fontSize(13.5),
+                                fontWeight: selected ? '800' : '600',
+                              },
+                            ]}
+                          >
+                            {getProfileLabel(pid)}
+                          </Text>
+                          {selected ? <Check size={14} weight="bold" color={colors.accent} /> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {/* Blocked Road Types */}
+                  <GovCard variant="default">
+                    <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
+                      Blokowane nawierzchnie (omijane na trasie):
+                    </Text>
+
+                    <View style={styles.roadChipsWrap}>
+                      {ROAD_TYPE_OPTIONS.map((rt) => {
+                        const isBlocked = blockedList.includes(rt.id);
+                        return (
+                          <Pressable
+                            key={rt.id}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: isBlocked }}
+                            onPress={() => toggleBlockedRoadType(rt.id)}
+                            style={[
+                              styles.roadChip,
+                              {
+                                backgroundColor: isBlocked ? colors.blockerBg : colors.background,
+                                borderColor: isBlocked ? colors.blockerBorder : colors.border,
+                                borderWidth: isBlocked ? 2 : 1,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.roadChipLabel,
+                                {
+                                  color: isBlocked ? colors.blockerText : colors.text,
+                                  fontSize: fontSize(12.5),
+                                  fontWeight: isBlocked ? '700' : '500',
+                                },
+                              ]}
+                            >
+                              {t(locale, rt.nameKey)}
+                            </Text>
+                            {isBlocked ? (
+                              <Prohibit size={12} weight="bold" color={colors.blockerText} />
+                            ) : null}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </GovCard>
+
+                  {/* Custom Thresholds if custom profile selected */}
+                  {profileId === 'custom' ? (
+                    <GovCard variant="accent">
+                      <Text style={[styles.customTitle, { color: colors.text, fontSize: fontSize(14.5) }]}>
+                        Progi barier dla profilu własnego:
+                      </Text>
+
+                      <View style={styles.thresholdRow}>
+                        <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
+                          Maksymalny krawężnik: <Text style={{ fontWeight: '800' }}>{customThresholds.maxKerbMillimetres} mm</Text>
+                        </Text>
+                        <View style={styles.stepBtnRow}>
+                          <GovButton
+                            variant="outline"
+                            title="-10 mm"
+                            onPress={() =>
+                              setCustomThresholds({
+                                ...customThresholds,
+                                maxKerbMillimetres: Math.max(10, customThresholds.maxKerbMillimetres - 10),
+                              })
+                            }
+                            style={styles.smallStepBtn}
+                          />
+                          <GovButton
+                            variant="outline"
+                            title="+10 mm"
+                            onPress={() =>
+                              setCustomThresholds({
+                                ...customThresholds,
+                                maxKerbMillimetres: customThresholds.maxKerbMillimetres + 10,
+                              })
+                            }
+                            style={styles.smallStepBtn}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.thresholdRow}>
+                        <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(13.5) }]}>
+                          Traktowanie stopni:{' '}
+                          <Text style={{ fontWeight: '800', color: customThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
+                            {customThresholds.stepsAreBlocker ? 'BLOKADA' : 'OSTRZEŻENIE'}
+                          </Text>
+                        </Text>
+                        <GovButton
+                          variant="secondary"
+                          title="Przełącz status schodów"
+                          onPress={() =>
+                            setCustomThresholds({
+                              ...customThresholds,
+                              stepsAreBlocker: !customThresholds.stepsAreBlocker,
+                            })
+                          }
+                        />
+                      </View>
+                    </GovCard>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {/* TAB 4: ZGŁOŚ (LOCAL REPORT & OSM NOTE) */}
+              {activeTab === 'report' ? (
+                <View style={styles.formSection}>
+                  <Text style={[styles.sectionSubtitle, { color: colors.text, fontSize: fontSize(15) }]}>
+                    Zgłoś przeszkodę lub nieaktualną barierę:
+                  </Text>
+
+                  <TextInput
+                    value={reportDesc}
+                    onChangeText={setReportDesc}
+                    placeholder="Opisz barierę w terenie (np. brak podjazdu, uszkodzony krawężnik)..."
+                    placeholderTextColor={colors.muted}
+                    multiline
+                    numberOfLines={3}
+                    style={[
+                      styles.input,
+                      styles.textArea,
+                      {
+                        color: colors.text,
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                        fontSize: fontSize(14),
+                        borderWidth: isHighContrast ? 2 : 1,
+                      },
+                    ]}
+                  />
+
+                  {reportSuccess ? (
+                    <GovCard variant="ok">
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Check size={16} weight="bold" color={colors.okText} />
+                        <Text style={{ color: colors.okText, fontWeight: '700', fontSize: fontSize(13) }}>
+                          Zgłoszenie zostało zapisane w pamięci urządzenia.
+                        </Text>
+                      </View>
+                    </GovCard>
+                  ) : null}
+
+                  <GovButton
+                    title="Zapisz zgłoszenie lokalnie"
+                    icon={<Check size={16} weight="bold" color={colors.accentText} />}
+                    variant="primary"
+                    onPress={handleSubmitLocalReport}
+                  />
+
+                  <GovButton
+                    title="Przejdź do pełnego formularza OSM"
+                    icon={<ArrowRight size={16} weight="bold" color={colors.text} />}
+                    variant="outline"
+                    onPress={() => router.push('/report-correction')}
+                  />
+
+                  {localReports && localReports.length > 0 ? (
+                    <View style={{ marginTop: 12 }}>
+                      <Text style={[styles.sectionSubtitle, { color: colors.textSecondary, fontSize: fontSize(12) }]}>
+                        ZAPISANE ZGŁOSZENIA LOKALNE ({localReports.length}):
+                      </Text>
+                      {localReports.map((r) => (
+                        <GovCard key={r.id} style={{ marginTop: 6 }}>
+                          <Text style={{ color: colors.text, fontSize: fontSize(13) }}>{r.description}</Text>
+                          <Text style={{ color: colors.textSecondary, fontSize: fontSize(11), marginTop: 4 }}>
+                            {new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </Text>
+                        </GovCard>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+            </ScrollView>
           </View>
-        </GovCard>
-
-        {/* Custom Profile Fine-tuning */}
-        {profileId === 'custom' ? (
-          <GovCard variant="accent">
-            <Text
-              accessibilityRole="header"
-              style={[styles.customTitle, { color: colors.text, fontSize: fontSize(16) }]}
-            >
-              Dostosuj progi barier dla profilu własnego:
-            </Text>
-
-            <View style={styles.thresholdRow}>
-              <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(14.5) }]}>
-                Maksymalny krawężnik: <Text style={{ fontWeight: '800' }}>{customThresholds.maxKerbMillimetres} mm</Text>
-              </Text>
-              <View style={styles.stepBtnRow}>
-                <GovButton
-                  variant="outline"
-                  title="-10 mm"
-                  onPress={() =>
-                    setCustomThresholds({
-                      ...customThresholds,
-                      maxKerbMillimetres: Math.max(10, customThresholds.maxKerbMillimetres - 10),
-                    })
-                  }
-                  style={styles.smallStepBtn}
-                />
-                <GovButton
-                  variant="outline"
-                  title="+10 mm"
-                  onPress={() =>
-                    setCustomThresholds({
-                      ...customThresholds,
-                      maxKerbMillimetres: customThresholds.maxKerbMillimetres + 10,
-                    })
-                  }
-                  style={styles.smallStepBtn}
-                />
-              </View>
-            </View>
-
-            <View style={styles.thresholdRow}>
-              <Text style={[styles.paramLabel, { color: colors.text, fontSize: fontSize(14.5) }]}>
-                Traktowanie stopni:{' '}
-                <Text style={{ fontWeight: '800', color: customThresholds.stepsAreBlocker ? colors.blockerText : colors.warningText }}>
-                  {customThresholds.stepsAreBlocker ? 'BLOKADA (Blocker)' : 'OSTRZEŻENIE (Warning)'}
-                </Text>
-              </Text>
-              <GovButton
-                variant="secondary"
-                title="Przełącz status schodów"
-                onPress={() =>
-                  setCustomThresholds({
-                    ...customThresholds,
-                    stepsAreBlocker: !customThresholds.stepsAreBlocker,
-                  })
-                }
-              />
-            </View>
-          </GovCard>
-        ) : null}
-
-        {/* Privacy Note */}
-        <GovCard variant="default">
-          <View style={styles.privacyRow}>
-            <LockKey size={18} weight="bold" color={colors.accent} />
-            <Text
-              style={[
-                styles.privacyNotice,
-                {
-                  color: colors.muted,
-                  fontSize: fontSize(12.5),
-                  lineHeight: lineHeight(12.5),
-                  letterSpacing,
-                  flex: 1,
-                },
-              ]}
-            >
-              <Text style={{ fontWeight: '700', color: colors.text }}>Prywatność i bezpieczeństwo:</Text>{' '}
-              {t(locale, 'privacy')}
-            </Text>
-          </View>
-        </GovCard>
-
-        {/* Main Action Buttons */}
-        <View style={styles.actionRow}>
-          <GovButton
-            title={t(locale, 'continue')}
-            icon={<ArrowRight size={18} weight="bold" color={colors.accentText} />}
-            variant="primary"
-            disabled={profileId === null}
-            onPress={() => router.push('/search')}
-          />
-
-          <GovButton
-            title={t(locale, 'about')}
-            icon={<Info size={18} weight="bold" color={colors.text} />}
-            variant="outline"
-            onPress={() => router.push('/about')}
-          />
-        </View>
-
-        {/* Official Municipal Footer */}
-        <GovFooter />
-      </ScrollView>
+        )}
+      </KeyboardAvoidingView>
 
       <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
     </SafeAreaView>
@@ -495,143 +1165,325 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  content: {
-    padding: spacing.screen,
-    gap: spacing.stack,
+  safe: {
+    flex: 1,
+  },
+  mapCanvasWrapper: {
+    flex: 1,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  floatingControlsRight: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
+    gap: 10,
+    zIndex: 20,
+  },
+  floatingBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  floatingRoutePill: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    right: 70,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 15,
+  },
+  routePillText: {
+    flex: 1,
+    fontWeight: '700',
+  },
+  statusToast: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 25,
+  },
+  statusToastText: {
+    fontWeight: '600',
+  },
+  bottomSheetContainer: {
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 10,
+    zIndex: 30,
+  },
+  bottomSheetCollapsed: {
+    height: 146,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+  },
+  bottomSheetExpanded: {
+    height: '66%',
+    paddingHorizontal: 14,
+    paddingTop: 8,
+  },
+  sheetHandleRow: {
+    alignItems: 'center',
+    paddingVertical: 4,
+    gap: 6,
+  },
+  sheetHandleBar: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+  },
+  sheetHandleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 4,
+  },
+  sheetHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sheetProfileName: {
+    fontWeight: '800',
+  },
+  sheetToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  toggleText: {
+    fontWeight: '600',
+  },
+  peekContent: {
+    gap: 10,
+    marginTop: 4,
+  },
+  peekSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 10,
+  },
+  peekSearchPlaceholder: {
+    fontWeight: '500',
+    flex: 1,
+  },
+  quickChipsScroll: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  quickChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 6,
+  },
+  quickChipText: {
+    fontWeight: '600',
+  },
+  expandedContent: {
+    flex: 1,
+    marginTop: 6,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    padding: 3,
+    gap: 3,
+    marginBottom: 10,
+  },
+  tabItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 5,
+  },
+  tabItemText: {
+    fontWeight: '700',
+  },
+  tabContentScroll: {
+    gap: 12,
+  },
+  formSection: {
+    gap: 10,
+  },
+  fieldBox: {
+    gap: 5,
+  },
+  fieldHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  fieldLabel: {
+    fontWeight: '600',
+  },
+  myLocationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  myLocationText: {
+    fontWeight: '700',
+  },
+  input: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  textArea: {
+    minHeight: 70,
+    textAlignVertical: 'top',
   },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  krakowBadge: {
-    fontWeight: '900',
-    letterSpacing: 0.8,
+  resultTitle: {
+    fontWeight: '800',
   },
-  leadTitle: {
-    fontWeight: '900',
-  },
-  bodyText: {
+  resultSub: {
     fontWeight: '500',
+    marginTop: 2,
   },
-  optionsList: {
-    gap: 12,
+  metricVal: {
+    fontWeight: '800',
   },
-  optionCard: {
-    borderRadius: 12,
+  barriersQuickGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  barrierMiniBadge: {
+    flex: 1,
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  barrierMiniNum: {
+    fontWeight: '800',
+  },
+  barrierMiniLabel: {
+    fontWeight: '600',
+  },
+  routeActionRow: {
+    marginTop: 8,
+  },
+  demoSection: {
     gap: 6,
+    marginTop: 4,
   },
-  optionTopRow: {
+  demoSectionTitle: {
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  demoButtonsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 8,
   },
-  optionTitleRow: {
+  halfBtn: {
+    flex: 1,
+  },
+  sectionSubtitle: {
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  profilesGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
-  optionTitle: {
-    letterSpacing: 0.2,
-  },
-  optionHint: {
-    fontWeight: '500',
-  },
-  radioCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
+  profileMiniCard: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    gap: 6,
   },
-  radioInnerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  selectedTag: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  selectedText: {
-    fontWeight: '800',
+  profileMiniTitle: {
+    letterSpacing: 0.2,
   },
   customTitle: {
-    fontWeight: '800',
+    fontWeight: '700',
+  },
+  roadChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  roadChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  roadChipLabel: {
+    letterSpacing: 0.2,
   },
   thresholdRow: {
-    gap: 8,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 6,
   },
   paramLabel: {
     fontWeight: '600',
   },
   stepBtnRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   smallStepBtn: {
     flex: 1,
-  },
-  privacyRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  privacyNotice: {
-    fontWeight: '500',
-  },
-  actionRow: {
-    gap: 10,
-    marginTop: 4,
-  },
-  sectionHeaderWrap: {
-    gap: 2,
-    marginBottom: 4,
-  },
-  roadTypesGrid: {
-    gap: 8,
-    marginTop: 6,
-  },
-  roadTypeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 10,
-    gap: 8,
-  },
-  roadTypeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  roadTypeInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  roadTypeLabel: {
-    letterSpacing: 0.2,
-  },
-  roadTypeDesc: {
-    fontWeight: '500',
-  },
-  roadTypeStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  roadTypeStatusText: {
-    fontWeight: '800',
   },
 });

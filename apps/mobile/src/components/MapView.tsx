@@ -4,20 +4,33 @@ import {
   type RouteFinding,
   type WalkingRoute,
 } from '@krakow-bez-barier/core';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { useSession } from '@/state/session';
 import { city } from '@/config/city';
 
-interface MapViewProps {
+export interface MapViewProps {
   route?: WalkingRoute | null;
   findings?: RouteFinding[];
   center?: { lat: number; lon: number };
   zoom?: number;
+  fullScreen?: boolean;
+  style?: StyleProp<ViewStyle>;
+  startLocation?: { name?: string; lat: number; lon: number };
+  endLocation?: { name?: string; lat: number; lon: number };
 }
 
-export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProps) {
+export function MapView({
+  route,
+  findings = [],
+  center,
+  zoom = 15,
+  fullScreen = false,
+  style,
+  startLocation,
+  endLocation,
+}: MapViewProps) {
   const { colors, isHighContrast } = useSession();
 
   let defaultLat = 50.0619;
@@ -52,6 +65,18 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
     };
   });
 
+  const startPin = startLocation || (route && route.coordinates.length > 0 ? {
+    name: 'Start',
+    lat: route.coordinates[0]![1],
+    lon: route.coordinates[0]![0],
+  } : null);
+
+  const endPin = endLocation || (route && route.coordinates.length > 0 ? {
+    name: 'Cel',
+    lat: route.coordinates[route.coordinates.length - 1]![1],
+    lon: route.coordinates[route.coordinates.length - 1]![0],
+  } : null);
+
   const mapyApiKey = process.env.EXPO_PUBLIC_MAPY_API_KEY;
   const hasMapyKey = Boolean(
     mapyApiKey &&
@@ -76,7 +101,7 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #e5e3df; }
+    body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #e5e3df; overflow: hidden; }
     .custom-marker {
       background-color: white;
       border-radius: 50%;
@@ -88,12 +113,37 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
       font-size: 11px;
       width: 26px !important;
       height: 26px !important;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+    }
+    .endpoint-marker {
+      background-color: #005CA9;
+      color: #FFFFFF;
+      border: 3px solid #FFFFFF;
+      border-radius: 50%;
+      font-weight: 800;
+      text-align: center;
+      line-height: 26px;
+      font-size: 13px;
+      width: 32px !important;
+      height: 32px !important;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    }
+    .endpoint-marker.destination {
+      background-color: #D32F2F;
     }
     .leaflet-control-attribution {
-      font-size: 10px !important;
+      font-size: 9px !important;
       background: rgba(255, 255, 255, 0.85) !important;
-      padding: 3px 6px !important;
+      padding: 2px 6px !important;
+    }
+    .leaflet-popup-content-wrapper {
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .leaflet-popup-content {
+      margin: 10px 12px;
+      font-size: 13px;
+      line-height: 1.4;
     }
   </style>
 </head>
@@ -101,7 +151,7 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
   <div id="map"></div>
   <script>
     var map = L.map('map', {
-      zoomControl: true,
+      zoomControl: false,
       attributionControl: true
     }).setView([${defaultLat}, ${defaultLon}], ${zoom});
 
@@ -114,7 +164,31 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
     if (routeCoords.length > 0) {
       var routeLineBg = L.polyline(routeCoords, { color: '#FFFFFF', weight: 8, opacity: 0.95 }).addTo(map);
       var routeLine = L.polyline(routeCoords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(map);
-      map.fitBounds(routeLine.getBounds(), { padding: [30, 30] });
+      map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+    }
+
+    var startPin = ${JSON.stringify(startPin)};
+    if (startPin && startPin.lat && startPin.lon) {
+      var startIcon = L.divIcon({
+        className: 'endpoint-marker',
+        html: 'A',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+      L.marker([startPin.lat, startPin.lon], { icon: startIcon }).addTo(map)
+        .bindPopup('<b>Start:</b> ' + (startPin.name || 'Początek trasy'));
+    }
+
+    var endPin = ${JSON.stringify(endPin)};
+    if (endPin && endPin.lat && endPin.lon) {
+      var endIcon = L.divIcon({
+        className: 'endpoint-marker destination',
+        html: 'B',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+      L.marker([endPin.lat, endPin.lon], { icon: endIcon }).addTo(map)
+        .bindPopup('<b>Cel:</b> ' + (endPin.name || 'Koniec trasy'));
     }
 
     var markers = ${JSON.stringify(markersData)};
@@ -129,6 +203,13 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
       var marker = L.marker([m.lat, m.lon], { icon: icon }).addTo(map);
       marker.bindPopup('<b>' + m.title + '</b><br/>' + m.value + '<br/><i>Status: ' + m.severity + '</i>');
     });
+
+    window.addEventListener('resize', function() {
+      map.invalidateSize();
+    });
+    setTimeout(function() {
+      map.invalidateSize();
+    }, 250);
   </script>
 </body>
 </html>
@@ -137,11 +218,12 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
   return (
     <View
       style={[
-        styles.container,
+        fullScreen ? styles.fullContainer : styles.cardContainer,
         {
           borderColor: colors.border,
-          borderWidth: isHighContrast ? 2.5 : 1.5,
+          borderWidth: fullScreen ? 0 : (isHighContrast ? 2.5 : 1.5),
         },
+        style,
       ]}
     >
       {Platform.OS === 'web' ? (
@@ -164,11 +246,17 @@ export function MapView({ route, findings = [], center, zoom = 15 }: MapViewProp
 }
 
 const styles = StyleSheet.create({
-  container: {
+  cardContainer: {
     height: 290,
     borderRadius: 12,
     overflow: 'hidden',
     marginVertical: 8,
+  },
+  fullContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
   },
   webview: {
     flex: 1,
