@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Globe, Wheelchair, Wrench } from 'phosphor-react-native';
+import { Globe, SpeakerHigh, Stop, Wheelchair, Wrench } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
 import { t } from '@/i18n/strings';
@@ -8,6 +8,8 @@ import { spacing } from '@/theme/tokens';
 
 interface KrakowHeaderProps {
   onOpenDemo?: () => void;
+  onReadScreen?: () => void;
+  isSpeaking?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ interface KrakowHeaderProps {
  * Zawiera herb, tytuł instytucjonalny oraz dedykowany przycisk Centrum Dostępności.
  * Zero emotikon - wyłącznie wektory i ikony Phosphor.
  */
-export function KrakowHeader({ onOpenDemo }: KrakowHeaderProps) {
+export function KrakowHeader({ onOpenDemo, onReadScreen, isSpeaking }: KrakowHeaderProps) {
   const {
     locale,
     setLocale,
@@ -191,6 +193,52 @@ export function KrakowHeader({ onOpenDemo }: KrakowHeaderProps) {
               {locale.toUpperCase()}
             </Text>
           </Pressable>
+
+          {/* Voice Assistance (Lektor) */}
+          {onReadScreen ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isSpeaking ? 'Zatrzymaj lektora' : 'Włącz lektora ekranu'}
+              onPress={onReadScreen}
+              style={[
+                styles.secondaryBtn,
+                {
+                  borderColor: isSpeaking ? '#EF4444' : colors.border,
+                  backgroundColor: isSpeaking
+                    ? '#DC2626'
+                    : isHighContrast
+                    ? colors.background
+                    : 'rgba(255,255,255,0.12)',
+                  minHeight: minTouch,
+                },
+              ]}
+            >
+              {isSpeaking ? (
+                <Stop size={16} weight="bold" color="#FFFFFF" />
+              ) : (
+                <SpeakerHigh
+                  size={16}
+                  weight="bold"
+                  color={isHighContrast ? colors.text : colors.headerText}
+                />
+              )}
+              <Text
+                style={[
+                  styles.secondaryBtnText,
+                  {
+                    color: isSpeaking
+                      ? '#FFFFFF'
+                      : isHighContrast
+                      ? colors.text
+                      : colors.headerText,
+                    fontSize: fontSize(12),
+                  },
+                ]}
+              >
+                {isSpeaking ? 'Stop' : 'Lektor'}
+              </Text>
+            </Pressable>
+          ) : null}
 
           {/* Demo Simulations Trigger */}
           {onOpenDemo ? (

@@ -80,7 +80,7 @@ export function runSnapshotCli(): void {
         process.exit(1);
     }
 
-    console.log('✓ Snapshot przeszedł pomyślnie walidację JSON Schema oraz testy uczciwości danych (DANE PRZYKŁADOWE).');
+    console.log('[OK] Snapshot przeszedł pomyślnie walidację JSON Schema oraz testy uczciwości danych (DANE PRZYKŁADOWE).');
 }
 
 if (require.main === module) {

@@ -4,7 +4,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
 } from 'react-native';
 import { Plus, Minus, X, Prohibit, Warning } from 'phosphor-react-native';
@@ -19,7 +18,7 @@ interface AccessibleMapProps {
 }
 
 export function AccessibleMap({ route, locale, onSelectBarrier }: AccessibleMapProps) {
-  const { colors, isHighContrast } = useSession();
+  const { colors } = useSession();
   const [zoomOffset, setZoomOffset] = useState<number>(0);
   const [selectedBarrierId, setSelectedBarrierId] = useState<string | null>(null);
 

@@ -336,7 +336,7 @@ export default function SearchScreen() {
 
               <GovButton
                 title={t(locale, 'searchButton')}
-                icon={<MagnifyingGlass size={18} color={colors.primaryText} weight="bold" />}
+                icon={<MagnifyingGlass size={18} color={colors.accentText} weight="bold" />}
                 variant="primary"
                 loading={loading}
                 onPress={handleAnalyzeRoute}
@@ -371,7 +371,7 @@ export default function SearchScreen() {
 
               <GovButton
                 title={t(locale, 'searchPlaceButton')}
-                icon={<Buildings size={18} color={colors.primaryText} weight="bold" />}
+                icon={<Buildings size={18} color={colors.accentText} weight="bold" />}
                 variant="primary"
                 loading={loading}
                 onPress={handleInspectPlace}

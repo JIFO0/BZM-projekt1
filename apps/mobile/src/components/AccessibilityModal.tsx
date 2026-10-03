@@ -50,7 +50,6 @@ export function AccessibilityModal() {
     setFontFamilyMode,
     speechRate,
     setSpeechRate,
-    dyslexicFont,
     setDyslexicFont,
     increasedSpacing,
     setIncreasedSpacing,

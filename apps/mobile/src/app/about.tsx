@@ -8,14 +8,14 @@ import {
 import { Stack } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   MapTrifold,
   Globe,
   ShieldCheck,
-  ArchiveBox,
+  Archive,
   MapPin,
   LockKey,
 } from 'phosphor-react-native';
@@ -196,7 +196,7 @@ export default function AboutScreen() {
         {/* Demo snapshot info */}
         <GovCard variant="default">
           <View style={styles.cardHeaderRow}>
-            <ArchiveBox size={20} color={colors.accent} weight="bold" />
+            <Archive size={20} color={colors.accent} weight="bold" />
             <Text
               accessibilityRole="header"
               style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(17) }]}
@@ -289,5 +289,11 @@ const styles = StyleSheet.create({
   },
   logoText: {
     fontWeight: '900',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
   },
 });
