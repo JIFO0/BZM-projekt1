@@ -1,0 +1,47 @@
+# ==============================================================================
+# Kraków bez barier - Caddy Ingress Gateway
+# ==============================================================================
+# Architecture:
+# - Frontend:    http://accessible.krakow.local  -> frontend:80
+# - API Server:  http://api.accessible.krakow.local -> api:3000
+# - GraphHopper: http://hopper.accessible.krakow.local -> graphhopper:8989
+#
+# Production migration note:
+# To migrate to production (.pl with automatic HTTPS/TLS certificates):
+# 1. Replace http:// with https://
+# 2. Replace .local with .pl (e.g. https://accessible.krakow.pl)
+# ==============================================================================
+
+# 1. Web Frontend (Expo Production Build)
+http://accessible.krakow.local {
+    reverse_proxy frontend:80
+}
+
+# 2. API Backend (Hono / Node.js)
+http://api.accessible.krakow.local {
+    reverse_proxy api:3000
+}
+
+# 3. Routing Engine (GraphHopper)
+http://hopper.accessible.krakow.local {
+    # CORS handling for browser-originated routing queries
+    @options method OPTIONS
+    handle @options {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        header Access-Control-Max-Age "86400"
+        respond 204
+    }
+
+    header Access-Control-Allow-Origin "*"
+    header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+
+    reverse_proxy graphhopper:8989
+}
+
+# 4. Fallback for direct localhost access without /etc/hosts resolution
+http://localhost {
+    reverse_proxy frontend:80
+}

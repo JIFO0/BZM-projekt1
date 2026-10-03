@@ -32,7 +32,10 @@ function hasValidMapyKey(): boolean {
 
 // Initialize providers
 const graphhopperRouting = new GraphHopperRoutingProvider({
-  apiBase: process.env.EXPO_PUBLIC_GRAPHHOPPER_URL || 'http://localhost:8989',
+  apiBase:
+    process.env.EXPO_PUBLIC_GRAPHHOPPER_URL ||
+    city.graphhopper?.apiBase ||
+    'http://hopper.accessible.krakow.local',
 });
 const osmOverpass = new OsmOverpassProvider({
   endpoint: city.overpass.endpoint,

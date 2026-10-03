@@ -23,7 +23,7 @@
   "placeMatchMaxMetres": 40,
   "minCoverageForNoBarrierWording": 0.8,
   "adapters": {
-    "routing": "mapy",
+    "routing": "graphhopper",
     "geocoding": "mapy",
     "accessibility": "osm-overpass",
     "tiles": "mapy"
@@ -85,5 +85,8 @@
     "language": "pl",
     "tileMapset": "basic"
   },
-  "apiBase": "http://localhost:3000"
+  "graphhopper": {
+    "apiBase": "http://hopper.accessible.krakow.local"
+  },
+  "apiBase": "http://api.accessible.krakow.local"
 }

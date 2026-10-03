@@ -1,0 +1,45 @@
+# ==============================================================================
+# Production Dockerfile for Expo Web Frontend
+# ==============================================================================
+# Stage 1: Build the static bundle
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+# Build arguments for build-time configuration
+ARG EXPO_PUBLIC_GRAPHHOPPER_URL=http://hopper.accessible.krakow.local
+ARG EXPO_PUBLIC_MAPY_API_KEY=""
+
+ENV EXPO_PUBLIC_GRAPHHOPPER_URL=$EXPO_PUBLIC_GRAPHHOPPER_URL
+ENV EXPO_PUBLIC_MAPY_API_KEY=$EXPO_PUBLIC_MAPY_API_KEY
+ENV CI=1
+
+# Copy workspace metadata and configs
+COPY package.json package-lock.json tsconfig.base.json tsconfig.json ./
+COPY packages/core/ ./packages/core/
+COPY packages/sources/ ./packages/sources/
+COPY apps/mobile/ ./apps/mobile/
+COPY cities/ ./cities/
+COPY fixtures/ ./fixtures/
+
+# Install dependencies across workspaces
+RUN npm ci
+
+# Export static web files for production hosting
+RUN npx expo export -p web apps/mobile
+
+# Stage 2: Ultra-lightweight static web server
+FROM caddy:2-alpine
+
+COPY --from=builder /app/apps/mobile/dist /usr/share/caddy
+
+# Configure internal Caddy to serve static files with HTML5 history pushState fallback
+RUN printf ':80 {\n\
+    root * /usr/share/caddy\n\
+    file_server\n\
+    try_files {path} {path}.html {path}/ /index.html\n\
+}\n' > /etc/caddy/Caddyfile
+
+EXPOSE 80
+
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile"]

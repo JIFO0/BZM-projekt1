@@ -19,9 +19,10 @@ Regulamin konkursu (Rules) jest nadrzędny wobec briefu miasta tam, gdzie wagi s
 
 ```mermaid
 flowchart TD
-  User(["Użytkownik / Czytnik ekranu"]) <--> UI["apps/mobile (Expo Router, WCAG 2.2 AA)"]
+  User(["Użytkownik / Czytnik ekranu"]) <--> Caddy["Caddy Gateway (:80)\naccessible.krakow.local"]
+  Caddy <--> UI["apps/mobile (Expo Router Web, WCAG 2.2 AA)"]
   
-  subgraph ClientApp ["Aplikacja Kliencka (Lokalnie na urządzeniu)"]
+  subgraph ClientApp ["Aplikacja Kliencka (Frontend Web / Mobile)"]
     UI <--> Service["apps/mobile/src/services/api.ts (Orchestrator)"]
     Service <--> Session["apps/mobile/src/state/session.tsx (Profil, Raporty)"]
     Service <--> Snapshot["fixtures/krakow-demo-snapshot.json (Offline Demo)"]
@@ -36,13 +37,19 @@ flowchart TD
     RouteAnalysis --> Honesty["honesty.ts & dates.ts (Weryfikacja prawdomówności i przedawnienia)"]
   end
 
-  subgraph SourcesLayer ["packages/sources (Adaptery Zewnętrzne)"]
-    Service --> MapyRouting["MapyRoutingProvider (Routing pieszy foot_fast)"]
+  subgraph SourcesLayer ["packages/sources (Adaptery)"]
+    Service --> GHProvider["GraphHopperRoutingProvider (Główny routing z wagami)"]
+    Service --> MapyRouting["MapyRoutingProvider (Fallback routing pieszy)"]
     Service --> MapyGeocode["MapyGeocodingProvider (Wyszukiwanie i podpowiedzi)"]
     Service --> OsmOverpass["OsmOverpassProvider (Bariery w korytarzu geometrycznym)"]
   end
 
-  subgraph ExternalAPIs ["Zewnętrzne Usługi Sieciowe"]
+  subgraph BackendStack ["Zarządzany Stos Backendowy (Docker Compose)"]
+    GHProvider --> CaddyGH["hopper.accessible.krakow.local"] --> GH["GraphHopper Engine (:8989)\nCustom models, OSM data"]
+    APIServer["api.accessible.krakow.local"] --> Hono["Hono API Server (:3000)\n@krakow-bez-barier/cli"]
+  end
+
+  subgraph ExternalAPIs ["Zewnętrzne Usługi Sieciowe (Fallback)"]
     MapyRouting --> MapyAPI["api.mapy.com (REST API)"]
     MapyGeocode --> MapyAPI
     OsmOverpass --> OverpassAPI["overpass-api.de (Overpass QL)"]
@@ -96,3 +103,20 @@ Funkcja `findConflicts(facts)` grupuje fakty według `[subject.ref, criterion]`.
    Wystarczy zaimplementować interfejs `AccessibilityDataSource` w `packages/sources` (np. adapter do Miejskiego Systemu Informacji Przestrzennej UMK) i zarejestrować go w konfiguracji miasta.
 3. **Dodanie nowej kategorii barier:**
    Zasady mapowania tagów znajdują się w `packages/core/src/route-analysis.ts` oraz `place-analysis.ts`, co pozwala łatwo rozszerzyć analizę o kolejne parametry (np. audiodeskrypcje, pętle indukcyjne).
+
+---
+
+## 5. Zintegrowana Infrastruktura Backendowa (Docker Compose & Caddy Gateway)
+
+System w katalogu `backend/` udostępnia kompletny, 4-elementowy stos kontenerowy zorganizowany wokół oficjalnej bramy **Caddy** (Reverse Proxy):
+
+1. **`frontend` (Expo Web Production):** Statyczny bundle wygenerowany przez `npx expo export -p web`, serwowany z pamięci podręcznej przez dedykowany kontener Caddy (`http://accessible.krakow.local/`).
+2. **`api` (REST API Server):** Serwer oparty o framework Hono uruchomiony w Node.js, obsługujący walidację, punkty kontrolne (`GET /status`) oraz logikę integracyjną (`http://api.accessible.krakow.local/`).
+3. **`graphhopper` (Silnik Routingu):** Samodzielnie hostowana instancja GraphHopper operująca na lokalnych danych OpenStreetMap, dynamicznie kalkulująca wagi dostępności dla wózków (`http://hopper.accessible.krakow.local/`).
+4. **`caddy` (Ingress Gateway):** Wspólny punkt wejścia na porcie 80, który kieruje ruch po nazwach domenowych `.local` oraz wstrzykuje nagłówki CORS dla zapytań z przeglądarki.
+
+### Przygotowanie do wdrożenia miejskiego (.pl / HTTPS)
+Aby przenieść instalację z lokalnego środowiska deweloperskiego na produkcyjne serwery miejskie:
+- W pliku `backend/Caddyfile` wystarczy zamienić domenę `.local` na `.pl` oraz `http://` na `https://` (np. `https://accessible.krakow.pl`). Caddy automatycznie pozyska certyfikaty TLS od Let's Encrypt / ZeroSSL.
+- W konfiguracji `cities/krakow.json` adresy `apiBase` i `graphhopper.apiBase` przyjmują produkcyjne domeny miejskie.
+

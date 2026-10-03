@@ -51,7 +51,10 @@ export class GraphHopperRoutingProvider implements RoutingProvider {
   private readonly thresholds?: BarrierThresholds;
 
   constructor(options?: GraphHopperProviderOptions) {
-    this.apiBase = options?.apiBase || process.env.EXPO_PUBLIC_GRAPHHOPPER_URL || 'http://localhost:8989';
+    this.apiBase =
+      options?.apiBase ||
+      process.env.EXPO_PUBLIC_GRAPHHOPPER_URL ||
+      'http://hopper.accessible.krakow.local';
     this.fetchFn = options?.fetchFn || globalThis.fetch.bind(globalThis);
     this.thresholds = options?.thresholds;
   }

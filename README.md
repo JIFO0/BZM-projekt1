@@ -42,10 +42,37 @@ Po uruchomieniu `npm start`:
 - Naciśnij `w`, aby uruchomić aplikację w przeglądarce internetowej.
 - Zeskanuj kod QR aplikacją **Expo Go** na telefonie z Androidem lub iOS.
 
-Do uruchomienia serwera dla miasta:
+---
+
+## Backend i środowisko kontenerowe (Docker Compose)
+
+Projekt posiada skonsolidowany, gotowy do wdrożenia stos backendowy zarządzany przez **Docker Compose** w katalogu [`backend/`](file:///home/guzio/Dokumenty/Projekty/BZM-projekt1/backend).
+
+Wszystkie usługi komunikują się przez oficjalną bramę **Caddy** (Reverse Proxy), wystawiającą usługi pod przyjaznymi domenami `.local`:
+
+| Adres URL | Kontener | Usługa |
+| :--- | :--- | :--- |
+| **`http://accessible.krakow.local/`** | `krakow-frontend` | Produkcyjny frontend webowy Expo serwowany przez Caddy |
+| **`http://api.accessible.krakow.local/`** | `krakow-api` | Serwer REST API (Hono / Node.js) z portu 3000 |
+| **`http://hopper.accessible.krakow.local/`** | `krakow-graphhopper` | Silnik routingu pieszych GraphHopper z wagami dostępności |
+| **`http://localhost/`** | `krakow-gateway` | Brama Caddy (port 80:80) – domyślnie kieruje na frontend |
+
+### Uruchomienie pełnego stosu (Frontend + API + Routing + Caddy):
 ```bash
-npm run server
+# 1. Dodaj domeny lokalne do /etc/hosts (opcjonalne, ale zalecane):
+# 127.0.0.1 accessible.krakow.local api.accessible.krakow.local hopper.accessible.krakow.local
+
+# 2. Uruchomienie wszystkich 4 usług:
+cd backend
+docker compose up -d --build
 ```
+
+### Tryb deweloperski pojedynczego serwera API (bez Dockera):
+```bash
+npm run server   # startuje lokalny serwer Hono na http://localhost:3000
+```
+
+Szczegółowy opis konfiguracji i wdrożenia produkcyjnego w domenie `.pl`: [`backend/README.md`](file:///home/guzio/Dokumenty/Projekty/BZM-projekt1/backend/README.md).
 
 ---
 
@@ -78,15 +105,16 @@ npm run server
 /
 ├─ apps/mobile/              # Aplikacja Expo Router (UI, WCAG 2.2 AA)
 ├─ packages/core/            # Czysty TypeScript (domain, geometria, algorytm analizy, walidacja)
-├─ packages/sources/         # Adaptery: MapyRouting, MapyGeocode, OsmOverpass
-├─ packages/cli/             # Pipeline walidacji i budowania snapshotu demo
-├─ cities/krakow.json        # Bounding box, progi, konfiguracja miasta
+├─ packages/sources/         # Adaptery: GraphHopper, MapyRouting, MapyGeocode, OsmOverpass
+├─ packages/cli/             # Serwer API (Hono) oraz CLI walidacji snapshotu
+├─ backend/                  # Docker Compose, Caddyfile, GraphHopper, Dockerfile.frontend, Dockerfile.api
+├─ cities/krakow.json        # Bounding box, progi, konfiguracja miasta i endpointów
 ├─ fixtures/                 # Zweryfikowany offline demo snapshot (DANE PRZYKŁADOWE)
 ├─ schemas/fact.schema.json  # JSON Schema dla znormalizowanego faktu
 └─ docs/                     # Kompletna dokumentacja projektowa i konkursowa
 ```
 
-Szczegółowy opis architektury: [`docs/ARCHITECTURE.md`](file:///home/midnight/BZM-projekt1/docs/ARCHITECTURE.md).
+Szczegółowy opis architektury: [`docs/ARCHITECTURE.md`](file:///home/guzio/Dokumenty/Projekty/BZM-projekt1/docs/ARCHITECTURE.md).
 
 ---
 

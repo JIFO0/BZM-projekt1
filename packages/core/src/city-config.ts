@@ -35,6 +35,9 @@ export interface CityConfig {
     language: 'pl' | 'en';
     tileMapset: 'basic' | 'outdoor' | 'aerial' | 'names-overlay' | 'winter';
   };
+  graphhopper?: {
+    apiBase: string;
+  };
   apiBase: string;
 }
 
@@ -174,6 +177,9 @@ export function parseCityConfig(input: unknown): CityConfig {
       language,
       tileMapset,
     },
+    graphhopper: isRecord(input.graphhopper)
+      ? { apiBase: readString(input.graphhopper, 'apiBase') }
+      : undefined,
     apiBase: readString(input, 'apiBase'),
   };
 }
