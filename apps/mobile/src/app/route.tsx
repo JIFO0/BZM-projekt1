@@ -50,8 +50,8 @@ import {
   getLocalizedFindingType,
   t,
 } from '@/i18n/strings';
-import { planAndAnalyzeRoute, type RouteVariantId } from '@/services/api';
-import { getAllCityBarriers } from '@/services/barriers';
+import { fetchServerHazards, planAndAnalyzeRoute, type RouteVariantId, type ServerRouteHazard } from '@/services/api';
+import { citizenReportsAsFindings, getAllCityBarriers } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -142,9 +142,11 @@ export default function RouteScreen() {
     setBarrierViewMode,
     activeThresholds,
     debugState,
+    localReports,
   } = useSession();
 
   const [showMap, setShowMap] = useState(true);
+  const [serverHazards, setServerHazards] = useState<ServerRouteHazard[]>([]);
   const [debugVisible, setDebugVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -240,23 +242,51 @@ export default function RouteScreen() {
     selectRouteVariant,
   ]);
 
+  useEffect(() => {
+    fetchServerHazards().then(setServerHazards).catch(() => {});
+  }, []);
+
   // All city barriers computed with active thresholds
   const allCityBarriers = useMemo(() => {
     return getAllCityBarriers(activeThresholds);
   }, [activeThresholds]);
 
-  // Filter displayed findings based on barrier view mode
+  const reportFindings = useMemo(
+    () =>
+      citizenReportsAsFindings([
+        ...serverHazards.map((hazard) => ({
+          id: hazard.id,
+          description: hazard.description,
+          position: hazard.position,
+          createdAt: hazard.createdAt,
+          status: hazard.status,
+        })),
+        ...localReports.map((report) => ({
+          id: report.id,
+          description: report.description,
+          position: report.position,
+          createdAt: report.createdAt,
+          status: report.status,
+        })),
+      ]),
+    [serverHazards, localReports],
+  );
+
+  // Filter displayed findings based on barrier view mode. Reports stay on the map wherever they are.
   const displayedFindings = useMemo(() => {
-    switch (barrierViewMode) {
-      case 'none':
-        return [];
-      case 'route':
-        return activeRouteReport?.findings || [];
-      case 'all':
-      default:
-        return allCityBarriers;
-    }
-  }, [barrierViewMode, activeRouteReport?.findings, allCityBarriers]);
+    const base = (() => {
+      switch (barrierViewMode) {
+        case 'none':
+          return [];
+        case 'route':
+          return activeRouteReport?.findings || [];
+        case 'all':
+        default:
+          return allCityBarriers;
+      }
+    })();
+    return [...base, ...reportFindings];
+  }, [barrierViewMode, activeRouteReport?.findings, allCityBarriers, reportFindings]);
 
   if (loading) {
     return (

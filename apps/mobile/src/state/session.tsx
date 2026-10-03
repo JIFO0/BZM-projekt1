@@ -374,6 +374,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       description: 'Uszkodzony zjazd z chodnika na skrzyżowaniu Grodzka/Franciszkańska',
       createdAt: '2026-10-02T16:45:00Z',
       status: 'reported',
+      category: 'obstacle',
+      position: { lat: 50.05805, lon: 19.93755 },
     },
   ]);
   const [activeRouteReport, setActiveRouteReport] = useState<RouteReport | null>(null);
