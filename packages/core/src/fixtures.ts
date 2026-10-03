@@ -1,0 +1,412 @@
+import type { Fact, LonLat } from './types';
+import type { WalkingRoute } from './providers';
+
+export interface SampleRouteData {
+  id: string;
+  title: string;
+  isSample: boolean;
+  start: { name: string; position: LonLat };
+  end: { name: string; position: LonLat };
+  walkingRoute: WalkingRoute;
+  facts: Fact[];
+}
+
+export interface SamplePlaceData {
+  id: string;
+  name: string;
+  label: string;
+  position: LonLat;
+  isSample: boolean;
+  facts: Fact[];
+}
+
+export interface DemoSnapshot {
+  snapshotVersion: string;
+  isSample: boolean;
+  label: string;
+  generatedAt: string;
+  demoArea: string;
+  sources: Array<{ name: string; url: string; licence: string }>;
+  routes: SampleRouteData[];
+  places: SamplePlaceData[];
+}
+
+export const DEMO_SNAPSHOT: DemoSnapshot = {
+  snapshotVersion: '1.0.0',
+  isSample: true,
+  label: 'DANE PRZYKŁADOWE (Offline Demo Snapshot Kraków)',
+  generatedAt: '2026-10-03T11:00:00.000Z',
+  demoArea: 'Rynek Główny – Kazimierz – Wawel – Planty',
+  sources: [
+    {
+      name: 'OpenStreetMap',
+      url: 'https://www.openstreetmap.org',
+      licence: 'ODbL',
+    },
+    {
+      name: 'Mapy.com',
+      url: 'https://developer.mapy.com',
+      licence: 'Mapy.com API Terms',
+    },
+  ],
+  routes: [
+    {
+      id: 'sample-route-rynek-wawel',
+      title: 'Rynek Główny → Wawel (ul. Grodzka)',
+      isSample: true,
+      start: { name: 'Rynek Główny', position: { lon: 19.9373, lat: 50.0619 } },
+      end: { name: 'Zamek Królewski na Wawelu', position: { lon: 19.9354, lat: 50.0544 } },
+      walkingRoute: {
+        provider: 'Mapy.com (DANE PRZYKŁADOWE)',
+        lengthMetres: 920,
+        durationSeconds: 750,
+        retrievedAt: '2026-10-03T11:00:00Z',
+        coordinates: [
+          [19.9373, 50.0619],
+          [19.9374, 50.061],
+          [19.9377, 50.0598],
+          [19.938, 50.0583],
+          [19.9383, 50.0569],
+          [19.937, 50.0556],
+          [19.9354, 50.0544],
+        ],
+      },
+      facts: [
+        {
+          id: 'fact-sett-rynek',
+          subject: { type: 'segment', ref: 'way/rynek-glowny', lat: 50.0618, lon: 19.9373 },
+          criterion: 'surface',
+          value: 'cobblestone',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/way/rynek-glowny',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastEditedAt: '2025-05-12T14:20:00Z',
+        },
+        {
+          id: 'fact-crossing-dominikanska',
+          subject: {
+            type: 'crossing',
+            ref: 'node/cross-dominikanska',
+            lat: 50.0598,
+            lon: 19.9377,
+          },
+          criterion: 'crossing',
+          value: 'traffic_signals=yes, tactile_paving=yes',
+          status: 'verified',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/node/cross-dominikanska',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastConfirmedAt: '2026-04-10T09:00:00Z',
+        },
+        {
+          id: 'fact-kerb-dominikanska',
+          subject: {
+            type: 'crossing',
+            ref: 'node/kerb-dominikanska',
+            lat: 50.0598,
+            lon: 19.9377,
+          },
+          criterion: 'kerb',
+          value: '15 mm',
+          unit: 'mm',
+          status: 'verified',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/node/kerb-dominikanska',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastConfirmedAt: '2026-04-10T09:00:00Z',
+        },
+        {
+          id: 'fact-steps-kosciol-piotra',
+          subject: { type: 'segment', ref: 'way/steps-piotr', lat: 50.0569, lon: 19.9383 },
+          criterion: 'steps',
+          value: '7 stopni, ramp=yes',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/way/steps-piotr',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastEditedAt: '2024-08-20T10:15:00Z',
+        },
+        {
+          id: 'fact-kerb-senatorska-high',
+          subject: {
+            type: 'crossing',
+            ref: 'node/kerb-senatorska',
+            lat: 50.0556,
+            lon: 19.937,
+          },
+          criterion: 'kerb',
+          value: '140 mm',
+          unit: 'mm',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/node/kerb-senatorska',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastEditedAt: '2023-11-04T12:00:00Z',
+        },
+        {
+          id: 'fact-crossing-wawel-unknown',
+          subject: {
+            type: 'crossing',
+            ref: 'node/cross-podzamcze',
+            lat: 50.0545,
+            lon: 19.9355,
+          },
+          criterion: 'kerb',
+          value: 'brak pomiaru',
+          status: 'unknown',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/node/cross-podzamcze',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+        },
+      ],
+    },
+    {
+      id: 'sample-route-kazimierz-planty',
+      title: 'Kazimierz (Plac Nowy) → Planty',
+      isSample: true,
+      start: { name: 'Plac Nowy', position: { lon: 19.9449, lat: 50.0519 } },
+      end: { name: 'Planty (Poczta Główna)', position: { lon: 19.9423, lat: 50.0592 } },
+      walkingRoute: {
+        provider: 'Mapy.com (DANE PRZYKŁADOWE)',
+        lengthMetres: 870,
+        durationSeconds: 700,
+        retrievedAt: '2026-10-03T11:00:00Z',
+        coordinates: [
+          [19.9449, 50.0519],
+          [19.9458, 50.0531],
+          [19.9448, 50.0555],
+          [19.9436, 50.0573],
+          [19.9423, 50.0592],
+        ],
+      },
+      facts: [
+        {
+          id: 'fact-surface-plac-nowy',
+          subject: { type: 'segment', ref: 'way/plac-nowy', lat: 50.052, lon: 19.945 },
+          criterion: 'surface',
+          value: 'paving_stones',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/way/plac-nowy',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+        },
+        {
+          id: 'fact-kerb-miodowa',
+          subject: {
+            type: 'crossing',
+            ref: 'node/kerb-miodowa',
+            lat: 50.0532,
+            lon: 19.9457,
+          },
+          criterion: 'kerb',
+          value: '20 mm',
+          unit: 'mm',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/node/kerb-miodowa',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+        },
+        {
+          id: 'fact-tram-starowislna',
+          subject: {
+            type: 'crossing',
+            ref: 'way/tram-starowislna',
+            lat: 50.0555,
+            lon: 19.9448,
+          },
+          criterion: 'crossing',
+          value: 'torowisko tramwajowe, sygnalizacja',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/way/tram-starowislna',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+        },
+      ],
+    },
+  ],
+  places: [
+    {
+      id: 'sample-place-sukiennice',
+      name: 'Sukiennice (Galeria Sztuki)',
+      label: 'Rynek Główny 1/3, Kraków',
+      position: { lon: 19.9373, lat: 50.0619 },
+      isSample: true,
+      facts: [
+        {
+          id: 'place-sukiennice-entrance',
+          subject: {
+            type: 'entrance',
+            ref: 'node/sukiennice-entrance',
+            lat: 50.0619,
+            lon: 19.9373,
+          },
+          criterion: 'entrance:wheelchair',
+          value: 'yes (wejście płaskie od strony Wieży Ratuszowej, drzwi automatyczne szer. 110 cm)',
+          status: 'verified',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/node/sukiennice-entrance',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastConfirmedAt: '2026-03-15T12:00:00Z',
+        },
+        {
+          id: 'place-sukiennice-elevator',
+          subject: {
+            type: 'place',
+            ref: 'node/sukiennice-lift',
+            lat: 50.0619,
+            lon: 19.9373,
+          },
+          criterion: 'highway:elevator',
+          value: 'winda osobowa dostępna na piętro (I piętro Galeria Malarstwa)',
+          status: 'verified',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/node/sukiennice-lift',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastConfirmedAt: '2026-03-15T12:00:00Z',
+        },
+        {
+          id: 'place-sukiennice-toilet',
+          subject: {
+            type: 'place',
+            ref: 'node/sukiennice-wc',
+            lat: 50.0619,
+            lon: 19.9373,
+          },
+          criterion: 'toilets:wheelchair',
+          value: 'yes (toaleta przystosowana, poręcze, przestrzeń manewrowa 160x160 cm)',
+          status: 'verified',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/node/sukiennice-wc',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastConfirmedAt: '2026-03-15T12:00:00Z',
+        },
+        {
+          id: 'place-sukiennice-surroundings',
+          subject: {
+            type: 'place',
+            ref: 'way/sukiennice-podcienia',
+            lat: 50.0619,
+            lon: 19.9373,
+          },
+          criterion: 'surface:surroundings',
+          value: 'płyty kamienne równe, podcienia bezprogowe',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/way/sukiennice-podcienia',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+        },
+      ],
+    },
+    {
+      id: 'sample-place-conflict-demo',
+      name: 'Kamienica Grodzka (Symulacja R7: Dane Sprzeczne)',
+      label: 'ul. Grodzka 12, Kraków',
+      position: { lon: 19.9378, lat: 50.0585 },
+      isSample: true,
+      facts: [
+        {
+          id: 'fact-conflict-1',
+          subject: {
+            type: 'place',
+            ref: 'building/grodzka-12',
+            lat: 50.0585,
+            lon: 19.9378,
+          },
+          criterion: 'wheelchair',
+          value: 'yes (oznaczono budynek jako dostępny)',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap (tag budynku)',
+            url: 'https://osm.org/way/12345',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastEditedAt: '2023-01-10T12:00:00Z',
+        },
+        {
+          id: 'fact-conflict-2',
+          subject: {
+            type: 'entrance',
+            ref: 'building/grodzka-12',
+            lat: 50.0585,
+            lon: 19.9378,
+          },
+          criterion: 'wheelchair',
+          value: 'no (węzeł wejścia: 5 stromych stopni bez podjazdu)',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap (węzeł drzwi)',
+            url: 'https://osm.org/node/67890',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastEditedAt: '2024-05-15T08:30:00Z',
+        },
+      ],
+    },
+    {
+      id: 'sample-place-stale-demo',
+      name: 'Restauracja Staromiejska (Symulacja R8: Dane Przedawnione)',
+      label: 'ul. Szewska 8, Kraków',
+      position: { lon: 19.9355, lat: 50.0628 },
+      isSample: true,
+      facts: [
+        {
+          id: 'fact-stale-1',
+          subject: { type: 'place', ref: 'node/szewska-8', lat: 50.0628, lon: 19.9355 },
+          criterion: 'wheelchair',
+          value: 'limited',
+          status: 'community',
+          source: {
+            name: 'OpenStreetMap',
+            url: 'https://osm.org/node/szewska-8',
+            licence: 'ODbL',
+          },
+          retrievedAt: '2026-10-03T11:00:00Z',
+          lastEditedAt: '2021-02-14T10:00:00Z',
+          lastConfirmedAt: '2021-02-14T10:00:00Z',
+        },
+      ],
+    },
+  ],
+};

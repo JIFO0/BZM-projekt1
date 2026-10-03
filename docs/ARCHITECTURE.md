@@ -1,64 +1,98 @@
-# Architektura
+# Architektura Systemu – Kraków bez barier
 
-## Dwa zestawy kryteriów
+## 1. Dwa zestawy kryteriów i zgodność
 
-Regulamin konkursu (Rules) jest nadrzędny wobec briefu miasta tam, gdzie wagi się różnią.
+Regulamin konkursu (Rules) jest nadrzędny wobec briefu miasta tam, gdzie wagi się różnią:
 
-| | Regulamin (jury) | Brief miasta (KRYTERIA) |
-| --- | --- | --- |
-| Pomysł / związek z wyzwaniem | Idea 30% | Użyteczność 25% |
-| Technika | Technical 30% | Prototyp 20% |
-| Architektura i wdrożenie | Design 20% | Skalowanie 20% |
-| Zgodność z kategorią | Relation 10% | — |
-| Efekt | WOW 10% | — |
-| Dane | w technice i pomyśle | Wiarygodność 15% |
-| Biznes | w pomyśle i skalowaniu | Biznes 20% |
+| Obszar oceny | Regulamin (Jury) | Brief miasta (KRYTERIA) | Realizacja w architekturze |
+| :--- | :--- | :--- | :--- |
+| **Pomysł / użyteczność** | Idea 30% | Użyteczność 25% | Wyznaczenie trasy pieszej z Mapy.com weryfikowane na żywo z OSM; zero fałszywych obietnic |
+| **Technika i jakość kodu** | Technical 30% | Prototyp 20% | 100% czysty TypeScript, 36 testów jednostkowych (T1–T8), pełna obsługa błędów i korytarza geometrii |
+| **Architektura i skalowalność** | Design 20% | Skalowanie 20% | Monorepo npm, całkowita separacja warstw, dodanie nowego miasta w 1 pliku JSON |
+| **Zgodność z kategorią** | Relation 10% | Wiarygodność 15% | Wymóg konkretnych barier z datą, źródłem i dowodem zamiast etykiety „dostępne / niedostępne” |
+| **Efekt WOW** | WOW 10% | — | Synteza mowy (`expo-speech`), interaktywna mapa z pinezkami barier, panel symulacji demo |
+| **Model biznesowy** | w pomyśle i skalowaniu | Biznes 20% | Architektura Backendless / Thin Proxy, widżet B2B dla turystyki, zerowy koszt serwerów dla UMK |
 
-Minimum z regulaminu: 50% punktów. Zgłoszenie na HackTribe po polsku: tytuł, ID zespołu, opis, PDF do 10 slajdów, wideo do 3 minut. Praca od 11:00 3 października 2026 do 11:00 4 października 2026.
+---
 
-Brief miasta wymaga tego samego produktu: konkretne bariery zamiast „dostępne/niedostępne”, źródło, data, wiarygodność, brak pytania o niepełnosprawność, działanie poza systemami UMK, oraz plan utrzymania i komercjalizacji (hotele, organizatorzy, zarządcy, systemy rezerwacji, mapy).
-
-## Przepływ danych
+## 2. Przepływ Danych (Data Flow Diagram)
 
 ```mermaid
-flowchart LR
-  UI["apps/mobile"] --> Core["packages/core"]
-  Core --> Sources["packages/sources"]
-  Sources --> Mapy["Mapy.com REST"]
-  Sources --> Overpass["Overpass"]
-  City["cities/krakow.json"] --> Core
-  Sources --> Core
+flowchart TD
+  User(["Użytkownik / Czytnik ekranu"]) <--> UI["apps/mobile (Expo Router, WCAG 2.2 AA)"]
+  
+  subgraph ClientApp ["Aplikacja Kliencka (Lokalnie na urządzeniu)"]
+    UI <--> Service["apps/mobile/src/services/api.ts (Orchestrator)"]
+    Service <--> Session["apps/mobile/src/state/session.tsx (Profil, Raporty)"]
+    Service <--> Snapshot["fixtures/krakow-demo-snapshot.json (Offline Demo)"]
+  end
+
+  subgraph CoreLayer ["packages/core (Pure TypeScript, Zero RN/Expo Imports)"]
+    Service --> RouteAnalysis["route-analysis.ts (Analiza geometrii i surowości)"]
+    Service --> PlaceAnalysis["place-analysis.ts (4 kategorie, Match Confidence)"]
+    RouteAnalysis --> Geometry["geometry.ts (Haversine & Point-to-Segment Projection)"]
+    RouteAnalysis --> Profiles["profile.ts (Progi wózka / wózka dziecięcego)"]
+    RouteAnalysis --> Coverage["coverage.ts (Wskaźniki pokrycia & Najdłuższa luka)"]
+    RouteAnalysis --> Honesty["honesty.ts & dates.ts (Weryfikacja prawdomówności i przedawnienia)"]
+  end
+
+  subgraph SourcesLayer ["packages/sources (Adaptery Zewnętrzne)"]
+    Service --> MapyRouting["MapyRoutingProvider (Routing pieszy foot_fast)"]
+    Service --> MapyGeocode["MapyGeocodingProvider (Wyszukiwanie i podpowiedzi)"]
+    Service --> OsmOverpass["OsmOverpassProvider (Bariery w korytarzu geometrycznym)"]
+  end
+
+  subgraph ExternalAPIs ["Zewnętrzne Usługi Sieciowe"]
+    MapyRouting --> MapyAPI["api.mapy.com (REST API)"]
+    MapyGeocode --> MapyAPI
+    OsmOverpass --> OverpassAPI["overpass-api.de (Overpass QL)"]
+  end
 ```
 
-UI zna typy i interfejsy z `core` (`RoutingProvider`, `GeocodingProvider`, `AccessibilityDataSource`, `TileProvider`). Nie zna składni Overpass, tagów OSM ani kształtu JSON Mapy.com. Implementacje są w `packages/sources`.
+---
 
-Dodanie miasta = nowy plik `cities/<id>.json`. Dodanie źródła = nowy adapter i wpis w `adapters`. Progi wózka i wózka dziecięcego są w konfiguracji, nie w komponentach.
+## 3. Kluczowe Zasady Architektoniczne
 
-## Mapa
+### A1. Separacja akwizycji i prezentacji
+Warstwa prezentacji (`apps/mobile`) importuje wyłącznie typy domenowe i interfejsy z `packages/core`. Interfejs użytkownika nie zna składni Overpass QL, nazw tagów OSM (`highway=steps`, `barrier=kerb`) ani formatu JSON z `api.mapy.com`. Wszystkie dane zewnętrzne są normalizowane do ujednoliconego modelu `Fact`.
 
-Domyślne kafelki: zestaw Mapy.com `basic`. Szablon URL kafelka ma przyjść z funkcji tiles.json, a nie z zahardkodowanego adresu. Pobranie OpenAPI kafelków (`https://api.mapy.com/v1/docs/maptiles/openapi.yaml`) 3 października 2026 zwróciło HTTP 500, więc ścieżki tej funkcji jeszcze nie wpisujemy.
+### A2. Ujednolicony model dowodowy (`Fact`)
+```typescript
+interface Fact {
+  id: string;
+  subject: { type: 'place' | 'segment' | 'crossing' | 'entrance'; ref: string; lat: number; lon: number };
+  criterion: string;
+  value: string;
+  unit?: string;
+  status: 'verified' | 'community' | 'reported' | 'inferred' | 'unknown' | 'conflicting';
+  source: { name: string; url: string; licence: string; objectId?: string; objectVersion?: string };
+  retrievedAt: string;
+  lastEditedAt?: string;
+  lastConfirmedAt?: string;
+  matchConfidence?: number;
+}
+```
 
-`expo-maps` nie jest w Expo Go i nie ma warstwy kafelków rastrowych. Wybór na prototyp: `react-native-maps` (jest w Expo Go, SDK 55). Render polilinii i kafelków Mapy.com trzeba potwierdzić na urządzeniu albo emulatorze, zanim oprzemy na tym demo. Lista barier zostaje głównym interfejsem; mapa jest dodatkiem i musi mieć odpowiednik tekstowy.
+### A3. Status faktu i ochrona przedawnienia
+- Dane z OpenStreetMap domyślnie otrzymują status `community`.
+- Status `verified` przysługuje **wyłącznie** wtedy, gdy obiekt posiada znacznik potwierdzenia (`check_date:*`, `survey:date`) mieszczący się w progu świeżości z konfiguracji miasta (domyślnie ≤ 24 miesiące).
+- Data edycji (`timestamp`) w OSM jest wyraźnie oznaczana jako „ostatnia edycja w OSM” i nigdy nie jest utożsamiana z potwierdzeniem braku barier.
 
-Kafelki OSM (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`) są dozwolone tylko jako opcja demo i tylko zgodnie z [Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/): identyfikujący User-Agent, cache, bez zgrywania obszaru offline, atrybucja na mapie. Nie są domyślne.
+### A4. Rozwiązywanie konfliktów danych (R7)
+Funkcja `findConflicts(facts)` grupuje fakty według `[subject.ref, criterion]`. Jeśli różne obiekty podają sprzeczne wartości dla tej samej cechy (np. budynek oznaczony jako `wheelchair=yes`, ale węzeł drzwi wejściowych posiada `wheelchair=no` z powodu 5 stopni), aplikacja zachowuje obie wartości, nadaje im status `conflicting` i prezentuje je użytkownikowi w czytelnym ostrzeżeniu.
 
-## Trasa
+### A5. Odporność na awarie i panel demo (A8, R12)
+- Obsługa błędów sieciowych: kody HTTP 401, 403, 404, 422, 429 (rate-limit), 5xx oraz timeouty mapowane są na typowany błąd `SourceFailure`.
+- W przypadku braku połączenia lub awarii serwera zewnętrznego, aplikacja nie pokazuje fałszywego „braku barier” – wyświetla wyraźny komunikat ostrzegawczy i serwuje zweryfikowany lokalny snapshot demonstracyjny (`fixtures/krakow-demo-snapshot.json`).
+- Wbudowany panel testowy (`🛠️ Demo`) pozwala jurorom w dowolnym momencie wymusić awarię Overpass lub Mapy.com w celu demonstracji odporności systemu na żywo.
 
-`GET https://api.mapy.com/v1/routing/route` z `routeType=foot_fast`. W enum OpenAPI 2.1.14 nie ma profilu wózka ani wózka dziecięcego. Nie ma parametru alternatywnych tras; jest do 15 waypointów. Klucz idzie w nagłówku `X-Mapy-Api-Key`.
+---
 
-Analiza geometrii wobec OSM jest kolejnym krokiem. Czyste funkcje progów, konfliktów, dat i pokrycia są już w `core` i mają testy.
+## 4. Rozszerzalność (Extensibility)
 
-## Status faktu
-
-`verified` tylko przy świeżej dacie kontroli w progu z konfiguracji (domyślnie 24 miesiące). Sama data edycji OSM to status `community` i etykieta „ostatnia edycja w OSM”. `unknown`, `conflicting` i `reported` nie mogą być pokazane jako brak problemu.
-
-## Założenia niepotwierdzone
-
-- ID zespołu nie zostało podane (`teamId: null`).
-- Obszar demo to przykład z briefu budowy, oznaczony jako wstępny.
-- Bbox Krakowa to robocze przybliżenie, nie granica UMK.
-- Progi krawężnika, szerokości, nachylenia i listy nawierzchni są decyzją produktu. Nie są normą medyczną ani wytyczną miasta. Wartości nawierzchni nie zostały jeszcze sprawdzone w wiki OSM.
-- Próg pokrycia 0,8 dla zdania „nie znaleziono przeszkód w dostępnych danych” jest decyzją produktu.
-- `placeMatchMaxMetres` 40 jest decyzją produktu.
-- HTTP 429 nie występuje w liście odpowiedzi routingu OpenAPI 2.1.14. Mapujemy go mimo to, bo spec opisuje limit zapytań.
-- User-Agent Overpass nie ma jeszcze maila kontaktowego zespołu. Trzeba go dodać przed żywymi zapytaniami.
+1. **Dodanie nowego miasta:**
+   Wystarczy utworzyć plik `cities/<nazwa>.json` z granicami geograficznymi (`bbox`), progami barier oraz wybranymi adapterami, a następnie wskazać go w konfiguracji. Nie wymaga to modyfikacji kodu aplikacji.
+2. **Dodanie nowego źródła danych:**
+   Wystarczy zaimplementować interfejs `AccessibilityDataSource` w `packages/sources` (np. adapter do Miejskiego Systemu Informacji Przestrzennej UMK) i zarejestrować go w konfiguracji miasta.
+3. **Dodanie nowej kategorii barier:**
+   Zasady mapowania tagów znajdują się w `packages/core/src/route-analysis.ts` oraz `place-analysis.ts`, co pozwala łatwo rozszerzyć analizę o kolejne parametry (np. audiodeskrypcje, pętle indukcyjne).

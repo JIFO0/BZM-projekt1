@@ -1,27 +1,39 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { SessionProvider } from '@/state/session';
-import { darkColors, lightColors } from '@/theme/tokens';
+import { AccessibilityModal } from '@/components/AccessibilityModal';
+import { ReadingRuler } from '@/components/ReadingRuler';
+import { SessionProvider, useSession } from '@/state/session';
+
+function RootNavigatorInner() {
+  const { colors, contrastMode } = useSession();
+
+  const isDarkContent = contrastMode === 'standard-light' || contrastMode === 'hc-black-yellow';
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar style={isDarkContent ? 'dark' : 'light'} />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.headerBg },
+          headerTintColor: colors.headerText,
+          headerTitleStyle: { fontWeight: '700' },
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      />
+      <AccessibilityModal />
+      <ReadingRuler />
+    </View>
+  );
+}
 
 export default function RootLayout() {
-  const scheme = useColorScheme();
-  const colors = scheme === 'dark' ? darkColors : lightColors;
-
   return (
     <SafeAreaProvider>
       <SessionProvider>
-        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
-            headerTitleStyle: { fontWeight: '600' },
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        />
+        <RootNavigatorInner />
       </SessionProvider>
     </SafeAreaProvider>
   );
