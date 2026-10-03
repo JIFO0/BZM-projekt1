@@ -1,56 +1,40 @@
-# Welcome to your Expo app 👋
+# Kraków bez barier
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Prototyp mobilny na HackYeah 2026, wyzwanie *Cracow without barriers*. Aplikacja ma pomóc osobie na wózku albo rodzicowi z wózkiem dziecięcym ocenić trasę pieszą w Krakowie po konkretnych barierach, a nie po etykiecie „dostępne / niedostępne”.
 
-## Get started
+To jest fundament (monorepo, model faktu, progi profili, szkielet ekranów). Analiza trasy na żywych danych OSM i Mapy.com **nie jest jeszcze podłączona**. Brak wyniku na ekranie wyszukiwania nie oznacza, że trasa jest dostępna.
 
-1. Install dependencies
+## English
 
-   ```bash
-   npm install
-   ```
+Mobile prototype for the HackYeah 2026 challenge. Walking routes will come from Mapy.com and then be checked against OpenStreetMap. Missing data must stay missing. This repository currently contains the foundation only: workspaces, the fact model, profile thresholds, and a small Expo shell.
 
-2. Start the app
+## Jak uruchomić
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Wymagane: Node.js z npm (projekt używa `package-lock.json`, nie Bun). Expo SDK **55** (`expo` ~55.0.31).
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example apps/mobile/.env
+npm run verify
+npm start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+W `apps/mobile/.env` wstaw klucz z [developer.mapy.com](https://developer.mapy.com/rest-api-mapy-cz/how-to-start/). Bez klucza ekrany profilu i „O danych” i tak się otwierają, bo jeszcze nie wołają API.
 
-### Other setup steps
+Aplikacja startuje z `apps/mobile` przez Expo Router. Mapa nie jest jeszcze podłączona. Docelowa biblioteka to `react-native-maps`, bo jest w Expo Go na SDK 55 ([dokumentacja](https://docs.expo.dev/versions/v55.0.0/sdk/map-view)). Nie sprawdzono jej jeszcze na urządzeniu.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Co już jest
 
-## Learn more
+- Monorepo npm: `apps/mobile`, `packages/core`, `packages/sources`, `packages/cli`.
+- Konfiguracja miasta tylko w `cities/krakow.json`.
+- Reguły: nieznane nie jest „OK”, konflikt zostawia obie wartości, data edycji OSM nie jest datą potwierdzenia.
+- Ekran profilu (wózek / wózek dziecięcy / własne progi) bez pytania o niepełnosprawność.
+- Ekran „O danych” z atrybucją Mapy.com i OpenStreetMap.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Czego jeszcze nie ma
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Trasa A→B, lista barier, pokrycie danych, karta miejsca, zgłoszenie poprawki, panel symulacji awarii, snapshot CLI, test na czytniku ekranu. Szczegóły w `docs/ARCHITECTURE.md`.
 
-## Join the community
+## Testy
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`npm run verify` uruchamia typecheck, lint i testy jednostkowe bez sieci i bez klucza API.

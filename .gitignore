@@ -31,7 +31,15 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
+!.env.example
 .env*.local
+
+# monorepo app
+apps/mobile/.expo/
+apps/mobile/ios/
+apps/mobile/android/
 
 # typescript
 *.tsbuildinfo

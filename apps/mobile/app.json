@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "road-tierlist",
-    "slug": "road-tierlist",
+    "name": "Kraków bez barier",
+    "slug": "krakow-bez-barier",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "roadtierlist",
+    "scheme": "krakowbezbarier",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
