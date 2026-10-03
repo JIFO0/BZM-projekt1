@@ -32,23 +32,15 @@
       "maxInclinePercent": 6,
       "stepsAreBlocker": true,
       "allowedSurfaces": ["asphalt", "concrete", "paving_stones", "compacted"],
-      "blockedRoadTypes": ["cobblestone"]
-    },
-    "stroller": {
-      "maxKerbMillimetres": 60,
-      "minWidthMetres": 0.75,
-      "maxInclinePercent": 8,
-      "stepsAreBlocker": false,
-      "allowedSurfaces": ["asphalt", "concrete", "paving_stones", "compacted", "fine_gravel"],
-      "blockedRoadTypes": []
+      "blockedRoadTypes": ["cobblestone", "sand"]
     },
     "custom": {
       "maxKerbMillimetres": 30,
       "minWidthMetres": 0.9,
       "maxInclinePercent": 6,
-      "stepsAreBlocker": true,
+      "stepsAreBlocker": false,
       "allowedSurfaces": ["asphalt", "concrete", "paving_stones", "compacted"],
-      "blockedRoadTypes": ["cobblestone"]
+      "blockedRoadTypes": []
     }
   },
   "overpass": {

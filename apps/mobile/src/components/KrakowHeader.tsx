@@ -1,5 +1,13 @@
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Globe, SpeakerHigh, Stop, Wheelchair, Wrench } from 'phosphor-react-native';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { Globe, PersonArmsSpread } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
 import { t } from '@/i18n/strings';
@@ -14,16 +22,16 @@ export interface KrakowHeaderProps {
 }
 
 /**
- * KrakowHeader - Oficjalny nagłówek miejski Krakowa
- * W wersji przeglądarkowej zachowuje pełny wygląd (pasek miejski, herb, tytuły, przyciski),
- * a w wersji mobilnej (Platform.OS !== 'web') składa się wyłącznie z paska przycisków funkcyjnych.
+ * KrakowHeader - Nagłówek aplikacji Krakowa
+ * W wersji mobilnej (ekrany < 768px):
+ *   - Rząd górny: Herb Krakowa + poziomy tytuł "Kraków bez barier" + plakietka WCAG AAA
+ *   - Rząd dolny: Przyciski Centrum Dostępności oraz wyboru języka
+ * W wersji desktopowej: Pełny pasek miejski z herbem, tytułem i przyciskami w jednym rzędzie.
  */
 export function KrakowHeader({
-  onOpenDemo,
-  onReadScreen,
-  isSpeaking,
   compact,
 }: KrakowHeaderProps) {
+  const { width } = useWindowDimensions();
   const {
     locale,
     setLocale,
@@ -36,6 +44,7 @@ export function KrakowHeader({
   } = useSession();
 
   const minTouch = increasedSpacing ? spacing.touchExpanded : spacing.touch - 4;
+  const isMobile = compact !== undefined ? compact : (width > 0 ? width < 768 : Platform.OS !== 'web');
 
   const renderButtons = () => (
     <>
@@ -56,8 +65,8 @@ export function KrakowHeader({
           },
         ]}
       >
-        <Wheelchair
-          size={17}
+        <PersonArmsSpread
+          size={18}
           weight="bold"
           color={isHighContrast ? colors.accentText : '#FFFFFF'}
         />
@@ -108,107 +117,85 @@ export function KrakowHeader({
           {locale.toUpperCase()}
         </Text>
       </Pressable>
-
-      {/* 3. Voice Assistance (TTS Lektor) */}
-      {onReadScreen ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isSpeaking ? 'Zatrzymaj lektora' : 'Włącz lektora ekranu'}
-          onPress={onReadScreen}
-          style={[
-            styles.secondaryBtn,
-            {
-              borderColor: isSpeaking ? '#EF4444' : colors.border,
-              backgroundColor: isSpeaking
-                ? '#DC2626'
-                : isHighContrast
-                ? colors.background
-                : 'rgba(255,255,255,0.12)',
-              minHeight: minTouch,
-            },
-          ]}
-        >
-          {isSpeaking ? (
-            <Stop size={15} weight="bold" color="#FFFFFF" />
-          ) : (
-            <SpeakerHigh
-              size={15}
-              weight="bold"
-              color={isHighContrast ? colors.text : colors.headerText}
-            />
-          )}
-          <Text
-            style={[
-              styles.secondaryBtnText,
-              {
-                color: isSpeaking
-                  ? '#FFFFFF'
-                  : isHighContrast
-                  ? colors.text
-                  : colors.headerText,
-                fontSize: fontSize(12),
-              },
-            ]}
-          >
-            {isSpeaking ? 'Stop' : 'Lektor'}
-          </Text>
-        </Pressable>
-      ) : null}
-
-      {/* 4. Demo Simulations Trigger */}
-      {onOpenDemo ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Panel symulacji demonstracyjnych"
-          onPress={onOpenDemo}
-          style={[
-            styles.secondaryBtn,
-            {
-              borderColor: colors.border,
-              backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.12)',
-              minHeight: minTouch,
-            },
-          ]}
-        >
-          <Wrench
-            size={15}
-            weight="bold"
-            color={isHighContrast ? colors.text : colors.headerText}
-          />
-          <Text
-            style={[
-              styles.secondaryBtnText,
-              {
-                color: isHighContrast ? colors.text : colors.headerText,
-                fontSize: fontSize(12),
-              },
-            ]}
-          >
-            Demo
-          </Text>
-        </Pressable>
-      ) : null}
     </>
   );
 
-  // Wersja przeglądarkowa zachowuje pełny wygląd instytucjonalny (herb, tytuł, pasek miejski),
-  // a wersja mobilna składa się wyłącznie z paska przycisków funkcyjnych.
-  const isCompact = compact !== undefined ? compact : Platform.OS !== 'web';
-
-  if (isCompact) {
+  // Wersja mobilna: Herb + poziomy tytuł "Kraków bez barier" w rzędzie górnym,
+  // a pod nim przewijany pasek przycisków funkcyjnych.
+  if (isMobile) {
     return (
       <View
         style={[
-          styles.compactContainer,
+          styles.mobileContainer,
           {
             backgroundColor: isHighContrast ? colors.surface : colors.headerBg,
             borderBottomColor: colors.border,
           },
         ]}
       >
+        {/* Rząd 1: Herb Krakowa + Poziomy Tytuł + Tag WCAG AAA */}
+        <View style={styles.mobileTopRow}>
+          <View style={styles.mobileBrand}>
+            <KrakowCoatOfArms size="small" showTitle={false} />
+            <View style={styles.mobileTitleCol}>
+              <Text
+                accessibilityRole="header"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={[
+                  styles.mobileTitle,
+                  {
+                    color: colors.headerText,
+                    fontSize: fontSize(15),
+                  },
+                ]}
+              >
+                {t(locale, 'appName')}
+              </Text>
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={[
+                  styles.mobileSubtitle,
+                  {
+                    color: isHighContrast ? colors.text : 'rgba(255,255,255,0.85)',
+                    fontSize: fontSize(10),
+                  },
+                ]}
+              >
+                {t(locale, 'krakowGovSub')}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.wcagTag,
+              {
+                backgroundColor: isHighContrast ? colors.surface : 'rgba(255,255,255,0.18)',
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.wcagTagText,
+                {
+                  color: colors.headerText,
+                  fontSize: fontSize(9.5),
+                },
+              ]}
+            >
+              WCAG AAA
+            </Text>
+          </View>
+        </View>
+
+        {/* Rząd 2: Pasek przycisków funkcyjnych */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.compactScrollView}
           contentContainerStyle={styles.compactScroll}
         >
           {renderButtons()}
@@ -217,67 +204,16 @@ export function KrakowHeader({
     );
   }
 
-  // Pełna wersja instytucjonalna (np. na tablety lub desktopy)
+  // Pełna wersja instytucjonalna (na ekrany desktopowe i szerokie tablety)
   return (
     <View style={styles.container}>
-      {/* 1. Official Municipal Gov Strip */}
-      <View
-        style={[
-          styles.govStrip,
-          {
-            backgroundColor: isHighContrast ? colors.background : colors.govBarBg,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <View style={styles.govStripLeft}>
-          <View style={styles.flagSymbol}>
-            <View style={styles.flagWhite} />
-            <View style={styles.flagBlue} />
-          </View>
-          <Text
-            style={[
-              styles.govStripText,
-              {
-                color: colors.govBarText,
-                fontSize: fontSize(11),
-              },
-            ]}
-          >
-            OFICJALNY PROTOTYP MIEJSKI • MIASTO KRAKÓW
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.wcagTag,
-            {
-              backgroundColor: isHighContrast ? colors.surface : 'rgba(255,255,255,0.15)',
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.wcagTagText,
-              {
-                color: colors.govBarText,
-                fontSize: fontSize(10),
-              },
-            ]}
-          >
-            WCAG 2.2 AAA
-          </Text>
-        </View>
-      </View>
-
-      {/* 2. Main Institutional Bar */}
+      {/* Main Institutional Bar */}
       <View
         style={[
           styles.mainBar,
           {
             backgroundColor: isHighContrast ? colors.surface : colors.headerBg,
-            borderColor: colors.border,
+            borderBottomColor: colors.border,
           },
         ]}
       >
@@ -286,6 +222,7 @@ export function KrakowHeader({
           <View style={styles.titleColumn}>
             <Text
               accessibilityRole="header"
+              numberOfLines={1}
               style={[
                 styles.mainTitle,
                 {
@@ -297,6 +234,7 @@ export function KrakowHeader({
               {t(locale, 'appName')}
             </Text>
             <Text
+              numberOfLines={1}
               style={[
                 styles.subTitle,
                 {
@@ -318,12 +256,53 @@ export function KrakowHeader({
 }
 
 const styles = StyleSheet.create({
+  mobileContainer: {
+    width: '100%',
+    paddingTop: 8,
+    paddingBottom: 6,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    zIndex: 10,
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  mobileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  mobileBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 8,
+  },
+  mobileTitleCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  mobileTitle: {
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  mobileSubtitle: {
+    fontWeight: '600',
+    marginTop: 1,
+  },
   compactContainer: {
     width: '100%',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
     zIndex: 10,
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  compactScrollView: {
+    flexGrow: 0,
+    flexShrink: 0,
   },
   compactScroll: {
     flexGrow: 1,
@@ -334,40 +313,8 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-  },
-  govStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    gap: 8,
-  },
-  govStripLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  flagSymbol: {
-    width: 14,
-    height: 10,
-    borderWidth: 0.5,
-    borderColor: '#FFFFFF',
-    overflow: 'hidden',
-  },
-  flagWhite: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  flagBlue: {
-    flex: 1,
-    backgroundColor: '#005CA9',
-  },
-  govStripText: {
-    fontWeight: '800',
-    letterSpacing: 0.6,
+    flexGrow: 0,
+    flexShrink: 0,
   },
   wcagTag: {
     paddingHorizontal: 7,
@@ -385,16 +332,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 10,
+    borderBottomWidth: 1,
     gap: 12,
   },
   titleArea: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    flex: 1,
+    flexShrink: 0,
   },
   titleColumn: {
-    flex: 1,
+    justifyContent: 'center',
   },
   mainTitle: {
     fontWeight: '900',

@@ -15,6 +15,11 @@ import type { RouteVariant, RouteVariantId } from '@/services/api';
 
 import type { Locale } from '@/i18n/strings';
 import {
+  getCurrentUserLocation,
+  type UserCoordinates,
+  type UserLocationResult,
+} from '@/services/location';
+import {
   getColors,
   scaleFontSize,
   getLineHeight,
@@ -69,6 +74,12 @@ interface SessionValue {
   activePlaceReport: PlaceAnalysisReport | null;
   setActivePlaceReport: (report: PlaceAnalysisReport | null) => void;
 
+  // Real user GPS location
+  userLocation: UserCoordinates | null;
+  setUserLocation: (loc: UserCoordinates | null) => void;
+  isLocating: boolean;
+  fetchUserLocation: () => Promise<UserLocationResult | null>;
+
   // Accessibility & Design System State
   contrastMode: ContrastMode;
   setContrastMode: (mode: ContrastMode) => void;
@@ -118,7 +129,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profileId, setProfileId] = useState<ProfileId>('wheelchair');
   const [profileThresholds, setProfileThresholds] = useState<Record<ProfileId, BarrierThresholds>>({
     wheelchair: { ...city.profiles.wheelchair },
-    stroller: { ...city.profiles.stroller },
     custom: { ...city.profiles.custom },
   });
   const [customThresholds, setCustomThresholdsState] = useState<BarrierThresholds>(
@@ -284,6 +294,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId, activeThresholds]);
 
+  // User GPS location state
+  const [userLocation, setUserLocation] = useState<UserCoordinates | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+
+  const fetchUserLocation = useCallback(async (): Promise<UserLocationResult | null> => {
+    setIsLocating(true);
+    try {
+      const res = await getCurrentUserLocation();
+      if (res) {
+        setUserLocation({ lat: res.lat, lon: res.lon });
+      }
+      return res;
+    } finally {
+      setIsLocating(false);
+    }
+  }, []);
+
   // Advanced Public-Sector Accessibility State (WCAG 2.2 AAA)
   const [contrastMode, setContrastMode] = useState<ContrastMode>('standard-light');
   const [textSize, setTextSize] = useState<TextSize>('normal');
@@ -395,6 +422,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       selectRouteVariant,
       activePlaceReport,
       setActivePlaceReport,
+      userLocation,
+      setUserLocation,
+      isLocating,
+      fetchUserLocation,
       // Accessibility
       contrastMode,
       setContrastMode,
@@ -452,6 +483,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       selectedRouteVariant,
       selectRouteVariant,
       activePlaceReport,
+      userLocation,
+      isLocating,
+      fetchUserLocation,
       contrastMode,
       textSize,
       lineHeightMode,

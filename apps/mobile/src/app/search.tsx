@@ -1,8 +1,8 @@
 import { DEMO_SNAPSHOT, type LonLat } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -52,6 +52,8 @@ export default function SearchScreen() {
     highlightLinks,
     dyslexicFont,
     activeThresholds,
+    userLocation,
+    fetchUserLocation,
   } = useSession();
 
   const [activeTab, setActiveTab] = useState<'route' | 'place'>('route');
@@ -67,12 +69,23 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
-  const handleUseMyLocation = () => {
-    // Explicit user tap as required by P3
-    setFromQuery('Moja lokalizacja (Centrum Krakowa)');
-    setFromPos({ lon: 19.9373, lat: 50.0619 });
+  const handleUseMyLocation = async () => {
+    if (userLocation) {
+      setFromQuery('Moja lokalizacja');
+      setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
+      return;
+    }
+    const result = await fetchUserLocation();
+    if (result) {
+      setFromQuery(result.address || 'Moja lokalizacja');
+      setFromPos({ lon: result.lon, lat: result.lat });
+    } else {
+      Alert.alert(
+        'Lokalizacja niedostępna',
+        'Nie udało się pobrać Twojej obecnej lokalizacji. Upewnij się, że masz włączony GPS i przyznane uprawnienia.',
+      );
+    }
   };
 
   const handleAnalyzeRoute = async () => {
@@ -137,35 +150,11 @@ export default function SearchScreen() {
     setActiveTab('place');
   };
 
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    const text = `${t(locale, 'searchTitle')}. ${t(locale, 'searchLead')}. ${
-      activeTab === 'route'
-        ? `Aktywna zakładka: Trasa piesza A do B. Punkt początkowy: ${fromQuery}. Punkt docelowy: ${toQuery}. Naciśnij przycisk Analizuj trasę, aby sprawdzić bariery.`
-        : `Aktywna zakładka: Dostępność obiektu. Szukany obiekt: ${placeQuery}. Naciśnij przycisk Sprawdź dostępność miejsca.`
-    }`;
-
-    setIsSpeaking(true);
-    Speech.speak(text, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'searchTitle') }} />
 
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner />
 

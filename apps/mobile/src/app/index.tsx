@@ -4,10 +4,8 @@ import {
   type ProfileId,
 } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import {
   ArrowRight,
-  Baby,
   Buildings,
   CaretDown,
   CaretUp,
@@ -22,11 +20,11 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Warning,
-  Wheelchair,
   X,
 } from 'phosphor-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -115,6 +113,9 @@ export default function MapHomeScreen() {
     setActivePlaceReport,
     localReports,
     addLocalReport,
+    userLocation,
+    isLocating,
+    fetchUserLocation,
     colors,
     fontSize,
     isHighContrast,
@@ -125,6 +126,15 @@ export default function MapHomeScreen() {
     lat: 50.0619,
     lon: 19.9373,
   });
+
+  // Proactively request / fetch location on mount
+  useEffect(() => {
+    fetchUserLocation().then((loc) => {
+      if (loc) {
+        setMapCenter({ lat: loc.lat, lon: loc.lon });
+      }
+    });
+  }, [fetchUserLocation]);
 
   // Popup menu / sheet state (Google/Apple Maps style)
   const [popupExpanded, setPopupExpanded] = useState(false);
@@ -149,7 +159,6 @@ export default function MapHomeScreen() {
   const [loadingPlace, setLoadingPlace] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const blockedList =
     activeThresholds?.blockedRoadTypes ?? activeThresholds?.blockedSurfaces ?? [];
@@ -157,9 +166,8 @@ export default function MapHomeScreen() {
   const getProfileIcon = (id: ProfileId, size = 18) => {
     switch (id) {
       case 'wheelchair':
-        return <Wheelchair size={size} weight="bold" color={colors.accent} />;
-      case 'stroller':
-        return <Baby size={size} weight="bold" color={colors.accent} />;
+        // Less intimidating modern navigation arrow icon
+        return <NavigationArrow size={size} weight="bold" color={colors.accent} />;
       case 'custom':
       default:
         return <SlidersHorizontal size={size} weight="bold" color={colors.accent} />;
@@ -170,8 +178,6 @@ export default function MapHomeScreen() {
     switch (id) {
       case 'wheelchair':
         return t(locale, 'wheelchair');
-      case 'stroller':
-        return t(locale, 'stroller');
       case 'custom':
       default:
         return t(locale, 'custom');
@@ -185,10 +191,62 @@ export default function MapHomeScreen() {
     setTimeout(() => setStatusMessage(null), 3000);
   };
 
-  const handleUseMyLocation = () => {
-    setFromQuery('Moja lokalizacja (Centrum)');
-    setFromPos({ lon: 19.9373, lat: 50.0619 });
-    setMapCenter({ lat: 50.0619, lon: 19.9373 });
+  const handleLocateUser = async () => {
+    setStatusMessage('Pobieranie Twojej lokalizacji GPS...');
+    const result = await fetchUserLocation();
+    if (result) {
+      setMapCenter({ lat: result.lat, lon: result.lon });
+      setStatusMessage('Wycentrowano mapę na Twojej lokalizacji.');
+      setTimeout(() => setStatusMessage(null), 3000);
+    } else {
+      Alert.alert(
+        'Lokalizacja niedostępna',
+        'Nie udało się pobrać Twojej obecnej lokalizacji. Upewnij się, że masz włączony GPS i przyznane uprawnienia.',
+        [
+          { text: 'Centrum Krakowa', onPress: handleCenterKrakow },
+          { text: 'OK', style: 'cancel' },
+        ],
+      );
+      setStatusMessage(null);
+    }
+  };
+
+  const handleUseMyLocation = async () => {
+    if (userLocation) {
+      setFromQuery('Moja lokalizacja');
+      setFromPos({ lon: userLocation.lon, lat: userLocation.lat });
+      setMapCenter({ lat: userLocation.lat, lon: userLocation.lon });
+      setStatusMessage('Ustawiono punkt startowy na Twoją lokalizację.');
+      setTimeout(() => setStatusMessage(null), 2500);
+      return;
+    }
+
+    setStatusMessage('Pobieranie Twojej lokalizacji GPS...');
+    const result = await fetchUserLocation();
+    if (result) {
+      setFromQuery(result.address || 'Moja lokalizacja');
+      setFromPos({ lon: result.lon, lat: result.lat });
+      setMapCenter({ lat: result.lat, lon: result.lon });
+      setStatusMessage('Ustawiono punkt startowy na Twoją lokalizację.');
+      setTimeout(() => setStatusMessage(null), 2500);
+    } else {
+      Alert.alert(
+        'Lokalizacja niedostępna',
+        'Nie udało się pobrać Twojej lokalizacji GPS. Wpisz adres początkowy ręcznie lub wybierz Centrum Krakowa.',
+        [
+          {
+            text: 'Centrum Krakowa',
+            onPress: () => {
+              setFromQuery('Rynek Główny');
+              setFromPos({ lon: 19.9373, lat: 50.0619 });
+              setMapCenter({ lat: 50.0619, lon: 19.9373 });
+            },
+          },
+          { text: 'Anuluj', style: 'cancel' },
+        ],
+      );
+      setStatusMessage(null);
+    }
   };
 
   // 2. Plan & Analyze Route
@@ -380,33 +438,6 @@ export default function MapHomeScreen() {
     setTimeout(() => setReportSuccess(false), 3500);
   };
 
-  // Screen Reader Narrative
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    let narrative = `${t(locale, 'appName')}. Mapa dostępności Krakowa w stylu map mobilnych. Aktualny profil poruszania: ${getProfileLabel(
-      profileId,
-    )}. `;
-    if (activeWalkingRoute && activeRouteReport) {
-      narrative += `Aktywna trasa z ${fromQuery} do ${toQuery} o długości ${activeRouteReport.lengthMetres} metrów. `;
-      const blockers = activeRouteReport.findings.filter((f) => f.severity === 'blocker');
-      const warnings = activeRouteReport.findings.filter((f) => f.severity === 'warning');
-      narrative += `Wykryto ${blockers.length} blokad oraz ${warnings.length} ostrzeżeń. `;
-    } else {
-      narrative += 'Brak aktywnej trasy. Użyj dolnego menu wyszukiwania, aby wyznaczyć trasę lub sprawdzić obiekt.';
-    }
-
-    setIsSpeaking(true);
-    Speech.speak(narrative, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
-
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background }]}
@@ -415,11 +446,7 @@ export default function MapHomeScreen() {
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'appName') }} />
 
       {/* 1. TOP HEADER (Google / Apple Maps Style Floating Top Bar) */}
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <DemoBanner />
 
@@ -430,6 +457,7 @@ export default function MapHomeScreen() {
           route={activeWalkingRoute}
           findings={activeRouteReport?.findings || []}
           center={mapCenter}
+          userLocation={userLocation}
           startLocation={
             activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
               ? { name: fromQuery, lat: activeWalkingRoute.coordinates[0]![1], lon: activeWalkingRoute.coordinates[0]![0] }
@@ -450,18 +478,22 @@ export default function MapHomeScreen() {
         <View style={styles.floatingControlsRight}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Wycentruj na centrum Krakowa"
-            onPress={handleCenterKrakow}
+            accessibilityLabel="Pokaż moją obecną lokalizację"
+            onPress={handleLocateUser}
             style={[
               styles.floatingBtn,
               {
                 backgroundColor: colors.surface,
-                borderColor: colors.border,
+                borderColor: userLocation ? colors.accent : colors.border,
                 borderWidth: isHighContrast ? 2.5 : 1.5,
               },
             ]}
           >
-            <Crosshair size={22} weight="bold" color={colors.accent} />
+            {isLocating ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Crosshair size={22} weight="bold" color={userLocation ? colors.accent : colors.text} />
+            )}
           </Pressable>
 
           <Pressable
@@ -1336,7 +1368,7 @@ export default function MapHomeScreen() {
 
                   {/* Profile Cards */}
                   <View style={styles.profilesGrid}>
-                    {(['wheelchair', 'stroller', 'custom'] as ProfileId[]).map((pid) => {
+                    {(['wheelchair', 'custom'] as ProfileId[]).map((pid) => {
                       const selected = profileId === pid;
                       return (
                         <Pressable

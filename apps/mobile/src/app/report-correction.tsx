@@ -1,6 +1,5 @@
 import { Stack } from 'expo-router';
 import * as Linking from 'expo-linking';
-import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import {
   Alert,
@@ -46,7 +45,6 @@ export default function ReportCorrectionScreen() {
   const [description, setDescription] = useState('');
   const [successMsg, setSuccessMsg] = useState(false);
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const handleSubmitLocal = () => {
     if (!description.trim()) {
@@ -75,34 +73,10 @@ export default function ReportCorrectionScreen() {
     }
   };
 
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    const text = `${t(locale, 'reportTitle')}. ${t(
-      locale,
-      'reportLead',
-    )}. Wpisz treść uwagi w polu formularza, a następnie kliknij przycisk Zapisz zgłoszenie lokalnie.`;
-
-    setIsSpeaking(true);
-    Speech.speak(text, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'reportTitle') }} />
-
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <ScrollView
         contentContainerStyle={[

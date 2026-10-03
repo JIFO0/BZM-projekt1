@@ -5,6 +5,7 @@ import {
   type WalkingRoute,
 } from '@krakow-bez-barier/core';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useEffect, useRef } from 'react';
 import { WebView } from 'react-native-webview';
 
 import { useSession } from '@/state/session';
@@ -19,6 +20,7 @@ export interface MapViewProps {
   style?: StyleProp<ViewStyle>;
   startLocation?: { name?: string; lat: number; lon: number };
   endLocation?: { name?: string; lat: number; lon: number };
+  userLocation?: { lat: number; lon: number } | null;
 }
 
 export function MapView({
@@ -30,8 +32,11 @@ export function MapView({
   style,
   startLocation,
   endLocation,
+  userLocation,
 }: MapViewProps) {
   const { colors, isHighContrast } = useSession();
+  const iframeRef = useRef<any>(null);
+  const webViewRef = useRef<WebView>(null);
 
   let defaultLat = 50.0619;
   let defaultLon = 19.9373;
@@ -39,11 +44,42 @@ export function MapView({
   if (center) {
     defaultLat = center.lat;
     defaultLon = center.lon;
+  } else if (userLocation) {
+    defaultLat = userLocation.lat;
+    defaultLon = userLocation.lon;
   } else if (route && route.coordinates.length > 0) {
     const midIdx = Math.floor(route.coordinates.length / 2);
     defaultLon = route.coordinates[midIdx]![0];
     defaultLat = route.coordinates[midIdx]![1];
   }
+
+  // Smooth centering via message/injection without reloading page
+  useEffect(() => {
+    if (!center) return;
+    if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ type: 'SET_CENTER', lat: center.lat, lon: center.lon, zoom }),
+        '*',
+      );
+    } else if (Platform.OS !== 'web' && webViewRef.current) {
+      const js = `if (typeof map !== 'undefined') { map.setView([${center.lat}, ${center.lon}], ${zoom}, { animate: true }); } true;`;
+      webViewRef.current.injectJavaScript(js);
+    }
+  }, [center, zoom]);
+
+  // Dynamic user marker update
+  useEffect(() => {
+    if (!userLocation) return;
+    if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ type: 'SET_USER_LOCATION', lat: userLocation.lat, lon: userLocation.lon }),
+        '*',
+      );
+    } else if (Platform.OS !== 'web' && webViewRef.current) {
+      const js = `if (typeof updateUserMarker === 'function') { updateUserMarker(${userLocation.lat}, ${userLocation.lon}); } true;`;
+      webViewRef.current.injectJavaScript(js);
+    }
+  }, [userLocation]);
 
   const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
 
@@ -131,6 +167,38 @@ export function MapView({
     .endpoint-marker.destination {
       background-color: #D32F2F;
     }
+    .user-location-marker {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px !important;
+      height: 26px !important;
+    }
+    .user-dot {
+      width: 14px;
+      height: 14px;
+      background-color: #007AFF;
+      border: 2.5px solid #FFFFFF;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      position: absolute;
+      z-index: 2;
+    }
+    .user-pulse {
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(0, 122, 255, 0.35);
+      animation: user-pulse-anim 2s infinite ease-out;
+      z-index: 1;
+    }
+    @keyframes user-pulse-anim {
+      0% { transform: scale(0.6); opacity: 0.9; }
+      70% { transform: scale(1.7); opacity: 0; }
+      100% { transform: scale(1.7); opacity: 0; }
+    }
     .leaflet-control-attribution {
       font-size: 9px !important;
       background: rgba(255, 255, 255, 0.85) !important;
@@ -191,6 +259,30 @@ export function MapView({
         .bindPopup('<b>Cel:</b> ' + (endPin.name || 'Koniec trasy'));
     }
 
+    var userLocation = ${JSON.stringify(userLocation || null)};
+    var userMarker = null;
+
+    function updateUserMarker(lat, lon) {
+      if (userMarker) {
+        userMarker.setLatLng([lat, lon]);
+      } else {
+        var userIcon = L.divIcon({
+          className: 'user-location-marker',
+          html: '<div class="user-pulse"></div><div class="user-dot"></div>',
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
+        });
+        userMarker = L.marker([lat, lon], {
+          icon: userIcon,
+          zIndexOffset: 1000
+        }).addTo(map).bindPopup('<b>Twoja lokalizacja</b>');
+      }
+    }
+
+    if (userLocation && userLocation.lat && userLocation.lon) {
+      updateUserMarker(userLocation.lat, userLocation.lon);
+    }
+
     var markers = ${JSON.stringify(markersData)};
     markers.forEach(function(m) {
       var icon = L.divIcon({
@@ -203,6 +295,21 @@ export function MapView({
       var marker = L.marker([m.lat, m.lon], { icon: icon }).addTo(map);
       marker.bindPopup('<b>' + m.title + '</b><br/>' + m.value + '<br/><i>Status: ' + m.severity + '</i>');
     });
+
+    function handleMapMessage(event) {
+      try {
+        var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (!data) return;
+        if (data.type === 'SET_CENTER') {
+          map.setView([data.lat, data.lon], data.zoom || 16, { animate: true });
+        } else if (data.type === 'SET_USER_LOCATION') {
+          updateUserMarker(data.lat, data.lon);
+        }
+      } catch (err) {}
+    }
+
+    window.addEventListener('message', handleMapMessage);
+    document.addEventListener('message', handleMapMessage);
 
     window.addEventListener('resize', function() {
       map.invalidateSize();
@@ -228,12 +335,14 @@ export function MapView({
     >
       {Platform.OS === 'web' ? (
         <iframe
+          ref={iframeRef}
           title="Mapa trasy"
           srcDoc={htmlContent}
           style={{ width: '100%', height: '100%', border: 'none' }}
         />
       ) : (
         <WebView
+          ref={webViewRef}
           originWhitelist={['*']}
           source={{ html: htmlContent }}
           style={styles.webview}
