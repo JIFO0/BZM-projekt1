@@ -64,6 +64,17 @@ describe('buildCustomModel', () => {
     expect(missingRule).toBeUndefined();
   });
 
+  it('blocks slopes steeper than the profile incline limit', () => {
+    const model = buildCustomModel(wheelchairThresholds);
+    const slopeRule = model.priority?.find((r) => r.if.includes('max_slope'));
+    expect(slopeRule).toEqual({
+      if: 'max_slope > 6 || average_slope > 6',
+      multiply_by: '0.0',
+    });
+    const loose = buildCustomModel(strollerThresholds);
+    expect(loose.priority?.find((r) => r.if.includes('max_slope'))?.if).toContain('max_slope > 8');
+  });
+
   it('penalizes bad smoothness for low kerb tolerance profiles', () => {
     const model = buildCustomModel(wheelchairThresholds);
     const smoothnessRule = model.priority?.find((r) => r.if.includes('smoothness == BAD'));

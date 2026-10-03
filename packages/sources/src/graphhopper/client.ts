@@ -13,7 +13,10 @@ export function buildGraphHopperUrl(apiBase: string): URL {
 /**
  * Builds the POST request payload for GraphHopper with custom model weights.
  */
-export function buildGraphHopperRequestBody(query: GraphHopperRouteQuery): GraphHopperRequestBody {
+export function buildGraphHopperRequestBody(
+  query: GraphHopperRouteQuery,
+  options?: { includeSlope?: boolean },
+): GraphHopperRequestBody {
   const points: [number, number][] = [
     [query.start.lon, query.start.lat],
     ...(query.waypoints || []).map((wp): [number, number] => [wp.lon, wp.lat]),
@@ -27,7 +30,7 @@ export function buildGraphHopperRequestBody(query: GraphHopperRouteQuery): Graph
     points_encoded: false,
     locale: query.lang || 'pl',
     details: ['surface', 'smoothness', 'max_width', 'footway', 'road_class'],
-    custom_model: buildCustomModel(query.thresholds),
+    custom_model: buildCustomModel(query.thresholds, options),
   };
 }
 
@@ -39,11 +42,10 @@ export async function fetchGraphHopperRoute(
   fetchImpl: typeof fetch = fetch,
 ): Promise<AccessibleRouteResult> {
   const url = buildGraphHopperUrl(query.apiBase);
-  const body = buildGraphHopperRequestBody(query);
 
-  let response: Response;
-  try {
-    response = await fetchImpl(url.toString(), {
+  const postRoute = async (includeSlope: boolean): Promise<Response> => {
+    const body = buildGraphHopperRequestBody(query, { includeSlope });
+    return fetchImpl(url.toString(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -51,6 +53,11 @@ export async function fetchGraphHopperRoute(
       },
       body: JSON.stringify(body),
     });
+  };
+
+  let response: Response;
+  try {
+    response = await postRoute(true);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(`Nie udało się połączyć z silnikiem GraphHopper (${url.origin}): ${message}`);
@@ -63,6 +70,25 @@ export async function fetchGraphHopperRoute(
       errorDetail = errJson.message || errJson.hints?.[0]?.message || '';
     } catch {
       // response wasn't JSON
+    }
+    const slopeMissing = /slope/i.test(errorDetail);
+    if (slopeMissing) {
+      try {
+        response = await postRoute(false);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new Error(`Nie udało się połączyć z silnikiem GraphHopper (${url.origin}): ${message}`);
+      }
+      if (response.ok) {
+        const json = (await response.json()) as unknown;
+        return parseGraphHopperResponse(json, query.thresholds);
+      }
+      try {
+        const errJson = (await response.json()) as { message?: string; hints?: Array<{ message?: string }> };
+        errorDetail = errJson.message || errJson.hints?.[0]?.message || errorDetail;
+      } catch {
+        // response wasn't JSON
+      }
     }
     throw new Error(
       `Błąd wyznaczania trasy w GraphHopper (${response.status}): ${errorDetail || response.statusText}`,

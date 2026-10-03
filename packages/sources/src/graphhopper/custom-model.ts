@@ -27,7 +27,10 @@ export const GRAPHHOPPER_SURFACE_ENUMS: Record<string, string> = {
  * - Null/unmapped data in OSM is treated as passable and not penalized.
  * - Only explicit, mapped obstacles (steps, narrow paths, unsuitable surfaces) are penalized.
  */
-export function buildCustomModel(thresholds: BarrierThresholds): GraphHopperCustomModel {
+export function buildCustomModel(
+  thresholds: BarrierThresholds,
+  options?: { includeSlope?: boolean },
+): GraphHopperCustomModel {
   const priority: GraphHopperCustomModelStatement[] = [];
 
   // 1. Handling Steps
@@ -84,7 +87,17 @@ export function buildCustomModel(thresholds: BarrierThresholds): GraphHopperCust
     }
   }
 
-  // 4. Smoothness penalty for strict profiles (e.g. wheelchairs or low kerb tolerance)
+  // 4. Incline from the mobility profile. GraphHopper stores slope in percent.
+  // Missing slope stays unpenalized (comparisons with MISSING are false).
+  if (options?.includeSlope !== false && thresholds.maxInclinePercent > 0) {
+    const limit = thresholds.maxInclinePercent;
+    priority.push({
+      if: `max_slope > ${limit} || average_slope > ${limit}`,
+      multiply_by: '0.0',
+    });
+  }
+
+  // 5. Smoothness penalty for strict profiles (e.g. wheelchairs or low kerb tolerance)
   if (thresholds.maxKerbMillimetres <= 30) {
     priority.push({
       if: 'smoothness == BAD || smoothness == VERY_BAD || smoothness == HORRIBLE || smoothness == VERY_HORRIBLE || smoothness == IMPASSABLE',

@@ -63,11 +63,17 @@ export class OsmNominatimGeocodingProvider implements GeocodingProvider {
       ];
     }
 
+    const biasedQuery = /krak[oó]w/i.test(trimmed) ? trimmed : `${trimmed}, Kraków`;
+    const looksLikeAddress = /\d/.test(trimmed);
+
     const url = new URL('/search', this.endpoint);
-    url.searchParams.set('q', trimmed);
+    url.searchParams.set('q', biasedQuery);
     url.searchParams.set('format', 'jsonv2');
     url.searchParams.set('addressdetails', '1');
     url.searchParams.set('limit', '8');
+    url.searchParams.set('countrycodes', 'pl');
+    url.searchParams.set('layer', looksLikeAddress ? 'address' : 'address,poi');
+    if (looksLikeAddress) url.searchParams.set('dedupe', '0');
     url.searchParams.set(
       'accept-language',
       lang === 'uk' ? 'uk,pl,en' : lang === 'en' ? 'en,pl' : 'pl,en',
@@ -105,22 +111,31 @@ export class OsmNominatimGeocodingProvider implements GeocodingProvider {
           const lon = parseFloat(item.lon);
           if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
+          const address = item.address ?? {};
+          const streetLine = [address.road, address.house_number].filter(Boolean).join(' ');
           const rawName =
+            (streetLine && (item.type === 'house' || item.class === 'building' || looksLikeAddress)
+              ? streetLine
+              : '') ||
             item.name ||
-            item.address?.amenity ||
-            item.address?.building ||
-            item.address?.road ||
+            address.amenity ||
+            address.building ||
+            streetLine ||
+            address.road ||
             item.display_name?.split(',')[0]?.trim();
 
           const name = rawName || `Punkt #${idx + 1}`;
-          const label = item.display_name || name;
+          const locality = [address.suburb, address.city || address.town || address.village]
+            .filter(Boolean)
+            .join(', ');
+          const label = [streetLine || name, locality].filter(Boolean).join(' • ') || item.display_name || name;
 
           return {
             id: `osm-${item.place_id ?? item.osm_id ?? idx}`,
             name,
             label,
             position: { lat, lon },
-            kind: item.type || item.category || 'poi',
+            kind: address.house_number ? 'address' : item.type || item.category || 'poi',
           };
         })
         .filter((h): h is PlaceHit => h !== null);

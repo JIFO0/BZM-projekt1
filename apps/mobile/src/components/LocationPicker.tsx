@@ -81,7 +81,8 @@ export function LocationPicker({
   }, [point.name, point.position.lat, point.position.lon]);
 
   // Debounced OSM search
-  const debounceRef = useRef<any>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleQueryChange = (text: string) => {
     setQueryText(text);
@@ -120,6 +121,7 @@ export function LocationPicker({
         setShowDropdown(true);
       } catch {
         setSuggestions([]);
+        setShowDropdown(true);
       } finally {
         setLoadingSuggestions(false);
       }
@@ -399,9 +401,14 @@ export function LocationPicker({
           onChangeText={handleQueryChange}
           onFocus={() => {
             setIsFocused(true);
-            if (suggestions.length > 0) setShowDropdown(true);
+            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+            if (suggestions.length > 0 || queryText.trim().length >= 3) setShowDropdown(true);
           }}
-          onBlur={() => setIsFocused(false)}
+          onBlur={() => {
+            setIsFocused(false);
+            if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+            blurTimerRef.current = setTimeout(() => setShowDropdown(false), 280);
+          }}
           placeholder={placeholder || t(locale, 'searchPromptOsm')}
           placeholderTextColor={colors.muted}
           style={[
@@ -441,8 +448,8 @@ export function LocationPicker({
         </View>
       ) : null}
 
-      {/* Suggestions Dropdown (OpenStreetMap results) */}
-      {showDropdown && suggestions.length > 0 ? (
+      {/* Address and place suggestions */}
+      {showDropdown && (suggestions.length > 0 || (queryText.trim().length >= 3 && !loadingSuggestions)) ? (
         <View
           style={[
             styles.dropdown,
@@ -462,12 +469,21 @@ export function LocationPicker({
             </Pressable>
           </View>
 
+          {suggestions.length === 0 ? (
+            <Text style={[styles.emptySuggestions, { color: colors.muted, fontSize: fontSize(12.5) }]}>
+              {t(locale, 'noOsmResultsFound')}
+            </Text>
+          ) : null}
+
           {suggestions.map((item) => (
             <Pressable
               key={item.id}
               accessibilityRole="button"
               accessibilityLabel={`${item.name}, ${item.label}`}
-              onPress={() => handleSelectSuggestion(item)}
+              onPressIn={() => {
+                if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+                handleSelectSuggestion(item);
+              }}
               style={({ pressed }) => [
                 styles.suggestionItem,
                 {
@@ -667,6 +683,11 @@ const styles = StyleSheet.create({
   },
   dropdownTitle: {
     fontWeight: '700',
+  },
+  emptySuggestions: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    fontWeight: '600',
   },
   suggestionItem: {
     flexDirection: 'row',

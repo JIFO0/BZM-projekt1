@@ -178,6 +178,7 @@ export default function SearchScreen() {
       <DemoBanner />
 
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.content,
           {

@@ -937,6 +937,8 @@ export default function MapHomeScreen() {
                 { paddingBottom: spacing.touch + 20 },
               ]}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
             >
               {/* TAB 1: TRASA (ROUTE PLANNING & ANALYSIS) */}
               {activeTab === 'route' ? (

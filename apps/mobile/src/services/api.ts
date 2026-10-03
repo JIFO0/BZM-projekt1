@@ -44,7 +44,7 @@ const osmOverpass = new OsmOverpassProvider({
   endpoint: city.overpass.endpoint,
   userAgent: city.overpass.userAgent,
   stalenessMonths: city.stalenessMonths,
-  timeoutMs: 4000,
+  timeoutMs: 12000,
 });
 const osmNominatim = new OsmNominatimGeocodingProvider({
   userAgent: city.overpass.userAgent,
@@ -84,10 +84,6 @@ export interface PlanRouteResult {
 
 export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<PlanRouteResult> {
   const { start, end, profileId, debugState } = params;
-
-  const isRynekWawel =
-    (start.name.toLowerCase().includes('rynek') && end.name.toLowerCase().includes('wawel')) ||
-    (Math.abs(start.position.lat - 50.0619) < 0.005 && Math.abs(end.position.lat - 50.0544) < 0.005);
 
   let walkingRoute: WalkingRoute = DEMO_SNAPSHOT.routes[0]!.walkingRoute;
   let isSample = false;
@@ -192,11 +188,10 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
       });
       facts = bundle.facts;
     } catch {
-      facts = DEMO_SNAPSHOT.routes[0]!.facts;
-      isSample = true;
+      facts = [];
       fallbackNotice =
         (fallbackNotice ? `${fallbackNotice} • ` : '') +
-        'Nie udało się pobrać danych z OpenStreetMap (Overpass niedostępny). Wyświetlono dane ze snapshotu demo.';
+        'Nie udało się pobrać barier z OpenStreetMap. Trasa między wskazanymi punktami została zachowana, ale bez oceny krawężników i nawierzchni.';
     }
   }
 
@@ -211,15 +206,15 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     isSample,
   });
 
-  // 4. Route variant selection (Najkrótsza vs Bez barier)
-  // For demo corridor (Rynek -> Wawel) or fallback mode, provide both variants
+  // Demo variants stay on the Rynek–Wawel snapshot. Any other A–B keeps the route
+  // that was just calculated for those coordinates.
   let variants: Record<RouteVariantId, RouteVariant> | undefined;
   const sampleShortest = DEMO_SNAPSHOT.routes[0]!;
   const sampleAccessible =
     DEMO_SNAPSHOT.routes.find((r) => r.id === 'sample-route-rynek-wawel-accessible') ??
     DEMO_SNAPSHOT.routes[1]!;
 
-  if (isSample || isRynekWawel) {
+  if (isSample) {
     const shortestReport = analyzeRoute({
       routeId: `route-shortest-${Date.now()}`,
       profileId,
