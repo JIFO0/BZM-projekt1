@@ -26,17 +26,24 @@ import { suggestPlaces } from '@/services/api';
 import { useSession } from '@/state/session';
 
 
-export interface LocationPoint {
+export interface LocationInputPoint {
+  name: string;
+  position?: LonLat | null;
+}
+
+export interface SelectedLocationPoint {
   name: string;
   position: LonLat;
 }
+
+export type LocationPoint = SelectedLocationPoint;
 
 export interface LocationPickerProps {
   label: string;
   badge?: string;
   badgeColor?: string;
-  point: LocationPoint;
-  onChangePoint: (point: LocationPoint) => void;
+  point: LocationInputPoint;
+  onChangePoint: (point: SelectedLocationPoint) => void;
   placeholder?: string;
   showMyLocation?: boolean;
   onUseMyLocation?: () => void;
@@ -160,22 +167,25 @@ export function LocationPicker({
           </Text>
         </View>
 
-        {showMyLocation && onUseMyLocation ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(locale, 'myLocation')}
-            onPress={onUseMyLocation}
-            style={[
-              styles.smallActionBtn,
-              { backgroundColor: colors.background, borderColor: colors.border },
-            ]}
-          >
-            <NavigationArrow size={12} weight="bold" color={colors.accent} />
-            <Text style={[styles.smallActionText, { color: colors.accent, fontSize: fontSize(11.5) }]}>
-              {t(locale, 'myLocationShort')}
-            </Text>
-          </Pressable>
-        ) : null}
+        <View style={styles.headerActions}>
+          {showMyLocation && onUseMyLocation ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(locale, 'myLocation')}
+              onPress={onUseMyLocation}
+              style={[
+                styles.smallActionBtn,
+                { backgroundColor: colors.background, borderColor: colors.border },
+              ]}
+            >
+              <NavigationArrow size={12} weight="bold" color={colors.accent} />
+              <Text style={[styles.smallActionText, { color: colors.accent, fontSize: fontSize(11.5) }]}>
+                {t(locale, 'myLocationShort')}
+              </Text>
+            </Pressable>
+          ) : null}
+
+        </View>
       </View>
 
       {/* Picking on map banner */}

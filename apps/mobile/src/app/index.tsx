@@ -28,7 +28,7 @@ import {
   Warning,
   Wheelchair,
   X,
-  IdentificationCard,
+  User,
 } from 'phosphor-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -63,6 +63,7 @@ import {
   inspectPlace,
   planAndAnalyzeRoute,
   reverseGeocodeLocation,
+  suggestPlaces,
   type RouteVariantId,
   type ServerRouteHazard,
   type ServerPlaceComment,
@@ -211,8 +212,8 @@ export default function MapHomeScreen() {
     colors,
     fontSize,
     isHighContrast,
-    krakowCardUser,
-    setKrakowCardModalVisible,
+    userAccount,
+    setUserModalVisible,
     barrierViewMode,
     setBarrierViewMode,
   } = useSession();
@@ -274,9 +275,9 @@ export default function MapHomeScreen() {
 
   // Search & Routing state
   const [fromQuery, setFromQuery] = useState('');
-  const [fromPos, setFromPos] = useState<LonLat>(EMPTY_POINT);
+  const [fromPos, setFromPos] = useState<LonLat | null>(null);
   const [toQuery, setToQuery] = useState('');
-  const [toPos, setToPos] = useState<LonLat>(EMPTY_POINT);
+  const [toPos, setToPos] = useState<LonLat | null>(null);
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
 
@@ -588,9 +589,33 @@ export default function MapHomeScreen() {
     setLoadingRoute(true);
     setStatusMessage(null);
     try {
+      let resolvedStart = fromPos;
+      let resolvedEnd = toPos;
+
+      if (!resolvedStart && fromQuery.trim()) {
+        const hits = await suggestPlaces(fromQuery, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedStart = hits[0].position;
+          setFromPos(resolvedStart);
+        }
+      }
+
+      if (!resolvedEnd && toQuery.trim()) {
+        const hits = await suggestPlaces(toQuery, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedEnd = hits[0].position;
+          setToPos(resolvedEnd);
+        }
+      }
+
+      if (!resolvedStart || !resolvedEnd) {
+        Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
+        return;
+      }
+
       const result = await planAndAnalyzeRoute({
-        start: { name: fromQuery, position: fromPos },
-        end: { name: toQuery, position: toPos },
+        start: { name: fromQuery, position: resolvedStart },
+        end: { name: toQuery, position: resolvedEnd },
         profileId,
         thresholds: activeThresholds,
         debugState,
@@ -610,11 +635,11 @@ export default function MapHomeScreen() {
 
       router.setParams({
         fromName: fromQuery,
-        fromLat: String(fromPos.lat),
-        fromLon: String(fromPos.lon),
+        fromLat: String(resolvedStart.lat),
+        fromLon: String(resolvedStart.lon),
         toName: toQuery,
-        toLat: String(toPos.lat),
-        toLon: String(toPos.lon),
+        toLat: String(resolvedEnd.lat),
+        toLon: String(resolvedEnd.lon),
         profile: profileId,
         variant: result.selectedVariant || selectedRouteVariant,
       });
@@ -825,6 +850,10 @@ export default function MapHomeScreen() {
     setActiveRouteReport(null);
     setActiveRouteFacts([]);
     setRouteVariants(null);
+    setFromQuery('');
+    setFromPos(null);
+    setToQuery('');
+    setToPos(null);
     router.setParams({
       fromName: undefined,
       fromLat: undefined,
@@ -863,7 +892,7 @@ export default function MapHomeScreen() {
     }
 
     try {
-      const email = krakowCardUser?.email || 'mieszkaniec@krakow.pl';
+      const email = userAccount?.email || 'uzytkownik@krakow.pl';
       await createServerHazard({
         description: reportDesc.trim(),
         category: newReportCategory,
@@ -913,7 +942,7 @@ export default function MapHomeScreen() {
         }
       }
 
-      const email = krakowCardUser?.email || 'mieszkaniec@krakow.pl';
+      const email = userAccount?.email || 'uzytkownik@krakow.pl';
       const created = await addPlaceServerComment(targetPlaceId, {
         sentiment: placeCommentSentiment,
         comment: placeCommentText.trim(),
@@ -970,28 +999,36 @@ export default function MapHomeScreen() {
           center={mapCenter}
           userLocation={userLocation}
           clickedLocation={clickedLocation}
-          startLocation={{
-            name: fromQuery,
-            lat:
-              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-                ? activeWalkingRoute.coordinates[0]![1]
-                : fromPos.lat,
-            lon:
-              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-                ? activeWalkingRoute.coordinates[0]![0]
-                : fromPos.lon,
-          }}
-          endLocation={{
-            name: toQuery,
-            lat:
-              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-                ? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1]
-                : toPos.lat,
-            lon:
-              activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
-                ? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0]
-                : toPos.lon,
-          }}
+          startLocation={
+            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+              ? {
+                  name: fromQuery || 'Start',
+                  lat: activeWalkingRoute.coordinates[0]![1],
+                  lon: activeWalkingRoute.coordinates[0]![0],
+                }
+              : fromPos && fromPos.lat != null && fromPos.lon != null && fromQuery.trim().length > 0
+              ? {
+                  name: fromQuery,
+                  lat: fromPos.lat,
+                  lon: fromPos.lon,
+                }
+              : undefined
+          }
+          endLocation={
+            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+              ? {
+                  name: toQuery || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'),
+                  lat: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1],
+                  lon: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0],
+                }
+              : toPos && toPos.lat != null && toPos.lon != null && toQuery.trim().length > 0
+              ? {
+                  name: toQuery,
+                  lat: toPos.lat,
+                  lon: toPos.lon,
+                }
+              : undefined
+          }
           onMapClick={handleMapClick}
           isPickingMode={pickingTarget !== null}
         />
@@ -1387,8 +1424,10 @@ export default function MapHomeScreen() {
                     point={{ name: fromQuery, position: fromPos }}
                     onChangePoint={(p) => {
                       setFromQuery(p.name);
-                      setFromPos(p.position);
-                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                      setFromPos(p.position ?? null);
+                      if (p.position) {
+                        setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                      }
                     }}
                     placeholder={t(locale, 'fromPlaceholder')}
                     showMyLocation
@@ -1443,8 +1482,10 @@ export default function MapHomeScreen() {
                     point={{ name: toQuery, position: toPos }}
                     onChangePoint={(p) => {
                       setToQuery(p.name);
-                      setToPos(p.position);
-                      setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                      setToPos(p.position ?? null);
+                      if (p.position) {
+                        setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                      }
                     }}
                     placeholder={t(locale, 'toPlaceholder')}
                   />
@@ -1661,11 +1702,11 @@ export default function MapHomeScreen() {
                               pathname: '/route',
                               params: {
                                 fromName: fromQuery,
-                                fromLat: String(fromPos.lat),
-                                fromLon: String(fromPos.lon),
+                                fromLat: String(fromPos?.lat ?? activeWalkingRoute.coordinates[0]?.[1] ?? 50.0619),
+                                fromLon: String(fromPos?.lon ?? activeWalkingRoute.coordinates[0]?.[0] ?? 19.9373),
                                 toName: toQuery,
-                                toLat: String(toPos.lat),
-                                toLon: String(toPos.lon),
+                                toLat: String(toPos?.lat ?? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]?.[1] ?? 50.0619),
+                                toLon: String(toPos?.lon ?? activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]?.[0] ?? 19.9373),
                                 profile: profileId,
                                 variant: selectedRouteVariant,
                                 ...(activeRouteIsSample ? { isSample: '1' } : {}),
@@ -2261,11 +2302,11 @@ export default function MapHomeScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={
-                  krakowCardUser
-                    ? `${t(locale, 'krakowCardVerifiedResident')}: ${krakowCardUser.displayName}`
-                    : t(locale, 'krakowCardLoginBtn')
+                  userAccount
+                    ? `${t(locale, 'userAccountVerifiedResident')}: ${userAccount.displayName}`
+                    : t(locale, 'userAccountLoginBtn')
                 }
-                onPress={() => setKrakowCardModalVisible(true)}
+                onPress={() => setUserModalVisible(true)}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -2273,21 +2314,21 @@ export default function MapHomeScreen() {
                   paddingVertical: 6,
                   paddingHorizontal: 10,
                   borderRadius: 8,
-                  backgroundColor: krakowCardUser
+                  backgroundColor: userAccount
                     ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.15)')
                     : (isHighContrast ? colors.surface : 'rgba(0, 92, 169, 0.08)'),
                   borderWidth: 1,
-                  borderColor: krakowCardUser ? '#22C55E' : colors.border,
+                  borderColor: userAccount ? '#22C55E' : colors.border,
                 }}
               >
-                {krakowCardUser ? (
+                {userAccount ? (
                   <ShieldCheck
                     size={16}
                     color={isHighContrast ? colors.accentText : '#16A34A'}
                     weight="fill"
                   />
                 ) : (
-                  <IdentificationCard size={16} color={colors.accent} weight="bold" />
+                  <User size={16} color={colors.accent} weight="bold" />
                 )}
                 <Text
                   style={{
@@ -2296,14 +2337,14 @@ export default function MapHomeScreen() {
                     fontWeight: '700',
                     color: isHighContrast
                       ? colors.text
-                      : krakowCardUser
+                      : userAccount
                         ? '#15803D'
                         : colors.accent,
                   }}
                 >
-                  {krakowCardUser
-                    ? `Zweryfikowany: ${krakowCardUser.displayName} (Karta Krakowska)`
-                    : 'Zgłaszasz anonimowo. Zaloguj Kartą Krakowską'}
+                  {userAccount
+                    ? `Zalogowany: ${userAccount.displayName} (${userAccount.email})`
+                    : 'Zgłaszasz anonimowo. Zaloguj się adresem e-mail'}
                 </Text>
               </Pressable>
 
@@ -2312,8 +2353,10 @@ export default function MapHomeScreen() {
                 point={{ name: reportQuery, position: reportPos ?? EMPTY_POINT }}
                 onChangePoint={(p) => {
                   setReportQuery(p.name);
-                  setReportPos(p.position);
-                  setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                  setReportPos(p.position ?? null);
+                  if (p.position) {
+                    setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                  }
                 }}
                 placeholder={t(locale, 'searchPromptOsm')}
                 showMyLocation

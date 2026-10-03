@@ -22,7 +22,7 @@ import {
   ListChecks,
   Warning,
   CheckCircle,
-  IdentificationCard,
+  User,
   ShieldCheck,
   Camera,
   Image as ImageIcon,
@@ -52,8 +52,8 @@ export default function ReportCorrectionScreen() {
     isHighContrast,
     increasedSpacing,
     dyslexicFont,
-    krakowCardUser,
-    setKrakowCardModalVisible,
+    userAccount,
+    setUserModalVisible,
   } = useSession();
 
   const [description, setDescription] = useState('');
@@ -186,8 +186,8 @@ export default function ReportCorrectionScreen() {
           </Text>
         </GovCard>
 
-        {/* Karta Krakowska Resident Verification Banner */}
-        {krakowCardUser ? (
+        {/* User Account Verification / Authentication Banner */}
+        {userAccount ? (
           <GovCard variant="ok">
             <View style={styles.cardHeaderRow}>
               <ShieldCheck size={20} color={colors.okText} weight="fill" />
@@ -198,7 +198,7 @@ export default function ReportCorrectionScreen() {
                   fontSize: fontSize(14.5),
                 }}
               >
-                {t(locale, 'krakowCardVerifiedResident')}: {krakowCardUser.displayName}
+                {t(locale, 'userAccountVerifiedResident')}: {userAccount.displayName}
               </Text>
             </View>
             <Text
@@ -207,13 +207,13 @@ export default function ReportCorrectionScreen() {
                 { color: colors.text, fontSize: fontSize(13), marginTop: 4 },
               ]}
             >
-              {t(locale, 'krakowCardReportNoticeVerified')} (Karta: {krakowCardUser.cardNumber})
+              {t(locale, 'userAccountReportNoticeVerified')} ({userAccount.email})
             </Text>
           </GovCard>
         ) : (
           <GovCard variant="default">
             <View style={styles.cardHeaderRow}>
-              <IdentificationCard size={20} color={colors.accent} weight="bold" />
+              <User size={20} color={colors.accent} weight="bold" />
               <Text
                 style={{
                   color: colors.text,
@@ -222,15 +222,15 @@ export default function ReportCorrectionScreen() {
                   flex: 1,
                 }}
               >
-                {t(locale, 'krakowCardReportNoticeAnon')}
+                {t(locale, 'userAccountReportNoticeAnon')}
               </Text>
             </View>
             <View style={{ marginTop: spacing.xs }}>
               <GovButton
-                title={t(locale, 'krakowCardLoginBtn')}
-                icon={<IdentificationCard size={16} color="#FFFFFF" weight="bold" />}
+                title={t(locale, 'userAccountLoginBtn')}
+                icon={<User size={16} color="#FFFFFF" weight="bold" />}
                 variant="primary"
-                onPress={() => setKrakowCardModalVisible(true)}
+                onPress={() => setUserModalVisible(true)}
               />
             </View>
           </GovCard>
