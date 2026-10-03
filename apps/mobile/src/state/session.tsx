@@ -179,6 +179,14 @@ function loadInitialCustomThresholds(): BarrierThresholds {
         return {
           ...defaultCustom,
           ...parsed,
+          stepsTreatment:
+            parsed.stepsTreatment === 'blocker' ||
+            parsed.stepsTreatment === 'warning' ||
+            parsed.stepsTreatment === 'allowed'
+              ? parsed.stepsTreatment
+              : parsed.stepsAreBlocker
+                ? 'blocker'
+                : 'warning',
           allowedSurfaces: Array.isArray(parsed.allowedSurfaces)
             ? parsed.allowedSurfaces
             : defaultCustom.allowedSurfaces,

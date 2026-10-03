@@ -28,6 +28,18 @@ describe('profile thresholds', () => {
     expect(evaluateSteps({ stepCount: null, ramp: true }, city.profiles.wheelchair)).toBe('unknown');
   });
 
+  it('respects explicit stepsTreatment: allowed, warning, and blocker', () => {
+    expect(
+      evaluateSteps({ stepCount: 12, ramp: false }, { ...city.profiles.custom, stepsTreatment: 'allowed' })
+    ).toBe('ok');
+    expect(
+      evaluateSteps({ stepCount: 12, ramp: false }, { ...city.profiles.custom, stepsTreatment: 'warning' })
+    ).toBe('warning');
+    expect(
+      evaluateSteps({ stepCount: 12, ramp: false }, { ...city.profiles.custom, stepsTreatment: 'blocker' })
+    ).toBe('blocker');
+  });
+
   it('does not treat a missing surface as acceptable', () => {
     expect(evaluateSurface(null, city.profiles.wheelchair)).toBe('unknown');
     expect(evaluateSurface('sand', city.profiles.wheelchair)).toBe('blocker');

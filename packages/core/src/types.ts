@@ -54,11 +54,14 @@ export interface Fact {
   matchConfidence?: number;
 }
 
+export type StepsTreatment = 'blocker' | 'warning' | 'allowed';
+
 export interface BarrierThresholds {
   maxKerbMillimetres: number;
   minWidthMetres: number;
   maxInclinePercent: number;
   stepsAreBlocker: boolean;
+  stepsTreatment?: StepsTreatment;
   allowedSurfaces: string[];
   blockedRoadTypes?: string[];
   blockedSurfaces?: string[];

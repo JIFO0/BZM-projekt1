@@ -50,18 +50,28 @@ export function MapView({
   const pendingClickedLocation = useRef(clickedLocation);
   pendingClickedLocation.current = clickedLocation;
 
+  const currentPositionRef = useRef<{ lat: number; lon: number; zoom: number } | null>(null);
+  const prevRouteRef = useRef(route);
+  if (prevRouteRef.current !== route) {
+    prevRouteRef.current = route;
+    currentPositionRef.current = null;
+  }
+
   // Fixed initial center so the iframe is never destroyed/reloaded on center or click updates
   const initialCenterRef = useRef<{ lat: number; lon: number }>({
     lat: center ? center.lat : (userLocation ? userLocation.lat : (route?.coordinates?.[0]?.[1] ?? 50.0619)),
     lon: center ? center.lon : (userLocation ? userLocation.lon : (route?.coordinates?.[0]?.[0] ?? 19.9373)),
   });
 
-
   // Reliable cross-platform message dispatch to the active Leaflet map
-  const sendToMap = useCallback((msg: { type: string; lat?: number; lon?: number; zoom?: number }) => {
+  const sendToMap = useCallback((msg: { type: string; lat?: number; lon?: number; zoom?: number; markers?: any[] }) => {
     if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
       try {
         const win = iframeRef.current.contentWindow as any;
+        if (msg.type === 'SET_MARKERS' && typeof win.updateMarkers === 'function') {
+          win.updateMarkers(msg.markers);
+          return;
+        }
         if (msg.type === 'SET_USER_LOCATION' && typeof win.updateUserMarker === 'function') {
           win.updateUserMarker(msg.lat, msg.lon);
           return;
@@ -83,7 +93,10 @@ export function MapView({
       }
       iframeRef.current.contentWindow.postMessage(JSON.stringify(msg), '*');
     } else if (Platform.OS !== 'web' && webViewRef.current) {
-      if (msg.type === 'SET_USER_LOCATION') {
+      if (msg.type === 'SET_MARKERS') {
+        const js = `if (typeof updateMarkers === 'function') { updateMarkers(${JSON.stringify(msg.markers || [])}); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'SET_USER_LOCATION') {
         const js = `if (typeof updateUserMarker === 'function') { updateUserMarker(${msg.lat}, ${msg.lon}); } true;`;
         webViewRef.current.injectJavaScript(js);
       } else if (msg.type === 'SET_CENTER') {
@@ -99,8 +112,64 @@ export function MapView({
     }
   }, []);
 
+  const markersData = useMemo(() => {
+    return findings.map((f, i) => {
+      let color = colors.infoBorder;
+      if (f.severity === 'blocker') color = colors.blockerBorder;
+      else if (f.severity === 'warning') color = colors.warningBorder;
+      else if (f.severity === 'ok') color = colors.okBorder;
+      else if (f.severity === 'unknown') color = colors.unknownBorder;
+
+      const distLabel =
+        f.distanceFromStartMetres && f.distanceFromStartMetres > 0
+          ? ` (${f.distanceFromStartMetres} m)`
+          : '';
+
+      const typeLabel =
+        f.type === 'steps'
+          ? locale === 'pl' ? 'Schody' : locale === 'uk' ? 'Сходи' : 'Steps'
+          : f.type === 'kerb'
+          ? locale === 'pl' ? 'Krawężnik' : locale === 'uk' ? 'Бордюр' : 'Kerb'
+          : f.type === 'surface'
+          ? locale === 'pl' ? 'Nawierzchnia' : locale === 'uk' ? 'Покриття' : 'Surface'
+          : f.type === 'incline'
+          ? locale === 'pl' ? 'Nachylenie' : locale === 'uk' ? 'Нахил' : 'Incline'
+          : f.type === 'width'
+          ? locale === 'pl' ? 'Szerokość' : locale === 'uk' ? 'Ширина' : 'Width'
+          : f.type;
+
+      return {
+        index: i + 1,
+        lat: f.fact.subject.lat,
+        lon: f.fact.subject.lon,
+        title: `#${i + 1}${distLabel}: ${typeLabel}`,
+        value: f.fact.value,
+        severity: f.severity,
+        color,
+      };
+    });
+  }, [findings, colors, locale]);
+
+  const initialMarkersRef = useRef(markersData);
+  const pendingMarkers = useRef(markersData);
+  pendingMarkers.current = markersData;
+
+  useEffect(() => {
+    if (!isMapLoaded.current) return;
+    sendToMap({
+      type: 'SET_MARKERS',
+      markers: markersData,
+    });
+  }, [markersData, sendToMap]);
+
   const flushPendingUpdates = useCallback(() => {
     isMapLoaded.current = true;
+    if (pendingMarkers.current) {
+      sendToMap({
+        type: 'SET_MARKERS',
+        markers: pendingMarkers.current,
+      });
+    }
     if (pendingUserLocation.current) {
       sendToMap({
         type: 'SET_USER_LOCATION',
@@ -177,42 +246,6 @@ export function MapView({
     }));
     const okRouteColor = isHighContrast ? '#42A5F5' : '#005CA9';
     const otherRouteColor = '#F57C00';
-
-    const markersData = findings.map((f, i) => {
-      let color = colors.infoBorder;
-      if (f.severity === 'blocker') color = colors.blockerBorder;
-      else if (f.severity === 'warning') color = colors.warningBorder;
-      else if (f.severity === 'ok') color = colors.okBorder;
-      else if (f.severity === 'unknown') color = colors.unknownBorder;
-
-      const distLabel =
-        f.distanceFromStartMetres && f.distanceFromStartMetres > 0
-          ? ` (${f.distanceFromStartMetres} m)`
-          : '';
-
-      const typeLabel =
-        f.type === 'steps'
-          ? locale === 'pl' ? 'Schody' : locale === 'uk' ? 'Сходи' : 'Steps'
-          : f.type === 'kerb'
-          ? locale === 'pl' ? 'Krawężnik' : locale === 'uk' ? 'Бордюр' : 'Kerb'
-          : f.type === 'surface'
-          ? locale === 'pl' ? 'Nawierzchnia' : locale === 'uk' ? 'Покриття' : 'Surface'
-          : f.type === 'incline'
-          ? locale === 'pl' ? 'Nachylenie' : locale === 'uk' ? 'Нахил' : 'Incline'
-          : f.type === 'width'
-          ? locale === 'pl' ? 'Szerokość' : locale === 'uk' ? 'Ширина' : 'Width'
-          : f.type;
-
-      return {
-        index: i + 1,
-        lat: f.fact.subject.lat,
-        lon: f.fact.subject.lon,
-        title: `#${i + 1}${distLabel}: ${typeLabel}`,
-        value: f.fact.value,
-        severity: f.severity,
-        color,
-      };
-    });
 
     const startPin = startLocation || (route && route.coordinates.length > 0 ? {
       name: 'Start',
@@ -355,10 +388,15 @@ export function MapView({
 <body>
   <div id="map"></div>
   <script>
+    var currentPos = ${JSON.stringify(currentPositionRef.current)};
+    var initialCenterLat = currentPos ? currentPos.lat : ${initialCenterRef.current.lat};
+    var initialCenterLon = currentPos ? currentPos.lon : ${initialCenterRef.current.lon};
+    var initialZoom = currentPos ? currentPos.zoom : ${zoom};
+
     var map = L.map('map', {
       zoomControl: false,
       attributionControl: true
-    }).setView([${initialCenterRef.current.lat}, ${initialCenterRef.current.lon}], ${zoom});
+    }).setView([initialCenterLat, initialCenterLon], initialZoom);
 
     L.tileLayer('${tileUrl}', {
       maxZoom: 19,
@@ -378,7 +416,9 @@ export function MapView({
       } else {
         routeLine = L.polyline(routeCoords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(map);
       }
-      map.fitBounds(L.polyline(routeCoords).getBounds(), { padding: [40, 40] });
+      if (!currentPos) {
+        map.fitBounds(L.polyline(routeCoords).getBounds(), { padding: [40, 40] });
+      }
     }
 
     var startPin = ${JSON.stringify(startPin)};
@@ -405,28 +445,38 @@ export function MapView({
         .bindPopup('<b>Cel:</b> ' + (endPin.name || 'Koniec trasy'));
     }
 
-    var markers = ${JSON.stringify(markersData)};
-    markers.forEach(function(m) {
-      var icon = L.divIcon({
-        className: 'custom-marker',
-        html: '<div class="custom-marker-badge" style="border-color:' + m.color + '; color:' + m.color + ';">' + m.index + '</div>',
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
+    var markersLayer = L.layerGroup().addTo(map);
+
+    function renderMarkers(markersList) {
+      if (!map || !markersLayer) return;
+      markersLayer.clearLayers();
+      if (!Array.isArray(markersList)) return;
+
+      markersList.forEach(function(m) {
+        var icon = L.divIcon({
+          className: 'custom-marker',
+          html: '<div class="custom-marker-badge" style="border-color:' + m.color + '; color:' + m.color + ';">' + m.index + '</div>',
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+
+        var statusText = m.severity === 'blocker' ? 'Blokada' : m.severity === 'warning' ? 'Ostrzeżenie' : m.severity === 'ok' ? 'Dostępne' : m.severity;
+        var statusBg = m.severity === 'blocker' ? '#fee2e2' : m.severity === 'warning' ? '#ffedd5' : m.severity === 'ok' ? '#dcfce7' : '#f1f5f9';
+        var statusColor = m.severity === 'blocker' ? '#b91c1c' : m.severity === 'warning' ? '#c2410c' : m.severity === 'ok' ? '#15803d' : '#475569';
+
+        var popupHtml = '<div style="min-width: 170px; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;">' +
+          '<div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px; color: #0f172a;">' + m.title + '</div>' +
+          '<div style="font-size: 12px; margin-bottom: 6px; color: #334155; line-height: 1.35;">' + m.value + '</div>' +
+          '<span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 700; background: ' + statusBg + '; color: ' + statusColor + ';">' + statusText + '</span>' +
+          '</div>';
+
+        var marker = L.marker([m.lat, m.lon], { icon: icon }).addTo(markersLayer);
+        marker.bindPopup(popupHtml);
       });
+    }
 
-      var statusText = m.severity === 'blocker' ? 'Blokada' : m.severity === 'warning' ? 'Ostrzeżenie' : m.severity === 'ok' ? 'Dostępne' : m.severity;
-      var statusBg = m.severity === 'blocker' ? '#fee2e2' : m.severity === 'warning' ? '#ffedd5' : m.severity === 'ok' ? '#dcfce7' : '#f1f5f9';
-      var statusColor = m.severity === 'blocker' ? '#b91c1c' : m.severity === 'warning' ? '#c2410c' : m.severity === 'ok' ? '#15803d' : '#475569';
-
-      var popupHtml = '<div style="min-width: 170px; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;">' +
-        '<div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px; color: #0f172a;">' + m.title + '</div>' +
-        '<div style="font-size: 12px; margin-bottom: 6px; color: #334155; line-height: 1.35;">' + m.value + '</div>' +
-        '<span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 700; background: ' + statusBg + '; color: ' + statusColor + ';">' + statusText + '</span>' +
-        '</div>';
-
-      var marker = L.marker([m.lat, m.lon], { icon: icon }).addTo(map);
-      marker.bindPopup(popupHtml);
-    });
+    window.updateMarkers = renderMarkers;
+    renderMarkers(${JSON.stringify(initialMarkersRef.current)});
 
     var userMarker = null;
 
@@ -499,6 +549,18 @@ export function MapView({
       }
     });
 
+    map.on('moveend', function() {
+      var c = map.getCenter();
+      var z = map.getZoom();
+      var msg = JSON.stringify({ type: 'MAP_MOVE_END', lat: c.lat, lon: c.lng, zoom: z });
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(msg, '*');
+      }
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(msg);
+      }
+    });
+
     if (${Boolean(isPickingMode)}) {
       map.getContainer().style.cursor = 'crosshair';
     }
@@ -507,7 +569,9 @@ export function MapView({
       try {
         var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (!data) return;
-        if (data.type === 'SET_CENTER') {
+        if (data.type === 'SET_MARKERS') {
+          window.updateMarkers(data.markers);
+        } else if (data.type === 'SET_CENTER') {
           window.setMapCenter(data.lat, data.lon, data.zoom);
         } else if (data.type === 'SET_USER_LOCATION') {
           window.updateUserMarker(data.lat, data.lon);
@@ -534,30 +598,27 @@ export function MapView({
     `;
   }, [
     route,
-    findings,
     startLocation,
     endLocation,
     zoom,
     tileUrl,
     tileAttribution,
     colors.accent,
-    colors.infoBorder,
-    colors.blockerBorder,
-    colors.warningBorder,
-    colors.okBorder,
-    colors.unknownBorder,
     isHighContrast,
     locale,
     isPickingMode,
   ]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !onMapClick) return;
+    if (Platform.OS !== 'web') return;
     const handleWindowMessage = (event: MessageEvent) => {
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (data && data.type === 'MAP_CLICK') {
+        if (!data) return;
+        if (data.type === 'MAP_CLICK' && onMapClick) {
           onMapClick({ lat: data.lat, lon: data.lon });
+        } else if (data.type === 'MAP_MOVE_END') {
+          currentPositionRef.current = { lat: data.lat, lon: data.lon, zoom: data.zoom };
         }
       } catch {}
     };
@@ -596,8 +657,11 @@ export function MapView({
           onMessage={(event) => {
             try {
               const data = JSON.parse(event.nativeEvent.data);
-              if (data && data.type === 'MAP_CLICK' && onMapClick) {
+              if (!data) return;
+              if (data.type === 'MAP_CLICK' && onMapClick) {
                 onMapClick({ lat: data.lat, lon: data.lon });
+              } else if (data.type === 'MAP_MOVE_END') {
+                currentPositionRef.current = { lat: data.lat, lon: data.lon, zoom: data.zoom };
               }
             } catch {}
           }}

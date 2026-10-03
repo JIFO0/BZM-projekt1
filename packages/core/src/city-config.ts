@@ -82,6 +82,14 @@ function readThresholds(value: unknown, profile: ProfileId): BarrierThresholds {
     minWidthMetres: readNumber(value, 'minWidthMetres'),
     maxInclinePercent: readNumber(value, 'maxInclinePercent'),
     stepsAreBlocker: value.stepsAreBlocker,
+    stepsTreatment:
+      value.stepsTreatment === 'blocker' ||
+      value.stepsTreatment === 'warning' ||
+      value.stepsTreatment === 'allowed'
+        ? value.stepsTreatment
+        : value.stepsAreBlocker
+          ? 'blocker'
+          : 'warning',
     allowedSurfaces: surfaces,
     blockedRoadTypes,
     blockedSurfaces: blockedRoadTypes,
