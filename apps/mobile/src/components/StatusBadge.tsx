@@ -1,0 +1,139 @@
+import type { FactStatus, Severity } from '@krakow-bez-barier/core';
+import { StyleSheet, Text, useColorScheme, View } from 'react-native';
+
+import { t, type Locale } from '@/i18n/strings';
+import { darkColors, lightColors } from '@/theme/tokens';
+
+interface StatusBadgeProps {
+  status?: FactStatus;
+  severity?: Severity;
+  locale: Locale;
+}
+
+export function StatusBadge({ status, severity, locale }: StatusBadgeProps) {
+  const scheme = useColorScheme();
+  const colors = scheme === 'dark' ? darkColors : lightColors;
+
+  // Determine badge styling and label
+  let icon = 'ℹ️';
+  let label = '';
+  let bg = colors.infoBg;
+  let border = colors.infoBorder;
+  let text = colors.infoText;
+
+  if (severity) {
+    switch (severity) {
+      case 'blocker':
+        icon = '⛔';
+        label = t(locale, 'severityBlocker');
+        bg = colors.blockerBg;
+        border = colors.blockerBorder;
+        text = colors.blockerText;
+        break;
+      case 'warning':
+        icon = '⚠️';
+        label = t(locale, 'severityWarning');
+        bg = colors.warningBg;
+        border = colors.warningBorder;
+        text = colors.warningText;
+        break;
+      case 'ok':
+        icon = '✅';
+        label = t(locale, 'severityOk');
+        bg = colors.okBg;
+        border = colors.okBorder;
+        text = colors.okText;
+        break;
+      case 'unknown':
+        icon = '❓';
+        label = t(locale, 'statusUnknown');
+        bg = colors.unknownBg;
+        border = colors.unknownBorder;
+        text = colors.unknownText;
+        break;
+      case 'info':
+        icon = 'ℹ️';
+        label = t(locale, 'severityInfo');
+        bg = colors.infoBg;
+        border = colors.infoBorder;
+        text = colors.infoText;
+        break;
+    }
+  } else if (status) {
+    switch (status) {
+      case 'verified':
+        icon = '🛡️';
+        label = t(locale, 'statusVerified');
+        bg = colors.okBg;
+        border = colors.okBorder;
+        text = colors.okText;
+        break;
+      case 'community':
+        icon = '👥';
+        label = t(locale, 'statusCommunity');
+        bg = colors.infoBg;
+        border = colors.infoBorder;
+        text = colors.infoText;
+        break;
+      case 'reported':
+        icon = '📝';
+        label = t(locale, 'statusReported');
+        bg = colors.warningBg;
+        border = colors.warningBorder;
+        text = colors.warningText;
+        break;
+      case 'conflicting':
+        icon = '⚡';
+        label = t(locale, 'statusConflicting');
+        bg = colors.conflictingBg;
+        border = colors.conflictingBorder;
+        text = colors.conflictingText;
+        break;
+      case 'unknown':
+        icon = '❓';
+        label = t(locale, 'statusUnknown');
+        bg = colors.unknownBg;
+        border = colors.unknownBorder;
+        text = colors.unknownText;
+        break;
+      default:
+        icon = 'ℹ️';
+        label = status;
+        bg = colors.infoBg;
+        border = colors.infoBorder;
+        text = colors.infoText;
+        break;
+    }
+  }
+
+  return (
+    <View
+      accessibilityRole="text"
+      accessibilityLabel={`Status: ${label}`}
+      style={[styles.badge, { backgroundColor: bg, borderColor: border }]}
+    >
+      <Text style={styles.icon}>{icon}</Text>
+      <Text style={[styles.text, { color: text }]}>{label}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignSelf: 'flex-start',
+  },
+  icon: {
+    fontSize: 14,
+  },
+  text: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+});
