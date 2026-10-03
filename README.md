@@ -11,7 +11,7 @@ Aplikacja pozwala osobie poruszającej się na wózku lub rodzicowi z wózkiem d
 
 ## English Summary
 
-**Kraków without barriers** is an Expo / React Native mobile app for wheelchair users and parents with strollers. Walking routes are requested from **Mapy.com REST API**, then cross-checked against **OpenStreetMap (Overpass API)** features along the route corridor (steps, kerbs, surface, incline, crossings, elevators). Missing information is always reported as unknown, never as accessible. Includes offline demo snapshots, voice read-aloud summaries (`expo-speech`), WCAG 2.2 AA accessibility, data conflict detection (R7), staleness tracking (R8), and offline failure handling (R12).
+**Kraków without barriers** is an Expo / React Native mobile app for wheelchair users and everyone needing accessible pathways. Walking routes are requested from **Mapy.com REST API**, then cross-checked against **OpenStreetMap (Overpass API)** features along the route corridor (steps, kerbs, surface, incline, crossings, elevators). Missing information is always reported as unknown, never as accessible. Includes offline demo snapshots, WCAG 2.2 AAA accessibility, screen reader optimization, data conflict detection (R7), staleness tracking (R8), and offline failure handling (R12).
 
 ---
 
@@ -65,10 +65,9 @@ npm run server
 - **R12. Obsługa awarii źródeł (Overpass / Mapy 429/503/offline):** Czytelny komunikat o awarii źródła i automatyczne przełączenie na zweryfikowany snapshot offline.
 - **R13. Oznaczenie danych przykładowych:** Wszystkie dane demonstracyjne są wyraźnie oznaczone etykietą **DANE PRZYKŁADOWE**.
 - **R14. Ekran „O danych”:** Pełna atrybucja Mapy.com i OpenStreetMap ODbL, wersja snapshotu, podsumowanie polityki prywatności.
-- **WOW 1. Odsłuchiwanie syntezą mowy (`expo-speech`):** Przycisk „🔊 Odsłuchaj podsumowanie głosowe” czyta cały raport trasy po polsku.
-- **WOW 2. Udostępnianie raportu:** Przycisk „📤 Udostępnij raport tekstowy”.
-- **WOW 3. Interaktywna mapa z numerowanymi punktami:** Korytarz trasy oraz kolorowe pinezki barier (czerwone blokady, pomarańczowe ostrzeżenia, zielone udogodnienia).
-- **Panel testowy / demonstracyjny (A8):** Przycisk `🛠️ Demo` w nagłówku pozwala w ułamku sekundy zasymulować awarię Overpass (503), limit zapytań Mapy (429) lub wymusić tryb offline.
+- **Dostępność dla niewidomych (WCAG AAA):** Pełne natywne wsparcie dla czytników ekranu (VoiceOver, TalkBack, czytniki przeglądarkowe) – semantyczne role i etykiety accessibility zamiast zbędnych przycisków lektora.
+- **WOW 1. Udostępnianie raportu:** Przycisk „📤 Udostępnij raport tekstowy”.
+- **WOW 2. Interaktywna mapa z numerowanymi punktami:** Korytarz trasy oraz kolorowe pinezki barier (czerwone blokady, pomarańczowe ostrzeżenia, zielone udogodnienia).
 
 ---
 

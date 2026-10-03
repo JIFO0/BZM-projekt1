@@ -7,7 +7,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Globe, PersonArmsSpread, SpeakerHigh, Stop, Wrench } from 'phosphor-react-native';
+import { Globe, PersonArmsSpread } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
 import { t } from '@/i18n/strings';
@@ -25,13 +25,10 @@ export interface KrakowHeaderProps {
  * KrakowHeader - Nagłówek aplikacji Krakowa
  * W wersji mobilnej (ekrany < 768px):
  *   - Rząd górny: Herb Krakowa + poziomy tytuł "Kraków bez barier" + plakietka WCAG AAA
- *   - Rząd dolny: Przewijany poziomo pasek przycisków funkcyjnych
+ *   - Rząd dolny: Przyciski Centrum Dostępności oraz wyboru języka
  * W wersji desktopowej: Pełny pasek miejski z herbem, tytułem i przyciskami w jednym rzędzie.
  */
 export function KrakowHeader({
-  onOpenDemo,
-  onReadScreen,
-  isSpeaking,
   compact,
 }: KrakowHeaderProps) {
   const { width } = useWindowDimensions();
@@ -120,86 +117,6 @@ export function KrakowHeader({
           {locale.toUpperCase()}
         </Text>
       </Pressable>
-
-      {/* 3. Voice Assistance (TTS Lektor) */}
-      {onReadScreen ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isSpeaking ? 'Zatrzymaj lektora' : 'Włącz lektora ekranu'}
-          onPress={onReadScreen}
-          style={[
-            styles.secondaryBtn,
-            {
-              borderColor: isSpeaking ? '#EF4444' : colors.border,
-              backgroundColor: isSpeaking
-                ? '#DC2626'
-                : isHighContrast
-                ? colors.background
-                : 'rgba(255,255,255,0.12)',
-              minHeight: minTouch,
-            },
-          ]}
-        >
-          {isSpeaking ? (
-            <Stop size={15} weight="bold" color="#FFFFFF" />
-          ) : (
-            <SpeakerHigh
-              size={15}
-              weight="bold"
-              color={isHighContrast ? colors.text : colors.headerText}
-            />
-          )}
-          <Text
-            style={[
-              styles.secondaryBtnText,
-              {
-                color: isSpeaking
-                  ? '#FFFFFF'
-                  : isHighContrast
-                  ? colors.text
-                  : colors.headerText,
-                fontSize: fontSize(12),
-              },
-            ]}
-          >
-            {isSpeaking ? 'Stop' : 'Lektor'}
-          </Text>
-        </Pressable>
-      ) : null}
-
-      {/* 4. Demo Simulations Trigger */}
-      {onOpenDemo ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Panel symulacji demonstracyjnych"
-          onPress={onOpenDemo}
-          style={[
-            styles.secondaryBtn,
-            {
-              borderColor: colors.border,
-              backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.12)',
-              minHeight: minTouch,
-            },
-          ]}
-        >
-          <Wrench
-            size={15}
-            weight="bold"
-            color={isHighContrast ? colors.text : colors.headerText}
-          />
-          <Text
-            style={[
-              styles.secondaryBtnText,
-              {
-                color: isHighContrast ? colors.text : colors.headerText,
-                fontSize: fontSize(12),
-              },
-            ]}
-          >
-            Demo
-          </Text>
-        </Pressable>
-      ) : null}
     </>
   );
 

@@ -41,18 +41,17 @@ Scenariusz nagrania wideo prezentującego działanie aplikacji **Kraków bez bar
 ---
 
 ### [1:55 – 2:20] Odporność na Awarie (R12) i Zgłoszenie Poprawki (R11)
-- **Ekran:** Panel testowy (🛠️ Demo) → Zgłoszenie poprawki.
+- **Ekran:** Obsługa awarii sieciowej → Zgłoszenie poprawki.
 - **Narracja lektora:**
-  > *„Co się stanie, gdy serwer Overpass padnie lub przekroczymy limity? Włączamy w panelu demo symulację awarii Overpass. Aplikacja nie zawiesza się – wyświetla wyraźny czerwony banner o awarii źródła i natychmiast serwuje zweryfikowany lokalny snapshot offline.*
+  > *„Co się stanie, gdy serwer Overpass padnie lub przekroczymy limity? Aplikacja nie zawiesza się – wyświetla wyraźny komunikat o awarii źródła i natychmiast serwuje zweryfikowany lokalny snapshot offline.*
   > *Gdy użytkownik zauważy nową barierę w terenie, może zapisać ją w lokalnej kolejce na telefonie lub jednym kliknięciem otworzyć oficjalną notatkę na OpenStreetMap, angażując globalną społeczność mapową.”*
-- **Akcja na ekranie:** Otwarcie panelu demo, zaznaczenie symulacji awarii, pokazanie bannera awarii, przejście do „Zgłoś uwagę”.
+- **Akcja na ekranie:** Pokazanie działania trybu zapasowego offline, przejście do formularza „Zgłoś uwagę”.
 
 ---
 
-### [2:20 – 2:50] Dostępność Cyfrowa (WOW), Skalowalność i Zakończenie
-- **Ekran:** Powrót do raportu trasy → przycisk „Odsłuchaj podsumowanie głosowe”.
-- **Narracja lektora + dźwięk aplikacji:**
-  > *„Aplikacja spełnia normy WCAG 2.2 AA. Dotykamy przycisku lektora:*
-  > *(Głos lektora telefonu: «Raport barier dla trasy 920 metrów. Wykryto 1 blokadę, 1 ostrzeżenie...»)*
+### [2:20 – 2:50] Dostępność Cyfrowa (WCAG AAA), Skalowalność i Zakończenie
+- **Ekran:** Centrum Ułatwień Dostępności cyfrowej (`KrakowHeader` → Ułatwienia) oraz ekran „O danych”.
+- **Narracja lektora:**
+  > *„Aplikacja spełnia najwyższe normy WCAG 2.2 AAA. Zamiast zbędnych, sztucznych przycisków lektora, interfejs w 100% współpracuje z systemowymi czytnikami ekranu (TalkBack, VoiceOver). Dedykowane Centrum Dostępności oferuje regulację kontrastu, krojów pisma i maskę czytania.*
   > *Rozwiązanie jest w 100% gotowe do uruchomienia w kolejnych miastach – wystarczy jeden plik JSON. Cały kod źródłowy na licencjach permissywnych przekazujemy Gminie Miejskiej Kraków. Dziękujemy!”*
-- **Akcja na ekranie:** Odsłuchanie lektora, pokazanie ekranu „O danych” z licencjami.
+- **Akcja na ekranie:** Otwarcie panelu ułatwień dostępności, pokazanie ekranu „O danych” z licencjami.

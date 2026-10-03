@@ -6,7 +6,6 @@ import {
   OSM_ODBL_URL,
 } from '@krakow-bez-barier/core';
 import { Stack } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,38 +37,11 @@ export default function AboutScreen() {
   } = useSession();
 
   const [debugVisible, setDebugVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-
-  const handleReadScreen = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
-      return;
-    }
-    const text = `${t(locale, 'aboutTitle')}. ${t(
-      locale,
-      'aboutLead',
-    )}. Źródła danych: Mapy.com dla tras pieszych i geokodowania, OpenStreetMap ODbL dla geometrii barier. Wbudowany snapshot offline wersji ${
-      DEMO_SNAPSHOT.snapshotVersion
-    }. Prywatność: brak kont, brak logowania, 100% lokalne przetwarzanie na urządzeniu.`;
-
-    setIsSpeaking(true);
-    Speech.speak(text, {
-      language: locale === 'pl' ? 'pl-PL' : 'en-US',
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false, title: t(locale, 'about') }} />
-
-      <KrakowHeader
-        onOpenDemo={() => setDebugVisible(true)}
-        onReadScreen={handleReadScreen}
-        isSpeaking={isSpeaking}
-      />
+      <KrakowHeader />
 
       <ScrollView
         contentContainerStyle={[

@@ -66,6 +66,6 @@ Plan prezentacji przygotowany na finał HackYeah 2026 w kategorii *Cracow Withou
 ---
 
 ### Slajd 10: Efekt WOW i Korzyści Biznesowe (WOW 10%)
-- **WOW 1: Synteza mowy:** Odsłuchanie trasy po polsku jednym dotknięciem (`expo-speech`).
+- **WOW 1: Centrum Ułatwień Dostępności (WCAG 2.2 AAA):** Kompleksowe narzędzie z regulacją kontrastów, krojów dla dyslektyków, linijką czytania i pełną integracją z czytnikami ekranu.
 - **WOW 2: Narzędzie dla krakowskiej turystyki:** Możliwość osadzenia widżetu w portalach krakowskich hoteli, muzeów i punktów InfoKraków.
 - **Przekazanie praw:** Kod w 100% na licencjach permissywnych, w pełni gotowy do przekazania Gminie Miejskiej Kraków.
