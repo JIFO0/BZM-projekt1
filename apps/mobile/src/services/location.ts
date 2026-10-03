@@ -36,29 +36,59 @@ export async function checkOrRequestLocationPermission(): Promise<boolean> {
  */
 async function tryReverseGeocode(lat: number, lon: number): Promise<string> {
   let address = 'Moja lokalizacja';
-  if (Platform.OS === 'web') {
-    return address;
-  }
-  try {
-    const reversed = await Location.reverseGeocodeAsync({
-      latitude: lat,
-      longitude: lon,
-    });
+  if (Platform.OS !== 'web') {
+    try {
+      const reversed = await Location.reverseGeocodeAsync({
+        latitude: lat,
+        longitude: lon,
+      });
 
-    if (reversed && reversed.length > 0) {
-      const place = reversed[0];
-      const streetPart = [place.street, place.streetNumber].filter(Boolean).join(' ');
+      if (reversed && reversed.length > 0) {
+        const place = reversed[0];
+        const streetPart = [place.street, place.streetNumber].filter(Boolean).join(' ');
+        if (streetPart) {
+          return `Moja lokalizacja (${streetPart})`;
+        } else if (place.name) {
+          return `Moja lokalizacja (${place.name})`;
+        } else if (place.district || place.city) {
+          return `Moja lokalizacja (${place.district || place.city})`;
+        }
+      }
+    } catch {
+      // Fall through to OpenStreetMap reverse geocode
+    }
+  }
+
+  // Web and fallback: OpenStreetMap Nominatim reverse geocode
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'KrakowBezBarier/0.1 (HackYeah 2026 prototype; contact@example.com)',
+          Accept: 'application/json',
+        },
+      },
+    );
+    if (res.ok) {
+      const data = (await res.json()) as any;
+      const road = data.address?.road;
+      const houseNumber = data.address?.house_number;
+      const suburb =
+        data.address?.suburb || data.address?.neighbourhood || data.address?.city_district;
+      const streetPart = [road, houseNumber].filter(Boolean).join(' ');
       if (streetPart) {
-        address = `Moja lokalizacja (${streetPart})`;
-      } else if (place.name) {
-        address = `Moja lokalizacja (${place.name})`;
-      } else if (place.district || place.city) {
-        address = `Moja lokalizacja (${place.district || place.city})`;
+        return `Moja lokalizacja (${streetPart})`;
+      } else if (suburb) {
+        return `Moja lokalizacja (${suburb})`;
+      } else if (data.name) {
+        return `Moja lokalizacja (${data.name})`;
       }
     }
   } catch {
     // Non-fatal
   }
+
   return address;
 }
 
@@ -82,10 +112,13 @@ export async function getCurrentUserLocation(): Promise<UserLocationResult | nul
           maximumAge: 10000,
         });
       });
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const address = await tryReverseGeocode(lat, lon);
       return {
-        lat: pos.coords.latitude,
-        lon: pos.coords.longitude,
-        address: 'Moja lokalizacja',
+        lat,
+        lon,
+        address,
       };
     } catch (webErr) {
       console.warn('[LocationService] Web geolocation error:', webErr);

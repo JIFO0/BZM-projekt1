@@ -405,6 +405,7 @@ export function MapView({
     colors.okBorder,
     colors.unknownBorder,
     locale,
+    isPickingMode,
   ]);
 
   useEffect(() => {
