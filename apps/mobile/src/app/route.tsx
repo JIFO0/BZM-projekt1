@@ -51,6 +51,7 @@ import {
   t,
 } from '@/i18n/strings';
 import { fetchServerHazards, planAndAnalyzeRoute, type RouteVariantId, type ServerRouteHazard } from '@/services/api';
+import { triggerGentleHaptic } from '@/services/haptics';
 import { city } from '@/config/city';
 import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
 import { useSession } from '@/state/session';
@@ -78,7 +79,7 @@ function extractRouteParams(params: Record<string, any>) {
       if (decoded.toLon !== undefined) toLon = parseFloat(decoded.toLon);
       if (decoded.demoRoute !== undefined) demoRoute = parseInt(decoded.demoRoute, 10);
       if (decoded.variant) variant = decoded.variant;
-    } catch {}
+    } catch { }
   }
 
   // Web fallback: check window.location.search and window.location.hash
@@ -111,9 +112,9 @@ function extractRouteParams(params: Record<string, any>) {
           if (decoded.toLon !== undefined && toLon === undefined) toLon = parseFloat(decoded.toLon);
           if (decoded.demoRoute !== undefined && demoRoute === undefined) demoRoute = parseInt(decoded.demoRoute, 10);
           if (decoded.variant && !variant) variant = decoded.variant;
-        } catch {}
+        } catch { }
       }
-    } catch {}
+    } catch { }
   }
 
   return { fromName, fromLat, fromLon, toName, toLat, toLon, demoRoute, variant };
@@ -170,13 +171,14 @@ export default function RouteScreen() {
         debugState,
       })
         .then((result) => {
+          triggerGentleHaptic('route');
           setActiveWalkingRoute(result.walkingRoute);
           setActiveRouteReport(result.report);
           setActiveRouteFacts(result.facts);
           setActiveRouteIsSample(result.isSample);
           setRouteVariants(result.variants ?? null);
-          const raw = (routeParams.variant as string | undefined) || result.selectedVariant || 'accessible';
-          const v: RouteVariantId = raw === 'shortest' ? 'fastest' : (raw as RouteVariantId);
+          const raw = (routeParams.variant || result.selectedVariant || 'accessible') as string;
+          const v = (raw === 'shortest' ? 'fastest' : raw) as RouteVariantId;
           selectRouteVariant(v);
         })
         .catch((err) => {
@@ -214,13 +216,14 @@ export default function RouteScreen() {
         debugState,
       })
         .then((result) => {
+          triggerGentleHaptic('route');
           setActiveWalkingRoute(result.walkingRoute);
           setActiveRouteReport(result.report);
           setActiveRouteFacts(result.facts);
           setActiveRouteIsSample(result.isSample);
           setRouteVariants(result.variants ?? null);
-          const raw = (routeParams.variant as string | undefined) || result.selectedVariant || 'accessible';
-          const v: RouteVariantId = raw === 'shortest' ? 'fastest' : (raw as RouteVariantId);
+          const raw = (routeParams.variant || result.selectedVariant || 'accessible') as string;
+          const v = (raw === 'shortest' ? 'fastest' : raw) as RouteVariantId;
           selectRouteVariant(v);
         })
         .catch((err) => {
@@ -245,7 +248,7 @@ export default function RouteScreen() {
   ]);
 
   useEffect(() => {
-    fetchServerHazards().then(setServerHazards).catch(() => {});
+    fetchServerHazards().then(setServerHazards).catch(() => { });
   }, []);
 
   const reportFindings = useMemo(
@@ -541,7 +544,7 @@ export default function RouteScreen() {
             </View>
 
             {selectedRouteVariant === 'accessible' &&
-            routeVariants.accessible.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
+              routeVariants.accessible.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
               <View
                 style={[
                   styles.variantWarningCallout,
@@ -561,7 +564,7 @@ export default function RouteScreen() {
             ) : null}
 
             {selectedRouteVariant === 'fastest' &&
-            routeVariants.fastest.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
+              routeVariants.fastest.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
               <View
                 style={[
                   styles.variantWarningCallout,

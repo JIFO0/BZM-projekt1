@@ -30,6 +30,7 @@ import { KrakowHeader } from '@/components/KrakowHeader';
 import { LocationPicker } from '@/components/LocationPicker';
 import { t } from '@/i18n/strings';
 import { inspectPlace, planAndAnalyzeRoute, suggestPlaces } from '@/services/api';
+import { triggerGentleHaptic } from '@/services/haptics';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -83,6 +84,7 @@ export default function SearchScreen() {
     const result = await fetchUserLocation();
     const loc = result || userLocation;
     if (loc) {
+      triggerGentleHaptic('location');
       setFromQuery(result?.address || t(locale, 'myLocationShort'));
       setFromPos({ lon: loc.lon, lat: loc.lat });
     } else {
@@ -132,6 +134,8 @@ export default function SearchScreen() {
         thresholds: activeThresholds,
         debugState,
       });
+
+      triggerGentleHaptic('route');
 
       setActiveWalkingRoute(result.walkingRoute);
       setActiveRouteReport(result.report);

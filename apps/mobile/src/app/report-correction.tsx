@@ -42,6 +42,7 @@ import {
   fetchServerHazards,
   type ServerRouteHazard,
 } from '@/services/api';
+import { triggerGentleHaptic } from '@/services/haptics';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -86,8 +87,8 @@ export default function ReportCorrectionScreen() {
         locale === 'pl'
           ? 'Podaj poprawny adres e-mail (jest wymagany do weryfikacji zgłoszenia).'
           : locale === 'uk'
-          ? 'Введіть дійсну адресу електронної пошти.'
-          : 'Please enter a valid email address (required for report verification).'
+            ? 'Введіть дійсну адресу електронної пошти.'
+            : 'Please enter a valid email address (required for report verification).'
       );
       return;
     }
@@ -98,8 +99,8 @@ export default function ReportCorrectionScreen() {
         locale === 'pl'
           ? 'Wpisz treść uwagi lub przeszkody.'
           : locale === 'uk'
-          ? 'Введіть опис зауваження або перешкоди.'
-          : 'Please enter description of the barrier.'
+            ? 'Введіть опис зауваження або перешкоди.'
+            : 'Please enter description of the barrier.'
       );
       return;
     }
@@ -131,6 +132,7 @@ export default function ReportCorrectionScreen() {
       });
 
       await loadHazards();
+      triggerGentleHaptic('report');
 
       setDescription('');
       setPhotoUri(null);
@@ -163,8 +165,8 @@ export default function ReportCorrectionScreen() {
         locale === 'pl'
           ? `Nie można otworzyć linku: ${osmUrl}`
           : locale === 'uk'
-          ? `Не вдалося відкрити посилання: ${osmUrl}`
-          : `Cannot open link: ${osmUrl}`
+            ? `Не вдалося відкрити посилання: ${osmUrl}`
+            : `Cannot open link: ${osmUrl}`
       );
     }
   };
@@ -380,8 +382,8 @@ export default function ReportCorrectionScreen() {
             title={
               isSubmitting
                 ? (locale === 'pl'
-                    ? 'Wysyłanie na serwer...'
-                    : locale === 'uk'
+                  ? 'Wysyłanie na serwer...'
+                  : locale === 'uk'
                     ? 'Надсилання на сервер...'
                     : 'Submitting to server...')
                 : t(locale, 'reportSubmit')
@@ -445,8 +447,8 @@ export default function ReportCorrectionScreen() {
                       {hazard.status === 'confirmed'
                         ? (locale === 'pl' ? 'Zweryfikowana przeszkoda' : 'Confirmed hazard')
                         : hazard.status === 'resolved'
-                        ? (locale === 'pl' ? 'Rozwiązana' : 'Resolved')
-                        : (locale === 'pl' ? 'Zgłoszenie społeczne' : 'Community report')}
+                          ? (locale === 'pl' ? 'Rozwiązana' : 'Resolved')
+                          : (locale === 'pl' ? 'Zgłoszenie społeczne' : 'Community report')}
                     </Text>
                   </View>
                   <Text style={[styles.itemDate, { color: colors.muted, fontSize: fontSize(12) }]}>

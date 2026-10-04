@@ -74,6 +74,7 @@ import {
 } from '@/services/api';
 import { city } from '@/config/city';
 import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
+import { triggerGentleHaptic } from '@/services/haptics';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -456,6 +457,7 @@ export default function MapHomeScreen() {
     const result = await fetchUserLocation();
     const loc = result || userLocation;
     if (loc) {
+      triggerGentleHaptic('location');
       setMapCenter({ lat: loc.lat, lon: loc.lon });
       setStatusMessage(t(locale, 'gpsCenteredSuccess'));
       setTimeout(() => setStatusMessage(null), 3000);
@@ -477,6 +479,7 @@ export default function MapHomeScreen() {
     const result = await fetchUserLocation();
     const loc = result || userLocation;
     if (loc) {
+      triggerGentleHaptic('location');
       setFromQuery(result?.address || t(locale, 'myLocationShort'));
       setFromPos({ lon: loc.lon, lat: loc.lat });
       setMapCenter({ lat: loc.lat, lon: loc.lon });
@@ -627,6 +630,8 @@ export default function MapHomeScreen() {
         debugState,
       });
 
+      triggerGentleHaptic('route');
+
       setActiveWalkingRoute(result.walkingRoute);
       setActiveRouteReport(result.report);
       setActiveRouteFacts(result.facts);
@@ -717,6 +722,7 @@ export default function MapHomeScreen() {
         thresholds: activeThresholds,
         debugState,
       });
+      triggerGentleHaptic('route');
       setActiveWalkingRoute(result.walkingRoute);
       setActiveRouteReport(result.report);
       setActiveRouteFacts(result.facts);
@@ -784,6 +790,7 @@ export default function MapHomeScreen() {
         debugState,
       })
         .then((result) => {
+          triggerGentleHaptic('route');
           setActiveWalkingRoute(result.walkingRoute);
           setActiveRouteReport(result.report);
           setActiveRouteFacts(result.facts);
