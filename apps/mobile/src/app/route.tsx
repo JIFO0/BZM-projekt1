@@ -64,7 +64,7 @@ function extractRouteParams(params: Record<string, any>) {
   let toLat = params.toLat ? parseFloat(params.toLat) : undefined;
   let toLon = params.toLon ? parseFloat(params.toLon) : undefined;
   let demoRoute = params.demoRoute !== undefined ? parseInt(params.demoRoute, 10) : undefined;
-  let variant = params.variant as RouteVariantId | undefined;
+  let variant = params.variant as string | undefined;
 
   // Support #u or ?u= encoded payload if provided
   if (params.u) {
@@ -97,7 +97,7 @@ function extractRouteParams(params: Record<string, any>) {
       if (!fromName && getVal('fromName')) fromName = getVal('fromName')!;
       if (!toName && getVal('toName')) toName = getVal('toName')!;
       if (demoRoute === undefined && getVal('demoRoute')) demoRoute = parseInt(getVal('demoRoute')!, 10);
-      if (!variant && getVal('variant')) variant = getVal('variant') as RouteVariantId;
+      if (!variant && getVal('variant')) variant = getVal('variant') ?? undefined;
 
       const uVal = getVal('u');
       if (uVal) {
@@ -177,7 +177,7 @@ export default function RouteScreen() {
           setActiveRouteIsSample(result.isSample);
           setRouteVariants(result.variants ?? null);
           const raw = routeParams.variant || result.selectedVariant || 'accessible';
-          const v = raw === 'shortest' ? 'fastest' : raw;
+          const v: RouteVariantId = raw === 'shortest' ? 'fastest' : (raw === 'fastest' ? 'fastest' : 'accessible');
           selectRouteVariant(v);
         })
         .catch((err) => {
@@ -221,7 +221,7 @@ export default function RouteScreen() {
           setActiveRouteIsSample(result.isSample);
           setRouteVariants(result.variants ?? null);
           const raw = routeParams.variant || result.selectedVariant || 'accessible';
-          const v = raw === 'shortest' ? 'fastest' : raw;
+          const v: RouteVariantId = raw === 'shortest' ? 'fastest' : (raw === 'fastest' ? 'fastest' : 'accessible');
           selectRouteVariant(v);
         })
         .catch((err) => {
