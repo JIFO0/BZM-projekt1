@@ -48,7 +48,12 @@ export interface LocalReport {
   id: string;
   description: string;
   createdAt: string;
-  status: 'reported';
+  status: 'reported' | 'confirmed' | 'resolved';
+  photoUrl?: string;
+  category?: 'hole' | 'obstacle' | 'flood' | 'surface' | 'other';
+  position?: { lat: number; lon: number };
+  stillHereCount?: number;
+  fixedCount?: number;
 }
 
 export interface DebugState {
@@ -57,16 +62,18 @@ export interface DebugState {
   simulateOffline: boolean;
 }
 
-export interface KrakowCardUser {
-  cardNumber: string;
-  displayName: string;
+export interface UserAccount {
   email: string;
-  validUntil: string;
+  displayName: string;
   status: 'active' | 'suspended';
-  accessibilityPass: boolean;
-  verifiedResident: boolean;
-  discountTier: string;
+  cardNumber?: string;
+  validUntil?: string;
+  accessibilityPass?: boolean;
+  verifiedResident?: boolean;
+  discountTier?: string;
 }
+
+export type KrakowCardUser = UserAccount;
 
 export type BarrierViewMode = 'none' | 'route' | 'all';
 
@@ -86,7 +93,14 @@ interface SessionValue {
   debugState: DebugState;
   setDebugState: (updater: (prev: DebugState) => DebugState) => void;
   localReports: LocalReport[];
-  addLocalReport: (description: string) => void;
+  addLocalReport: (
+    description: string,
+    extra?: {
+      photoUrl?: string;
+      category?: 'hole' | 'obstacle' | 'flood' | 'surface' | 'other';
+      position?: { lat: number; lon: number };
+    }
+  ) => void;
   activeRouteReport: RouteReport | null;
   setActiveRouteReport: (report: RouteReport | null) => void;
   activeWalkingRoute: WalkingRoute | null;
@@ -112,11 +126,18 @@ interface SessionValue {
   isLocating: boolean;
   fetchUserLocation: () => Promise<UserLocationResult | null>;
 
-  // Karta Krakowska (Resident Identity Mockup)
-  krakowCardUser: KrakowCardUser | null;
+  // User Account (Mockup email account - no server data saved)
+  userAccount: UserAccount | null;
+  userModalVisible: boolean;
+  setUserModalVisible: (val: boolean) => void;
+  loginUser: (credentials?: { email?: string; password?: string; name?: string; identifier?: string }) => void;
+  logoutUser: () => void;
+
+  // Backwards compatibility aliases
+  krakowCardUser: UserAccount | null;
   krakowCardModalVisible: boolean;
   setKrakowCardModalVisible: (val: boolean) => void;
-  loginWithKrakowCard: (credentials?: { identifier?: string; password?: string; name?: string }) => void;
+  loginWithKrakowCard: (credentials?: { email?: string; password?: string; name?: string; identifier?: string }) => void;
   logoutKrakowCard: () => void;
 
   // Accessibility & Design System State
@@ -362,6 +383,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       description: 'Uszkodzony zjazd z chodnika na skrzyżowaniu Grodzka/Franciszkańska',
       createdAt: '2026-10-02T16:45:00Z',
       status: 'reported',
+      category: 'obstacle',
+      position: { lat: 50.05805, lon: 19.93755 },
     },
   ]);
   const [activeRouteReport, setActiveRouteReport] = useState<RouteReport | null>(null);
@@ -371,7 +394,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [routeVariants, setRouteVariants] = useState<Record<RouteVariantId, RouteVariant> | null>(null);
   const [selectedRouteVariant, setSelectedRouteVariant] = useState<RouteVariantId>('accessible');
   const [activePlaceReport, setActivePlaceReport] = useState<PlaceAnalysisReport | null>(null);
-  const [barrierViewMode, setBarrierViewMode] = useState<BarrierViewMode>('all');
+  const [barrierViewMode, setBarrierViewMode] = useState<BarrierViewMode>('route');
 
   const routeVariantsRef = useRef(routeVariants);
   routeVariantsRef.current = routeVariants;
@@ -462,69 +485,53 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [profileId, activeThresholds]);
 
-  // Karta Krakowska (Resident Identity Mockup)
-  const [krakowCardModalVisible, setKrakowCardModalVisible] = useState<boolean>(false);
-  const [krakowCardUser, setKrakowCardUser] = useState<KrakowCardUser | null>(null);
+  // User Account (Mockup email account - zero server storage)
+  const [userModalVisible, setUserModalVisible] = useState<boolean>(false);
+  const [userAccount, setUserAccount] = useState<UserAccount | null>(null);
 
-  const loginWithKrakowCard = useCallback(
-    (credentials?: { identifier?: string; password?: string; name?: string }) => {
-      const rawId = (credentials?.identifier || '').trim();
+  const loginUser = useCallback(
+    (credentials?: { email?: string; password?: string; name?: string; identifier?: string }) => {
+      const rawEmailOrId = (credentials?.email || credentials?.identifier || '').trim();
       const rawName = (credentials?.name || '').trim();
 
-      // Clean or generate 16-digit card number with standard Krakow prefix 9210
-      let formattedCardNum = '9210 5821 9043 1184';
-      const digitsOnly = rawId.replace(/\D/g, '');
-      if (digitsOnly.length >= 8) {
-        const full = (digitsOnly.startsWith('9210') ? digitsOnly : `9210${digitsOnly}`)
-          .padEnd(16, '7')
-          .slice(0, 16);
-        formattedCardNum = `${full.slice(0, 4)} ${full.slice(4, 8)} ${full.slice(8, 12)} ${full.slice(12, 16)}`;
-      } else if (rawId && !rawId.includes('@')) {
-        const randomMid = Math.floor(1000 + Math.random() * 9000);
-        const randomEnd = Math.floor(1000 + Math.random() * 9000);
-        formattedCardNum = `9210 ${randomMid} ${randomEnd} 8912`;
+      let email = rawEmailOrId;
+      if (!email) {
+        email = 'uzytkownik@example.com';
+      } else if (!email.includes('@')) {
+        email = `${email.toLowerCase().replace(/[^a-z0-9]/g, '.')}@example.com`;
       }
 
       let displayName = rawName;
       if (!displayName) {
-        if (rawId.includes('@')) {
-          const userPart = rawId.split('@')[0];
-          displayName = userPart
-            .split(/[._-]/)
-            .filter(Boolean)
-            .map((s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
-            .join(' ');
-        } else if (digitsOnly.length >= 8) {
-          displayName = 'Mieszkaniec Krakowa';
-        } else if (rawId) {
-          displayName = rawId;
-        } else {
-          displayName = 'Jan Kowalski';
-        }
+        const userPart = email.split('@')[0];
+        displayName = userPart
+          .split(/[._-]/)
+          .filter(Boolean)
+          .map((s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+          .join(' ');
+      }
+      if (!displayName) {
+        displayName = 'Użytkownik';
       }
 
-      const email = rawId.includes('@')
-        ? rawId
-        : `${displayName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@krakow.pl`;
-
-      const user: KrakowCardUser = {
-        cardNumber: formattedCardNum,
-        displayName: displayName || 'Mieszkaniec Krakowa',
+      const user: UserAccount = {
         email,
-        validUntil: '31.12.2027',
+        displayName,
         status: 'active',
+        cardNumber: 'MOCK-USR-2026',
+        validUntil: '31.12.2027',
         accessibilityPass: true,
         verifiedResident: true,
-        discountTier: 'Bilet Mieszkańca • Ulga 100% Asystent ON',
+        discountTier: 'Konto użytkownika • Mockup',
       };
 
-      setKrakowCardUser(user);
+      setUserAccount(user);
     },
     [],
   );
 
-  const logoutKrakowCard = useCallback(() => {
-    setKrakowCardUser(null);
+  const logoutUser = useCallback(() => {
+    setUserAccount(null);
   }, []);
 
   // User GPS location state
@@ -651,12 +658,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setReadingMask(false);
   }, [setContrastMode, setTextSize]);
 
-  const addLocalReport = (description: string) => {
+  const addLocalReport = (
+    description: string,
+    extra?: {
+      photoUrl?: string;
+      category?: 'hole' | 'obstacle' | 'flood' | 'surface' | 'other';
+      position?: { lat: number; lon: number };
+    }
+  ) => {
     const newReport: LocalReport = {
       id: `local-report-${Date.now()}`,
       description,
       createdAt: new Date().toISOString(),
       status: 'reported',
+      photoUrl: extra?.photoUrl,
+      category: extra?.category || 'obstacle',
+      position: extra?.position,
+      stillHereCount: 0,
+      fixedCount: 0,
     };
     setLocalReports((prev) => [newReport, ...prev]);
   };
@@ -708,12 +727,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUserLocation,
       isLocating,
       fetchUserLocation,
-      // Karta Krakowska (Resident Identity Mockup)
-      krakowCardUser,
-      krakowCardModalVisible,
-      setKrakowCardModalVisible,
-      loginWithKrakowCard,
-      logoutKrakowCard,
+      // User Account (Mockup email account - zero server storage)
+      userAccount,
+      userModalVisible,
+      setUserModalVisible,
+      loginUser,
+      logoutUser,
+      // Backward compatibility aliases
+      krakowCardUser: userAccount,
+      krakowCardModalVisible: userModalVisible,
+      setKrakowCardModalVisible: setUserModalVisible,
+      loginWithKrakowCard: loginUser,
+      logoutKrakowCard: logoutUser,
       // Accessibility
       contrastMode,
       setContrastMode,
@@ -781,10 +806,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       userLocation,
       isLocating,
       fetchUserLocation,
-      krakowCardUser,
-      krakowCardModalVisible,
-      loginWithKrakowCard,
-      logoutKrakowCard,
+      userAccount,
+      userModalVisible,
+      setUserModalVisible,
+      loginUser,
+      logoutUser,
       contrastMode,
       setContrastMode,
       textSize,

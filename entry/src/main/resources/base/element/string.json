@@ -1,0 +1,20 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Kraków bez barier"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Aplikacja dostępności pieszej w Krakowie"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "Kraków bez barier"
+    },
+    {
+      "name": "location_reason",
+      "value": "Lokalizacja pokazuje Twoją pozycję na mapie i ułatwia wybór startu trasy."
+    }
+  ]
+}

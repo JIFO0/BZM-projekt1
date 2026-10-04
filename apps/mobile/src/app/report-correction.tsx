@@ -1,8 +1,11 @@
 import { Stack } from 'expo-router';
+import { credibilityFromReports } from '@krakow-bez-barier/core';
 import * as Linking from 'expo-linking';
-import { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,15 +22,22 @@ import {
   ListChecks,
   Warning,
   CheckCircle,
-  IdentificationCard,
+  User,
   ShieldCheck,
+  Camera,
+  Image as ImageIcon,
+  Trash,
 } from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
+import { CredibilityNote } from '@/components/CredibilityNote';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
+import { useState } from 'react';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { t } from '@/i18n/strings';
+import { pickPhotoAsync } from '@/services/photo';
+import { uploadPhotoToServer, createServerHazard } from '@/services/api';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -42,15 +52,17 @@ export default function ReportCorrectionScreen() {
     isHighContrast,
     increasedSpacing,
     dyslexicFont,
-    krakowCardUser,
-    setKrakowCardModalVisible,
+    userAccount,
+    setUserModalVisible,
   } = useSession();
 
   const [description, setDescription] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
   const [debugVisible, setDebugVisible] = useState(false);
 
-  const handleSubmitLocal = () => {
+  const handleSubmitLocal = async () => {
     if (!description.trim()) {
       Alert.alert(
         locale === 'pl' ? 'Błąd' : locale === 'uk' ? 'Помилка' : 'Error',
@@ -62,10 +74,51 @@ export default function ReportCorrectionScreen() {
       );
       return;
     }
-    addLocalReport(description.trim());
-    setDescription('');
-    setSuccessMsg(true);
-    setTimeout(() => setSuccessMsg(false), 4000);
+
+    setIsSubmitting(true);
+    let serverPhotoUrl: string | undefined;
+
+    try {
+      if (photoUri) {
+        const uploadRes = await uploadPhotoToServer(photoUri);
+        if (uploadRes) {
+          serverPhotoUrl = uploadRes;
+        } else {
+          serverPhotoUrl = photoUri;
+        }
+      }
+
+      // Also create server hazard so it propagates to the community
+      try {
+        let lat = 50.0619;
+        let lon = 19.9373;
+        if (activeRouteReport && activeRouteReport.findings.length > 0) {
+          lat = activeRouteReport.findings[0]!.fact.subject.lat;
+          lon = activeRouteReport.findings[0]!.fact.subject.lon;
+        }
+        await createServerHazard({
+          category: 'other',
+          description: description.trim(),
+          position: { lat, lon },
+          photoUrl: serverPhotoUrl,
+        });
+      } catch {
+        // Fallback gracefully
+      }
+
+      addLocalReport(description.trim(), {
+        photoUrl: serverPhotoUrl,
+      });
+
+      setDescription('');
+      setPhotoUri(null);
+      setSuccessMsg(true);
+      setTimeout(() => setSuccessMsg(false), 4000);
+    } catch (e: any) {
+      Alert.alert(locale === 'pl' ? 'Błąd' : 'Error', e.message || 'Nie udało się zapisać zgłoszenia.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleOpenOsmNote = async () => {
@@ -133,8 +186,8 @@ export default function ReportCorrectionScreen() {
           </Text>
         </GovCard>
 
-        {/* Karta Krakowska Resident Verification Banner */}
-        {krakowCardUser ? (
+        {/* User Account Verification / Authentication Banner */}
+        {userAccount ? (
           <GovCard variant="ok">
             <View style={styles.cardHeaderRow}>
               <ShieldCheck size={20} color={colors.okText} weight="fill" />
@@ -145,7 +198,7 @@ export default function ReportCorrectionScreen() {
                   fontSize: fontSize(14.5),
                 }}
               >
-                {t(locale, 'krakowCardVerifiedResident')}: {krakowCardUser.displayName}
+                {t(locale, 'userAccountVerifiedResident')}: {userAccount.displayName}
               </Text>
             </View>
             <Text
@@ -154,13 +207,13 @@ export default function ReportCorrectionScreen() {
                 { color: colors.text, fontSize: fontSize(13), marginTop: 4 },
               ]}
             >
-              {t(locale, 'krakowCardReportNoticeVerified')} (Karta: {krakowCardUser.cardNumber})
+              {t(locale, 'userAccountReportNoticeVerified')} ({userAccount.email})
             </Text>
           </GovCard>
         ) : (
           <GovCard variant="default">
             <View style={styles.cardHeaderRow}>
-              <IdentificationCard size={20} color={colors.accent} weight="bold" />
+              <User size={20} color={colors.accent} weight="bold" />
               <Text
                 style={{
                   color: colors.text,
@@ -169,15 +222,15 @@ export default function ReportCorrectionScreen() {
                   flex: 1,
                 }}
               >
-                {t(locale, 'krakowCardReportNoticeAnon')}
+                {t(locale, 'userAccountReportNoticeAnon')}
               </Text>
             </View>
             <View style={{ marginTop: spacing.xs }}>
               <GovButton
-                title={t(locale, 'krakowCardLoginBtn')}
-                icon={<IdentificationCard size={16} color="#FFFFFF" weight="bold" />}
+                title={t(locale, 'userAccountLoginBtn')}
+                icon={<User size={16} color="#FFFFFF" weight="bold" />}
                 variant="primary"
-                onPress={() => setKrakowCardModalVisible(true)}
+                onPress={() => setUserModalVisible(true)}
               />
             </View>
           </GovCard>
@@ -213,6 +266,55 @@ export default function ReportCorrectionScreen() {
             ]}
           />
 
+          {/* Photo attachment (public) */}
+          <Text style={{ color: colors.text, fontSize: fontSize(13.5), fontWeight: '700', marginTop: 10 }}>
+            {locale === 'pl' ? 'Dołącz zdjęcie przeszkody (widoczne dla wszystkich):' : 'Attach hazard photo (public):'}
+          </Text>
+
+          <View style={styles.photoActionsRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={async () => {
+                const photo = await pickPhotoAsync('camera', locale);
+                if (photo) setPhotoUri(photo);
+              }}
+              style={[styles.photoBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+            >
+              <Camera size={16} weight="bold" color={colors.accent} />
+              <Text style={[styles.photoBtnText, { color: colors.text, fontSize: fontSize(13) }]}>
+                {locale === 'pl' ? 'Zrób zdjęcie (Aparat)' : 'Take photo'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={async () => {
+                const photo = await pickPhotoAsync('library', locale);
+                if (photo) setPhotoUri(photo);
+              }}
+              style={[styles.photoBtn, { backgroundColor: colors.background, borderColor: colors.border }]}
+            >
+              <ImageIcon size={16} weight="bold" color={colors.accent} />
+              <Text style={[styles.photoBtnText, { color: colors.text, fontSize: fontSize(13) }]}>
+                {locale === 'pl' ? 'Wybierz z galerii' : 'From gallery'}
+              </Text>
+            </Pressable>
+          </View>
+
+          {photoUri ? (
+            <View style={[styles.photoPreviewBox, { borderColor: colors.border }]}>
+              <Image source={{ uri: photoUri }} style={styles.photoPreviewImg} resizeMode="cover" />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Usuń wybrane zdjęcie"
+                onPress={() => setPhotoUri(null)}
+                style={styles.removePhotoBtn}
+              >
+                <Trash size={14} color="#FFFFFF" weight="bold" />
+              </Pressable>
+            </View>
+          ) : null}
+
           {successMsg ? (
             <GovCard variant="ok">
               <View style={styles.cardHeaderRow}>
@@ -225,9 +327,10 @@ export default function ReportCorrectionScreen() {
           ) : null}
 
           <GovButton
-            title={t(locale, 'reportSubmit')}
-            icon={<FloppyDisk size={18} color="#fff" weight="bold" />}
+            title={isSubmitting ? (locale === 'pl' ? 'Wysyłanie...' : 'Submitting...') : t(locale, 'reportSubmit')}
+            icon={isSubmitting ? <ActivityIndicator size="small" color="#fff" /> : <FloppyDisk size={18} color="#fff" weight="bold" />}
             variant="primary"
+            disabled={isSubmitting}
             onPress={handleSubmitLocal}
           />
         </GovCard>
@@ -290,6 +393,18 @@ export default function ReportCorrectionScreen() {
                 <Text style={[styles.itemText, { color: colors.text, fontSize: fontSize(14) }]}>
                   {report.description}
                 </Text>
+                <CredibilityNote
+                  locale={locale}
+                  assessment={credibilityFromReports({
+                    supportCount: report.stillHereCount ?? 0,
+                    photoCount: report.photoUrl ? 1 : 0,
+                  })}
+                />
+                {report.photoUrl ? (
+                  <View style={[styles.reportPhotoContainer, { borderColor: colors.border }]}>
+                    <Image source={{ uri: report.photoUrl }} style={styles.reportThumb} resizeMode="cover" />
+                  </View>
+                ) : null}
               </GovCard>
             ))
           )}
@@ -359,5 +474,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     flex: 1,
+  },
+  photoActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  photoBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1.5,
+  },
+  photoBtnText: {
+    fontWeight: '700',
+  },
+  photoPreviewBox: {
+    position: 'relative',
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    height: 160,
+  },
+  photoPreviewImg: {
+    width: '100%',
+    height: '100%',
+  },
+  removePhotoBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 16,
+    padding: 6,
+  },
+  reportPhotoContainer: {
+    marginTop: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    height: 140,
+  },
+  reportThumb: {
+    width: '100%',
+    height: '100%',
   },
 });

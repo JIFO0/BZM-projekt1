@@ -9,8 +9,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "export:harmony-web": "node ./scripts/export-harmony-web.js",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:apk": "eas build -p android --profile preview"
   },
   "dependencies": {
     "@krakow-bez-barier/core": "*",
@@ -20,6 +22,7 @@
     "expo-asset": "~55.0.20",
     "expo-constants": "~55.0.17",
     "expo-font": "~55.0.8",
+    "expo-image-picker": "~55.0.24",
     "expo-linking": "~55.0.17",
     "expo-location": "~55.1.14",
     "expo-router": "~55.0.18",

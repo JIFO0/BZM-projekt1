@@ -23,6 +23,7 @@ import {
   OsmOverpassProvider,
   OsmRoutingProvider,
 } from '@krakow-bez-barier/sources';
+import { getAllCityFacts } from '@/services/barriers';
 
 function getMapyApiKey(): string {
   return process.env.EXPO_PUBLIC_MAPY_API_KEY || '';
@@ -31,6 +32,22 @@ function getMapyApiKey(): string {
 function hasValidMapyKey(): boolean {
   const key = getMapyApiKey();
   return Boolean(key && !key.includes('replace-with') && key.trim().length > 5);
+}
+
+export function resolveBackendApiUrl(): string {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:3000';
+    }
+    if (hostname && !hostname.endsWith('.local')) {
+      return `http://${hostname}:3000`;
+    }
+  }
+  return 'http://localhost:3000';
 }
 
 function resolveGraphHopperUrl(): string {
@@ -211,6 +228,15 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     }
   }
 
+  // Merge known curated city barriers (krakow center barriers, etc.) with OSM facts
+  const cityFacts = getAllCityFacts();
+  const existingFactIds = new Set(facts.map((f) => f.id));
+  for (const cf of cityFacts) {
+    if (!existingFactIds.has(cf.id)) {
+      facts.push(cf);
+    }
+  }
+
   // 3. Deterministic route analysis in core
   const report = analyzeRoute({
     routeId: `route-${Date.now()}`,
@@ -231,21 +257,33 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     DEMO_SNAPSHOT.routes[1]!;
 
   if (isSample) {
+    const shortestFacts = [...sampleShortest.facts];
+    const shortestFactIds = new Set(shortestFacts.map((f) => f.id));
+    for (const cf of cityFacts) {
+      if (!shortestFactIds.has(cf.id)) shortestFacts.push(cf);
+    }
+
     const shortestReport = analyzeRoute({
       routeId: `route-shortest-${Date.now()}`,
       profileId,
       routeCoordinates: sampleShortest.walkingRoute.coordinates,
-      facts: sampleShortest.facts,
+      facts: shortestFacts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,
     });
 
+    const accessibleFacts = [...sampleAccessible.facts];
+    const accessibleFactIds = new Set(accessibleFacts.map((f) => f.id));
+    for (const cf of cityFacts) {
+      if (!accessibleFactIds.has(cf.id)) accessibleFacts.push(cf);
+    }
+
     const accessibleReport = analyzeRoute({
       routeId: `route-accessible-${Date.now()}`,
       profileId,
       routeCoordinates: sampleAccessible.walkingRoute.coordinates,
-      facts: sampleAccessible.facts,
+      facts: accessibleFacts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,
@@ -747,5 +785,254 @@ export async function reverseGeocodeLocation(
     label: `Punkt na mapie (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
     position: { lat, lon },
     kind: 'coordinate',
+  };
+}
+
+export interface ServerHazardValidation {
+  id: string;
+  voterKey: string;
+  action: 'still_here' | 'fixed';
+  photoUrl?: string;
+  comment?: string;
+  createdAt: string;
+}
+
+export interface ServerRouteHazard {
+  id: string;
+  description: string;
+  status: 'reported' | 'confirmed' | 'resolved';
+  createdAt: string;
+  updatedAt: string;
+  email?: string;
+  position?: { lat: number; lon: number };
+  category?: 'hole' | 'obstacle' | 'flood' | 'surface' | 'other';
+  photoUrl?: string;
+  validations?: ServerHazardValidation[];
+  stillHereCount: number;
+  fixedCount: number;
+}
+
+export interface ServerPlaceComment {
+  id: string;
+  placeId: string;
+  placeName: string;
+  position: { lat: number; lon: number };
+  sentiment: 'positive' | 'negative';
+  comment: string;
+  category?: 'entrance' | 'inside' | 'toilet' | 'surroundings' | 'general';
+  photoUrl?: string;
+  email?: string;
+  createdAt: string;
+}
+
+export async function uploadPhotoToServer(
+  uriOrBase64: string,
+  filename = 'photo.jpg'
+): Promise<string> {
+  const apiBase = resolveBackendApiUrl();
+  let payload: any;
+
+  if (
+    uriOrBase64.startsWith('data:') ||
+    (!uriOrBase64.startsWith('http') && !uriOrBase64.startsWith('file:') && !uriOrBase64.startsWith('/') && !uriOrBase64.startsWith('blob:'))
+  ) {
+    payload = {
+      image: uriOrBase64.startsWith('data:') ? uriOrBase64 : `data:image/jpeg;base64,${uriOrBase64}`,
+      filename,
+    };
+  } else {
+    // If it's a file URI or blob URI
+    try {
+      const response = await fetch(uriOrBase64);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      payload = { image: base64Data, filename };
+    } catch {
+      payload = { image: uriOrBase64, filename };
+    }
+  }
+
+  const res = await fetch(`${apiBase}/api/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Upload failed with status ${res.status}`);
+  }
+
+  const data = await res.json();
+  const relativeOrFullUrl: string = data.url;
+  if (relativeOrFullUrl.startsWith('http')) {
+    return relativeOrFullUrl;
+  }
+  return `${apiBase}${relativeOrFullUrl}`;
+}
+
+export async function fetchServerHazards(): Promise<ServerRouteHazard[]> {
+  const apiBase = resolveBackendApiUrl();
+  try {
+    const res = await fetch(`${apiBase}/api/hazards`, { headers: { Accept: 'application/json' } });
+    if (res.ok) {
+      const data = await res.json();
+      return (data.items || []).map((h: ServerRouteHazard) => ({
+        ...h,
+        photoUrl: h.photoUrl?.startsWith('/uploads') ? `${apiBase}${h.photoUrl}` : h.photoUrl,
+        validations: (h.validations || []).map((v) => ({
+          ...v,
+          photoUrl: v.photoUrl?.startsWith('/uploads') ? `${apiBase}${v.photoUrl}` : v.photoUrl,
+        })),
+      }));
+    }
+  } catch {
+    // fallback to empty
+  }
+  return [];
+}
+
+export async function fetchRandomServerHazard(): Promise<ServerRouteHazard | null> {
+  const apiBase = resolveBackendApiUrl();
+  try {
+    const res = await fetch(`${apiBase}/api/hazards/random`, { headers: { Accept: 'application/json' } });
+    if (res.ok) {
+      const h: ServerRouteHazard = await res.json();
+      return {
+        ...h,
+        photoUrl: h.photoUrl?.startsWith('/uploads') ? `${apiBase}${h.photoUrl}` : h.photoUrl,
+        validations: (h.validations || []).map((v) => ({
+          ...v,
+          photoUrl: v.photoUrl?.startsWith('/uploads') ? `${apiBase}${v.photoUrl}` : v.photoUrl,
+        })),
+      };
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
+export async function createServerHazard(data: {
+  description: string;
+  category?: 'hole' | 'obstacle' | 'flood' | 'surface' | 'other';
+  email?: string;
+  photoUrl?: string;
+  position?: { lat: number; lon: number };
+}): Promise<ServerRouteHazard> {
+  const apiBase = resolveBackendApiUrl();
+  const email = data.email || 'anonim@krakow.pl';
+  const res = await fetch(`${apiBase}/api/hazards`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      description: data.description,
+      category: data.category || 'obstacle',
+      email,
+      photoUrl: data.photoUrl,
+      position: data.position,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to create hazard: HTTP ${res.status}`);
+  }
+  const created: ServerRouteHazard = await res.json();
+  return {
+    ...created,
+    photoUrl: created.photoUrl?.startsWith('/uploads') ? `${apiBase}${created.photoUrl}` : created.photoUrl,
+  };
+}
+
+export async function verifyServerHazard(
+  hazardId: string,
+  data: {
+    action: 'still_here' | 'fixed';
+    email?: string;
+    photoUrl?: string;
+    comment?: string;
+  }
+): Promise<any> {
+  const apiBase = resolveBackendApiUrl();
+  const email = data.email || 'weryfikator@krakow.pl';
+  const res = await fetch(`${apiBase}/api/hazards/${hazardId}/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: data.action,
+      email,
+      photoUrl: data.photoUrl,
+      comment: data.comment,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Verification failed: HTTP ${res.status}`);
+  }
+  const result = await res.json();
+  return {
+    ...result,
+    photoUrl: result.photoUrl?.startsWith('/uploads') ? `${apiBase}${result.photoUrl}` : result.photoUrl,
+    validations: (result.validations || []).map((v: any) => ({
+      ...v,
+      photoUrl: v.photoUrl?.startsWith('/uploads') ? `${apiBase}${v.photoUrl}` : v.photoUrl,
+    })),
+  };
+}
+
+export async function fetchPlaceServerComments(placeId: string): Promise<ServerPlaceComment[]> {
+  const apiBase = resolveBackendApiUrl();
+  try {
+    const res = await fetch(`${apiBase}/api/places/${encodeURIComponent(placeId)}/comments`);
+    if (res.ok) {
+      const data = await res.json();
+      return (data.items || []).map((c: ServerPlaceComment) => ({
+        ...c,
+        photoUrl: c.photoUrl?.startsWith('/uploads') ? `${apiBase}${c.photoUrl}` : c.photoUrl,
+      }));
+    }
+  } catch {
+    // fallback
+  }
+  return [];
+}
+
+export async function addPlaceServerComment(
+  placeId: string,
+  data: {
+    sentiment: 'positive' | 'negative';
+    comment: string;
+    category?: 'entrance' | 'inside' | 'toilet' | 'surroundings' | 'general';
+    email?: string;
+    photoUrl?: string;
+  }
+): Promise<ServerPlaceComment> {
+  const apiBase = resolveBackendApiUrl();
+  const email = data.email || 'anonim@krakow.pl';
+  const res = await fetch(`${apiBase}/api/places/${encodeURIComponent(placeId)}/comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sentiment: data.sentiment,
+      comment: data.comment,
+      category: data.category || 'general',
+      email,
+      photoUrl: data.photoUrl,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to submit place comment: HTTP ${res.status}`);
+  }
+  const created: ServerPlaceComment = await res.json();
+  return {
+    ...created,
+    photoUrl: created.photoUrl?.startsWith('/uploads') ? `${apiBase}${created.photoUrl}` : created.photoUrl,
   };
 }

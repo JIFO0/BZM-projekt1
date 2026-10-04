@@ -29,7 +29,7 @@ import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { LocationPicker } from '@/components/LocationPicker';
 import { t } from '@/i18n/strings';
-import { inspectPlace, planAndAnalyzeRoute } from '@/services/api';
+import { inspectPlace, planAndAnalyzeRoute, suggestPlaces } from '@/services/api';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -57,11 +57,11 @@ export default function SearchScreen() {
   } = useSession();
 
   const [activeTab, setActiveTab] = useState<'route' | 'place'>('route');
-  const [fromQuery, setFromQuery] = useState('Rynek Główny');
-  const [fromPos, setFromPos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
+  const [fromQuery, setFromQuery] = useState('');
+  const [fromPos, setFromPos] = useState<LonLat | null>(null);
 
-  const [toQuery, setToQuery] = useState('Zamek Królewski na Wawelu');
-  const [toPos, setToPos] = useState<LonLat>({ lon: 19.9354, lat: 50.0544 });
+  const [toQuery, setToQuery] = useState('');
+  const [toPos, setToPos] = useState<LonLat | null>(null);
 
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
@@ -94,12 +94,40 @@ export default function SearchScreen() {
   };
 
   const handleAnalyzeRoute = async () => {
+    if (!fromQuery.trim() || !toQuery.trim()) {
+      setErrorMsg(t(locale, 'routeEndpointsRequired'));
+      return;
+    }
     setLoading(true);
     setErrorMsg(null);
     try {
+      let resolvedStart = fromPos;
+      let resolvedEnd = toPos;
+
+      if (!resolvedStart && fromQuery.trim()) {
+        const hits = await suggestPlaces(fromQuery, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedStart = hits[0].position;
+          setFromPos(resolvedStart);
+        }
+      }
+
+      if (!resolvedEnd && toQuery.trim()) {
+        const hits = await suggestPlaces(toQuery, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedEnd = hits[0].position;
+          setToPos(resolvedEnd);
+        }
+      }
+
+      if (!resolvedStart || !resolvedEnd) {
+        setErrorMsg(t(locale, 'routeEndpointsRequired'));
+        return;
+      }
+
       const result = await planAndAnalyzeRoute({
-        start: { name: fromQuery, position: fromPos },
-        end: { name: toQuery, position: toPos },
+        start: { name: fromQuery, position: resolvedStart },
+        end: { name: toQuery, position: resolvedEnd },
         profileId,
         thresholds: activeThresholds,
         debugState,
@@ -119,11 +147,11 @@ export default function SearchScreen() {
         pathname: '/route',
         params: {
           fromName: fromQuery,
-          fromLat: String(fromPos.lat),
-          fromLon: String(fromPos.lon),
+          fromLat: String(resolvedStart.lat),
+          fromLon: String(resolvedStart.lon),
           toName: toQuery,
-          toLat: String(toPos.lat),
-          toLon: String(toPos.lon),
+          toLat: String(resolvedEnd.lat),
+          toLon: String(resolvedEnd.lon),
           profile: profileId,
           variant: result.selectedVariant || 'accessible',
           ...(result.isSample ? { isSample: '1' } : {}),
@@ -313,7 +341,7 @@ export default function SearchScreen() {
                 point={{ name: fromQuery, position: fromPos }}
                 onChangePoint={(p) => {
                   setFromQuery(p.name);
-                  setFromPos(p.position);
+                  setFromPos(p.position ?? null);
                 }}
                 placeholder={t(locale, 'fromPlaceholder')}
                 showMyLocation
@@ -350,7 +378,7 @@ export default function SearchScreen() {
                 point={{ name: toQuery, position: toPos }}
                 onChangePoint={(p) => {
                   setToQuery(p.name);
-                  setToPos(p.position);
+                  setToPos(p.position ?? null);
                 }}
                 placeholder={t(locale, 'toPlaceholder')}
               />
@@ -419,12 +447,6 @@ export default function SearchScreen() {
           </Text>
 
           <View style={styles.scenariosList}>
-            <GovButton
-              variant="outline"
-              title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute1')}`}
-              icon={<Footprints size={18} color={colors.text} weight="bold" />}
-              onPress={() => loadDemoRoute(0)}
-            />
             <GovButton
               variant="outline"
               title={`${t(locale, 'tabRoute')}: ${t(locale, 'demoRoute2')}`}

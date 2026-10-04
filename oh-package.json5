@@ -1,0 +1,8 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "krakow-bez-barier",
+  "version": "1.0.0",
+  "description": "Kraków bez barier — powłoka HarmonyOS dla aplikacji React.",
+  "dependencies": {},
+  "devDependencies": {}
+}

@@ -29,9 +29,12 @@ export interface ReportsRepository {
     email?: string;
     position?: { lat: number; lon: number };
     category?: HazardCategory;
+    photoUrl?: string;
   }): Promise<RouteHazard>;
 
   getHazard(id: string): Promise<RouteHazard | null>;
+
+  getRandomHazard?(): Promise<RouteHazard | null>;
 
   listHazards(filter?: {
     bbox?: [number, number, number, number];
@@ -41,16 +44,22 @@ export interface ReportsRepository {
 
   deleteHazard(id: string): Promise<boolean>;
 
-  // Hazard Verification with Undo
-  verifyHazard(hazardId: string, action: HazardVoteAction, voterKey: string): Promise<VerifyHazardResult>;
+  // Hazard Verification with Undo & Photo
+  verifyHazard(
+    hazardId: string,
+    action: HazardVoteAction,
+    voterKey: string,
+    options?: { photoUrl?: string; comment?: string }
+  ): Promise<VerifyHazardResult>;
 
-  // Place Comments
+  // Place Comments / Accessibility Validation
   addPlaceComment(data: {
     placeId: string;
     sentiment: CommentSentiment;
     comment: string;
     category?: PlaceFeatureCategory;
     email?: string;
+    photoUrl?: string;
   }): Promise<PlaceComment | null>;
 
   listPlaceComments(

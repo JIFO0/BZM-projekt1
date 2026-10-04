@@ -1,4 +1,4 @@
-import { dateLabel, type Fact } from '@krakow-bez-barier/core';
+import { credibilityFromSource, dateLabel, type Fact } from '@krakow-bez-barier/core';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CaretDown, CaretUp } from 'phosphor-react-native';
@@ -6,6 +6,7 @@ import { CaretDown, CaretUp } from 'phosphor-react-native';
 import { t, type Locale } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
+import { CredibilityNote, credibilityLabel, sourceWithCredit } from './CredibilityNote';
 import { StatusBadge } from './StatusBadge';
 
 interface FactRowProps {
@@ -29,12 +30,21 @@ export function FactRow({ fact, locale }: FactRowProps) {
     dateText = t(locale, 'noDate');
   }
 
+  const credibility = credibilityFromSource({
+    name: fact.source.name,
+    licence: fact.source.licence,
+    status: fact.status,
+    hasAuditDate: Boolean(fact.lastConfirmedAt),
+  });
+  const sourceLine = sourceWithCredit(fact.source.name, fact.source.licence);
+  const indexLabel = `${t(locale, 'credibilityIndex')} ${credibility.score} · ${credibilityLabel(locale, credibility.rank)}`;
+
   const a11yLabel =
     locale === 'pl'
-      ? `${fact.criterion}: ${fact.value}. Status: ${fact.status}. Źródło: ${fact.source.name}, ${dateText}`
+      ? `${fact.criterion}: ${fact.value}. Status: ${fact.status}. Źródło: ${sourceLine}, ${dateText}. ${indexLabel}`
       : locale === 'uk'
-        ? `${fact.criterion}: ${fact.value}. Статус: ${fact.status}. Джерело: ${fact.source.name}, ${dateText}`
-        : `${fact.criterion}: ${fact.value}. Status: ${fact.status}. Source: ${fact.source.name}, ${dateText}`;
+        ? `${fact.criterion}: ${fact.value}. Статус: ${fact.status}. Джерело: ${sourceLine}, ${dateText}. ${indexLabel}`
+        : `${fact.criterion}: ${fact.value}. Status: ${fact.status}. Source: ${sourceLine}, ${dateText}. ${indexLabel}`;
 
   return (
     <View
@@ -60,9 +70,11 @@ export function FactRow({ fact, locale }: FactRowProps) {
         {fact.value}
       </Text>
 
+      <CredibilityNote assessment={credibility} locale={locale} />
+
       <View style={[styles.footerRow, { borderTopColor: colors.border }]}>
         <Text style={[styles.sourceText, { color: colors.muted, fontSize: fontSize(12.5) }]}>
-          {fact.source.name} • {dateText}
+          {sourceLine} • {dateText}
         </Text>
         <Pressable
           accessibilityRole="button"
