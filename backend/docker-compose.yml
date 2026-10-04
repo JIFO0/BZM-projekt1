@@ -24,10 +24,15 @@ services:
       - PORT=3000
       - HOST=0.0.0.0
       - NODE_ENV=production
+      - UPLOADS_DIR=/app/uploads
+      - STORAGE_DIR=/app/data/reports
     expose:
       - "3000"
     ports:
       - "3000:3000"
+    volumes:
+      - ./data/uploads:/app/uploads
+      - ./data/reports:/app/data/reports
     networks:
       - krakow-net
 

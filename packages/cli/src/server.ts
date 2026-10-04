@@ -6,6 +6,7 @@ import { serve, createAdaptorServer, type ServerType } from '@hono/node-server';
 import {
   type ReportsRepository,
   MemoryReportsRepository,
+  FsReportsRepository,
   type PlacesRegistry,
   defaultPlacesRegistry,
 } from './storage';
@@ -16,6 +17,7 @@ export interface AppOptions {
   repo?: ReportsRepository;
   placesRegistry?: PlacesRegistry;
   seedInitialData?: boolean;
+  storageDir?: string;
 }
 
 export interface ServerOptions extends AppOptions {
@@ -27,7 +29,7 @@ export interface ServerOptions extends AppOptions {
 const uploadedFilesCache = new Map<string, { buffer: Buffer; mime: string }>();
 
 function getUploadsDirectory(): string {
-  const dir = path.join(process.cwd(), 'uploads');
+  const dir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
   try {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -217,7 +219,19 @@ export function createApp(options: AppOptions = {}): Hono {
   app.get('/api/uploads/:filename', serveUpload);
 
   const placesRegistry = options.placesRegistry ?? defaultPlacesRegistry;
-  const repo = options.repo ?? new MemoryReportsRepository(placesRegistry);
+  const storageDir =
+    options.storageDir ||
+    process.env.STORAGE_DIR ||
+    process.env.REPORTS_DATA_DIR ||
+    path.join(process.cwd(), 'data', 'reports');
+
+  const repo =
+    options.repo ??
+    new FsReportsRepository({
+      dataDir: storageDir,
+      placesRegistry,
+      seedInitialData: options.seedInitialData ?? true,
+    });
 
   if (options.seedInitialData && typeof (repo as any).seedDefaultHazards === 'function') {
     (repo as any).seedDefaultHazards();
