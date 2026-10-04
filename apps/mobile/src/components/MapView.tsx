@@ -25,6 +25,7 @@ export interface MapViewProps {
   startLocation?: { name?: string; lat: number; lon: number };
   endLocation?: { name?: string; lat: number; lon: number };
   clickedLocation?: { name?: string; lat: number; lon: number } | null;
+  inspectedPlace?: { name?: string; lat: number; lon: number } | null;
   userLocation?: { lat: number; lon: number } | null;
   onMapClick?: (coords: { lat: number; lon: number }) => void;
   isPickingMode?: boolean;
@@ -40,6 +41,7 @@ export function MapView({
   startLocation,
   endLocation,
   clickedLocation,
+  inspectedPlace,
   userLocation,
   onMapClick,
   isPickingMode = false,
@@ -74,6 +76,8 @@ export function MapView({
   pendingUserLocation.current = userLocation;
   const pendingClickedLocation = useRef(clickedLocation);
   pendingClickedLocation.current = clickedLocation;
+  const pendingInspectedPlace = useRef(inspectedPlace);
+  pendingInspectedPlace.current = inspectedPlace;
   const pendingStartLocation = useRef(startLocation);
   pendingStartLocation.current = startLocation;
   const pendingEndLocation = useRef(endLocation);
@@ -95,7 +99,7 @@ export function MapView({
   });
 
   // Reliable cross-platform message dispatch to the active Leaflet map
-  const sendToMap = useCallback((msg: { type: string; lat?: number; lon?: number; zoom?: number; markers?: any[]; startLocation?: any; endLocation?: any; route?: any }) => {
+  const sendToMap = useCallback((msg: { type: string; lat?: number; lon?: number; zoom?: number; name?: string; markers?: any[]; startLocation?: any; endLocation?: any; route?: any }) => {
     if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
       try {
         const win = iframeRef.current.contentWindow as any;
@@ -111,6 +115,10 @@ export function MapView({
           win.updateClickedMarker(msg.lat, msg.lon);
         } else if (msg.type === 'CLEAR_CLICKED_LOCATION' && typeof win.clearClickedMarker === 'function') {
           win.clearClickedMarker();
+        } else if (msg.type === 'SET_INSPECTED_PLACE' && typeof win.updateInspectedPlaceMarker === 'function') {
+          win.updateInspectedPlaceMarker(msg.lat, msg.lon, msg.name);
+        } else if (msg.type === 'CLEAR_INSPECTED_PLACE' && typeof win.clearInspectedPlaceMarker === 'function') {
+          win.clearInspectedPlaceMarker();
         } else if (msg.type === 'SET_ENDPOINTS' && typeof win.updateEndpoints === 'function') {
           win.updateEndpoints(msg.startLocation, msg.endLocation);
         } else if (msg.type === 'SET_ROUTE' && typeof win.updateRoute === 'function') {
@@ -141,6 +149,12 @@ export function MapView({
       } else if (msg.type === 'CLEAR_CLICKED_LOCATION') {
         const js = `if (typeof clearClickedMarker === 'function') { clearClickedMarker(); } true;`;
         webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'SET_INSPECTED_PLACE') {
+        const js = `if (typeof updateInspectedPlaceMarker === 'function') { updateInspectedPlaceMarker(${msg.lat}, ${msg.lon}, ${JSON.stringify(msg.name || '')}); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'CLEAR_INSPECTED_PLACE') {
+        const js = `if (typeof clearInspectedPlaceMarker === 'function') { clearInspectedPlaceMarker(); } true;`;
+        webViewRef.current.injectJavaScript(js);
       } else if (msg.type === 'SET_ENDPOINTS') {
         const js = `if (typeof updateEndpoints === 'function') { updateEndpoints(${JSON.stringify(msg.startLocation || null)}, ${JSON.stringify(msg.endLocation || null)}); } true;`;
         webViewRef.current.injectJavaScript(js);
@@ -161,7 +175,7 @@ export function MapView({
     return findings.map((f, i) => {
       let color = colors.infoBorder;
       if (f.severity === 'blocker') color = colors.blockerBorder;
-      else if (f.severity === 'warning') color = colors.warningBorder;
+      else if (f.severity === 'warning') color = isHighContrast ? colors.warningBorder : '#CA8A04';
       else if (f.severity === 'ok') color = colors.okBorder;
       else if (f.severity === 'unknown') color = colors.unknownBorder;
 
@@ -235,6 +249,14 @@ export function MapView({
         lon: pendingClickedLocation.current.lon,
       });
     }
+    if (pendingInspectedPlace.current) {
+      sendToMap({
+        type: 'SET_INSPECTED_PLACE',
+        lat: pendingInspectedPlace.current.lat,
+        lon: pendingInspectedPlace.current.lon,
+        name: pendingInspectedPlace.current.name,
+      });
+    }
     sendToMap({
       type: 'SET_ENDPOINTS',
       startLocation: pendingStartLocation.current,
@@ -270,6 +292,22 @@ export function MapView({
       });
     }
   }, [clickedLocation, sendToMap]);
+
+  // Smooth dynamic inspected place pin update without reloading iframe / WebView
+  useEffect(() => {
+    if (inspectedPlace) {
+      sendToMap({
+        type: 'SET_INSPECTED_PLACE',
+        lat: inspectedPlace.lat,
+        lon: inspectedPlace.lon,
+        name: inspectedPlace.name,
+      });
+    } else {
+      sendToMap({
+        type: 'CLEAR_INSPECTED_PLACE',
+      });
+    }
+  }, [inspectedPlace, sendToMap]);
 
   // Smooth dynamic endpoint markers update (A & B) without reloading iframe / WebView
   useEffect(() => {
@@ -322,10 +360,28 @@ export function MapView({
     ? MAPY_ATTRIBUTION.attribution
     : OSM_ATTRIBUTION.attribution;
 
+  const routeSignature = route
+    ? `${route.lengthMetres}:${route.coordinates.length}:${route.coordinates[0]?.join(',') ?? ''}:${route.coordinates[route.coordinates.length - 1]?.join(',') ?? ''}:${(route.surfaceSpans ?? []).map((span) => `${span.tone}:${span.coordinates.length}`).join('|')}`
+    : 'none';
+  const markerSignature = markersData.reduce((hash, marker) => {
+    const lat = Math.round((marker.lat || 0) * 1e5);
+    const lon = Math.round((marker.lon || 0) * 1e5);
+    return (hash + lat + lon + marker.severity.length + marker.type.length) | 0;
+  }, markersData.length);
+  const startSignature = startLocation
+    ? `${startLocation.lat},${startLocation.lon},${startLocation.name}`
+    : '';
+  const endSignature = endLocation ? `${endLocation.lat},${endLocation.lon},${endLocation.name}` : '';
+  const inspectedSignature = inspectedPlace ? `${inspectedPlace.lat},${inspectedPlace.lon},${inspectedPlace.name}` : '';
+  // HarmonyOS ArkWeb ignores later srcdoc updates and drops postMessage into that
+  // frame, so each new route or barrier set mounts a fresh document that already
+  // contains the pins.
+  const mapDocumentKey = `${routeSignature}:${markerSignature}:${startSignature}:${endSignature}:${inspectedSignature}`;
+
   // htmlContent is memoized so it does NOT reload on userLocation updates
   const htmlContent = useMemo(() => {
     const okRouteColor = isHighContrast ? '#42A5F5' : colors.accent;
-    const otherRouteColor = colors.warningBorder;
+    const otherRouteColor = isHighContrast ? colors.warningBorder : '#CA8A04';
 
     const startPin = startLocation || (route && route.coordinates.length > 0 ? {
       name: 'Start',
@@ -825,9 +881,11 @@ export function MapView({
         var lon = m.lon + pile * 0.00004;
         var iconSvg = getObstacleSvgIcon(m.type, m.color);
         var label = escHtml(m.short || m.value || '');
+        var isWarning = m.severity === 'warning';
+        var badgeBg = isWarning ? '#FEF9C3' : '#FFFFFF';
         var icon = L.divIcon({
           className: 'custom-marker',
-          html: '<div class="custom-marker-badge" style="border-color:' + m.color + '; color:' + m.color + ';" title="' + escHtml(m.title) + '">' + iconSvg + '</div>' +
+          html: '<div class="custom-marker-badge" style="background-color:' + badgeBg + '; border-color:' + m.color + '; color:' + m.color + ';" title="' + escHtml(m.title) + '">' + iconSvg + '</div>' +
             (label ? '<div class="custom-marker-label" style="border-color:' + m.color + '; color:' + m.color + ';">' + label + '</div>' : ''),
           iconSize: [${customMarkerSize}, ${customMarkerSize}],
           iconAnchor: [${customMarkerAnchor}, ${customMarkerAnchor}]
@@ -932,6 +990,53 @@ export function MapView({
       }
     };
 
+    var inspectedMarker = null;
+    var inspectedSvgIconHtml = '<div class="clicked-pin-pulse" style="background: rgba(0, 79, 147, 0.4);"></div>' +
+      '<div class="clicked-pin-icon">' +
+        '<svg width="${clickedPinWidth}" height="${clickedPinHeight}" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+          '<path d="M12 0C5.37258 0 0 5.37258 0 12C0 19.8 10.8 29.1 11.26 29.5C11.68 29.87 12.32 29.87 12.74 29.5C13.2 29.1 24 19.8 24 12C24 5.37258 18.6274 0 12 0Z" fill="${colors.accent}"/>' +
+          '<circle cx="12" cy="11" r="5.2" fill="#FFFFFF"/>' +
+          '<circle cx="12" cy="11" r="2.8" fill="${colors.accent}"/>' +
+        '</svg>' +
+      '</div>';
+
+    window.updateInspectedPlaceMarker = function(lat, lon, name) {
+      if (!map) return;
+      var label = escHtml(name || '');
+      var popupContent = '<div style="min-width: 140px; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;">' +
+        '<div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 2px;">' + (label || ${JSON.stringify(t(locale, 'pointOnMap'))}) + '</div>' +
+        '<div style="font-size: 11px; color: #64748b;">' + lat.toFixed(5) + ', ' + lon.toFixed(5) + '</div>' +
+        '</div>';
+
+      if (inspectedMarker) {
+        inspectedMarker.setLatLng([lat, lon]);
+        inspectedMarker.setPopupContent(popupContent);
+      } else {
+        var inspectedIcon = L.divIcon({
+          className: 'clicked-location-marker',
+          html: inspectedSvgIconHtml + (label ? '<div class="custom-marker-label" style="border-color:${colors.accent}; color:${colors.accent}; top:-22px; left:-20px;">' + label + '</div>' : ''),
+          iconSize: [${clickedPinWidth}, ${clickedPinHeight}],
+          iconAnchor: [${clickedPinAnchorX}, ${clickedPinAnchorY}]
+        });
+        inspectedMarker = L.marker([lat, lon], {
+          icon: inspectedIcon,
+          zIndexOffset: 980
+        }).addTo(map).bindPopup(popupContent);
+      }
+    };
+
+    window.clearInspectedPlaceMarker = function() {
+      if (inspectedMarker && map) {
+        map.removeLayer(inspectedMarker);
+        inspectedMarker = null;
+      }
+    };
+
+    var initialInspected = ${JSON.stringify(inspectedPlace ? { name: inspectedPlace.name, lat: inspectedPlace.lat, lon: inspectedPlace.lon } : null)};
+    if (initialInspected && typeof initialInspected.lat === 'number' && typeof initialInspected.lon === 'number') {
+      window.updateInspectedPlaceMarker(initialInspected.lat, initialInspected.lon, initialInspected.name);
+    }
+
     window.setMapCenter = function(lat, lon, zoomLevel) {
       if (!map) return;
       var targetZoom = zoomLevel || map.getZoom() || 16;
@@ -1012,6 +1117,7 @@ export function MapView({
 </html>
     `;
   }, [
+    mapDocumentKey,
     zoom,
     tileUrl,
     tileAttribution,
@@ -1057,6 +1163,7 @@ export function MapView({
     >
       {Platform.OS === 'web' ? (
         <iframe
+          key={mapDocumentKey}
           ref={iframeRef}
           title="Mapa trasy"
           srcDoc={htmlContent}

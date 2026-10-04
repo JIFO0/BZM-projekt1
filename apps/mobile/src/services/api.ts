@@ -484,22 +484,36 @@ export async function inspectPlace(
   const mustUseFallback = debugState.simulateOverpassDown || debugState.simulateOffline;
 
   if (mustUseFallback || (sampleMatch && sampleMatch.name.includes('KSDK'))) {
-    const placeToUse = sampleMatch ?? DEMO_SNAPSHOT.places[0]!;
-    const isKsdk =
-      placeToUse.name.includes('KSDK') ||
-      placeToUse.facts.some((f) => f.source.licence === 'Informacja Publiczna');
+    if (sampleMatch) {
+      const isKsdk =
+        sampleMatch.name.includes('KSDK') ||
+        sampleMatch.facts.some((f) => f.source.licence === 'Informacja Publiczna');
+      const report = analyzePlace(
+        sampleMatch.name,
+        sampleMatch.position,
+        sampleMatch.facts,
+        city.placeMatchMaxMetres,
+        true,
+      );
+      return {
+        report,
+        fallbackNotice: isKsdk
+          ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Ustawa o zapewnianiu dostępności).'
+          : `Symulacja: Wyświetlono obiekt ze snapshotu demonstracyjnego (${sampleMatch.name}).`,
+        isSample: true,
+      };
+    }
+    // No match in snapshot: return empty facts report for the requested place
     const report = analyzePlace(
-      placeToUse.name,
-      placeToUse.position,
-      placeToUse.facts,
+      placeName,
+      position,
+      [],
       city.placeMatchMaxMetres,
       true,
     );
     return {
       report,
-      fallbackNotice: isKsdk
-        ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Ustawa o zapewnianiu dostępności).'
-        : `Symulacja: Wyświetlono obiekt ze snapshotu demonstracyjnego (${placeToUse.name}).`,
+      fallbackNotice: 'Symulacja offline: brak danych o dostępności w bazie danych.',
       isSample: true,
     };
   }
@@ -529,20 +543,35 @@ export async function inspectPlace(
       isSample: bundle.facts.length === 0,
     };
   } catch {
-    const placeToUse = sampleMatch ?? DEMO_SNAPSHOT.places[0]!;
-    const isKsdk = placeToUse.name.includes('KSDK');
+    if (sampleMatch) {
+      const isKsdk = sampleMatch.name.includes('KSDK');
+      const report = analyzePlace(
+        sampleMatch.name,
+        sampleMatch.position,
+        sampleMatch.facts,
+        city.placeMatchMaxMetres,
+        true,
+      );
+      return {
+        report,
+        fallbackNotice: isKsdk
+          ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Muzeum Krakowa).'
+          : 'Błąd połączenia z OpenStreetMap. Wyświetlono obiekt z lokalnego snapshotu demo.',
+        isSample: true,
+      };
+    }
+
+    // Gracefully return empty facts report for the requested place rather than failing
     const report = analyzePlace(
-      placeToUse.name,
-      placeToUse.position,
-      placeToUse.facts,
+      placeName,
+      position,
+      [],
       city.placeMatchMaxMetres,
       true,
     );
     return {
       report,
-      fallbackNotice: isKsdk
-        ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Muzeum Krakowa).'
-        : 'Błąd połączenia z OpenStreetMap. Wyświetlono obiekt z lokalnego snapshotu demo.',
+      fallbackNotice: 'Brak danych o dostępności tego miejsca w miejskiej bazie danych ani w OpenStreetMap.',
       isSample: true,
     };
   }

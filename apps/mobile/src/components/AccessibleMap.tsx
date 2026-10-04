@@ -239,7 +239,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: 
                 {isBlocker ? (
                   <Prohibit size={14} color="#FFFFFF" weight="bold" />
                 ) : (
-                  <Warning size={14} color="#FFFFFF" weight="bold" />
+                  <Warning size={14} color="#000000" weight="bold" />
                 )}
               </View>
             </Pressable>

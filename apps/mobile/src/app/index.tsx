@@ -20,6 +20,7 @@ import {
   NavigationArrow,
   PathIcon as Path,
   Prohibit,
+  Question,
   ShieldCheck,
   SlidersHorizontal,
   ThumbsDown,
@@ -330,6 +331,7 @@ export default function MapHomeScreen() {
   const [placeCommentCategory, setPlaceCommentCategory] = useState<'entrance' | 'inside' | 'toilet' | 'surroundings' | 'general'>('entrance');
   const [placeCommentPhoto, setPlaceCommentPhoto] = useState<string | null>(null);
   const [placeCommentSubmitting, setPlaceCommentSubmitting] = useState(false);
+  const [inspectedPlace, setInspectedPlace] = useState<{ name?: string; lat: number; lon: number } | null>(null);
 
   const pickPhotoAsync = async (source: 'camera' | 'library'): Promise<string | null> => {
     try {
@@ -851,6 +853,7 @@ export default function MapHomeScreen() {
     const pos = targetPos ?? placePos;
     setLoadingPlace(true);
     setStatusMessage(null);
+    setInspectedPlace({ name: q, lat: pos.lat, lon: pos.lon });
     try {
       const result = await inspectPlace(q, pos, debugState);
       setActivePlaceReport(result.report);
@@ -868,8 +871,33 @@ export default function MapHomeScreen() {
         setPopupExpanded(true);
         setActiveTab('place');
       }
-    } catch (err: any) {
-      Alert.alert(t(locale, 'placeErrorTitle'), err.message || t(locale, 'placeErrorMsg'));
+    } catch {
+      // Fallback report ensures the place always opens and displays the "Brak informacji" card
+      const fallbackReport = {
+        placeName: q,
+        position: pos,
+        matchConfidence: 0,
+        isConfidentMatch: false,
+        factsByCategory: { entrance: [], inside: [], toilet: [], surroundings: [] },
+        allFacts: [],
+        summaryMessage: locale === 'pl' ? 'Brak informacji w bazie danych' : 'No information in database',
+        isSample: false,
+      };
+      setActivePlaceReport(fallbackReport as any);
+      setMapCenter({ lat: pos.lat, lon: pos.lon });
+      if (navigateToScreen) {
+        router.push({
+          pathname: '/place',
+          params: {
+            placeName: q,
+            placeLat: String(pos.lat),
+            placeLon: String(pos.lon),
+          },
+        });
+      } else {
+        setPopupExpanded(true);
+        setActiveTab('place');
+      }
     } finally {
       setLoadingPlace(false);
     }
@@ -989,6 +1017,7 @@ export default function MapHomeScreen() {
     if (!placeData) return;
     setPlaceQuery(placeData.name);
     setPlacePos(placeData.position);
+    setInspectedPlace({ name: placeData.name, lat: placeData.position.lat, lon: placeData.position.lon });
     setActiveTab('place');
     setPopupExpanded(true);
     setLoadingPlace(true);
@@ -1006,6 +1035,7 @@ export default function MapHomeScreen() {
   const handleSelectPresetPlace = async (p: (typeof DEFAULT_PRESET_PLACES)[number]) => {
     setPlaceQuery(p.name);
     setPlacePos(p.position);
+    setInspectedPlace({ name: p.name, lat: p.position.lat, lon: p.position.lon });
     setLoadingPlace(true);
     setStatusMessage(`Pobieranie danych dla: ${p.name}`);
     try {
@@ -1217,6 +1247,7 @@ export default function MapHomeScreen() {
           center={mapCenter}
           userLocation={userLocation}
           clickedLocation={clickedLocation}
+          inspectedPlace={inspectedPlace}
           startLocation={
             fromPos && fromPos.lat != null && fromPos.lon != null
               ? {
@@ -1391,6 +1422,7 @@ export default function MapHomeScreen() {
                 const targetName = clickedLocation.name;
                 setPlacePos(targetPos);
                 setPlaceQuery(targetName);
+                setInspectedPlace({ name: targetName, lat: targetPos.lat, lon: targetPos.lon });
                 setClickedLocation(null);
                 setPopupExpanded(true);
                 setActiveTab('place');
@@ -1686,14 +1718,21 @@ export default function MapHomeScreen() {
                     isPickingOnMap={pickingTarget === 'start'}
                   />
 
-                  {/* Swap Points Button (Icon centered between destinations) and Red Clear Route Button */}
-                  <View style={styles.swapBtnRow}>
+                  {/* Swap Points Button and Clear Route Button */}
+                  <View
+                    style={[
+                      styles.swapBtnRow,
+                      !(activeWalkingRoute || fromQuery || toQuery) && styles.swapBtnRowCentered,
+                    ]}
+                  >
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={t(locale, 'swapPoints')}
                       onPress={handleSwapPoints}
+                      hitSlop={6}
                       style={[
-                        styles.swapIconBtn,
+                        styles.swapBtn,
+                        Boolean(activeWalkingRoute || fromQuery || toQuery) && styles.swapBtnFlex,
                         {
                           backgroundColor: colors.background,
                           borderColor: colors.border,
@@ -1701,7 +1740,10 @@ export default function MapHomeScreen() {
                         },
                       ]}
                     >
-                      <ArrowsDownUp size={18} weight="bold" color={colors.accent} />
+                      <ArrowsDownUp size={15} weight="bold" color={colors.accent} />
+                      <Text style={[styles.swapBtnText, { color: colors.accent, fontSize: fontSize(12) }]}>
+                        {t(locale, 'swapPoints')}
+                      </Text>
                     </Pressable>
 
                     {activeWalkingRoute || fromQuery || toQuery ? (
@@ -1709,6 +1751,7 @@ export default function MapHomeScreen() {
                         accessibilityRole="button"
                         accessibilityLabel={t(locale, 'btnClearRoute')}
                         onPress={handleClearRoute}
+                        hitSlop={6}
                         style={[
                           styles.clearRouteBtn,
                           {
@@ -2028,25 +2071,47 @@ export default function MapHomeScreen() {
 
                   {/* Active Inspected Place Card */}
                   {activePlaceReport ? (
-                    <GovCard variant="accent">
+                    <GovCard variant={activePlaceReport.allFacts.length === 0 ? 'warning' : 'accent'}>
                       <View style={styles.cardHeaderRow}>
                         <Text style={[styles.resultTitle, { color: colors.text, fontSize: fontSize(16), flex: 1 }]}>
                           {activePlaceReport.placeName}
                         </Text>
                       </View>
-                      <Text style={[styles.resultSub, { color: colors.muted, fontSize: fontSize(13) }]}>
-                        {activePlaceReport.isConfidentMatch
-                          ? (locale === 'pl'
-                              ? 'Miejski obiekt zweryfikowany pod kątem dostępności'
+                      {activePlaceReport.allFacts.length === 0 ? (
+                        <View style={{ marginVertical: 6, gap: 4 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Question size={18} color={colors.warningText} weight="bold" />
+                            <Text style={{ fontWeight: '800', color: colors.warningText, fontSize: fontSize(14) }}>
+                              {locale === 'pl'
+                                ? 'Brak informacji w bazie danych'
+                                : locale === 'uk'
+                                  ? 'Немає інформації в базі даних'
+                                  : 'No information in database'}
+                            </Text>
+                          </View>
+                          <Text style={[styles.resultSub, { color: colors.text, fontSize: fontSize(12.5), lineHeight: 18 }]}>
+                            {locale === 'pl'
+                              ? 'Dla tej lokalizacji brak jest zgromadzonych danych o dostępności architektonicznej w miejskiej bazie danych ani w OpenStreetMap. Zgodnie ze standardem miejskim brak danych jest zawsze prezentowany jako brak informacji, nigdy jako brak barier.'
                               : locale === 'uk'
-                                ? 'Об’єкт перевірено на доступність'
-                                : 'Municipal place verified for accessibility')
-                          : (locale === 'pl'
-                              ? 'Brak szczegółowych danych o dostępności'
-                              : locale === 'uk'
-                                ? 'Немає детальних даних про dostępність'
-                                : 'No detailed accessibility data')}
-                      </Text>
+                                ? 'Для цієї локації відсутні дані про доступність у міській базі даних та OSM.'
+                                : 'No architectural accessibility data found for this location in municipal DB or OSM. Lack of data is always presented as lack of information, never as absence of barriers.'}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={[styles.resultSub, { color: colors.muted, fontSize: fontSize(13) }]}>
+                          {activePlaceReport.isConfidentMatch
+                            ? (locale === 'pl'
+                                ? 'Miejski obiekt zweryfikowany pod kątem dostępności'
+                                : locale === 'uk'
+                                  ? 'Об’єкт перевірено на доступність'
+                                  : 'Municipal place verified for accessibility')
+                            : (locale === 'pl'
+                                ? 'Brak szczegółowych danych o dostępności'
+                                : locale === 'uk'
+                                  ? 'Немає детальних даних про dostępність'
+                                  : 'No detailed accessibility data')}
+                        </Text>
+                      )}
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                         <GovButton
                           title="Opis"
@@ -3259,29 +3324,45 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   swapBtnRow: {
-    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginVertical: 4,
     minHeight: 38,
+    gap: 8,
+    flexWrap: 'wrap',
   },
-  swapIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
+  swapBtnRowCentered: {
     justifyContent: 'center',
   },
-  clearRouteBtn: {
-    position: 'absolute',
-    right: 0,
+  swapBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+    minHeight: 36,
+  },
+  swapBtnFlex: {
+    flex: 1,
+    minWidth: 120,
+  },
+  swapBtnText: {
+    fontWeight: '700',
+  },
+  clearRouteBtn: {
+    flex: 1,
+    minWidth: 120,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    minHeight: 36,
   },
   clearRouteBtnText: {
     fontWeight: '700',

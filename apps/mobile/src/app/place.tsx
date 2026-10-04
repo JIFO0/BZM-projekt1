@@ -138,25 +138,29 @@ export default function PlaceScreen() {
       return;
     }
 
-    if (
-      placeParams.placeLat !== undefined &&
-      !isNaN(placeParams.placeLat) &&
-      placeParams.placeLon !== undefined &&
-      !isNaN(placeParams.placeLon)
-    ) {
-      setLoading(true);
-      inspectPlace(
-        placeParams.placeName || 'Miejsce',
-        { lat: placeParams.placeLat, lon: placeParams.placeLon },
-        debugState,
-      )
-        .then((result) => {
-          setActivePlaceReport(result.report);
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    }
-  }, [activePlaceReport, placeParams, debugState, setActivePlaceReport]);
+    const lat = placeParams.placeLat ?? 50.0619;
+    const lon = placeParams.placeLon ?? 19.9373;
+    const name = placeParams.placeName || (locale === 'pl' ? 'Wybrane miejsce' : 'Selected place');
+
+    setLoading(true);
+    inspectPlace(name, { lat, lon }, debugState)
+      .then((result) => {
+        setActivePlaceReport(result.report);
+      })
+      .catch(() => {
+        setActivePlaceReport({
+          placeName: name,
+          position: { lat, lon },
+          matchConfidence: 0,
+          isConfidentMatch: false,
+          factsByCategory: { entrance: [], inside: [], toilet: [], surroundings: [] },
+          allFacts: [],
+          summaryMessage: locale === 'pl' ? 'Brak informacji w bazie danych' : 'No information in database',
+          isSample: false,
+        });
+      })
+      .finally(() => setLoading(false));
+  }, [activePlaceReport, placeParams, debugState, setActivePlaceReport, locale]);
 
   if (loading) {
     return (
@@ -311,8 +315,10 @@ export default function PlaceScreen() {
         {/* Place Header */}
         <GovCard variant="accent">
           <View style={styles.cardTopRow}>
-            <Text style={[styles.krakowPlaceTag, { color: colors.accent, fontSize: fontSize(12) }]}>
-              {t(locale, 'municipalObjectKrakow')}
+            <Text style={[styles.krakowPlaceTag, { color: report.allFacts.length === 0 ? colors.warningBorder : colors.accent, fontSize: fontSize(12) }]}>
+              {report.allFacts.length === 0
+                ? (locale === 'pl' ? 'Lokalizacja na mapie Krakowa' : locale === 'uk' ? 'Локація на карті Кракова' : 'Location on Krakow map')
+                : t(locale, 'municipalObjectKrakow')}
             </Text>
           </View>
           <Text
@@ -330,13 +336,60 @@ export default function PlaceScreen() {
           </Text>
 
           <GovButton
-            title="Wyznacz trasę do tego miejsca"
+            title={locale === 'pl' ? 'Wyznacz trasę do tego miejsca' : locale === 'uk' ? 'Прокласти маршрут сюди' : 'Plan route to this place'}
             icon={<NavigationArrow size={18} color={colors.accentText} weight="bold" />}
             variant="primary"
             onPress={handleRouteHere}
             style={{ marginTop: 14 }}
           />
         </GovCard>
+
+        {/* Karta: Brak informacji o dostępności w bazie danych */}
+        {report.allFacts.length === 0 ? (
+          <GovCard variant="warning">
+            <View style={styles.inlineHeaderRow}>
+              <Question size={22} color={colors.warningText} weight="bold" />
+              <Text
+                accessibilityRole="header"
+                style={[styles.alertTitle, { color: colors.warningText, fontSize: fontSize(16.5) }]}
+              >
+                {locale === 'pl'
+                  ? 'Brak informacji w bazie danych'
+                  : locale === 'uk'
+                    ? 'Немає інформації в базі даних'
+                    : 'No information in database'}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.alertBody,
+                { color: colors.text, fontSize: fontSize(13.5), lineHeight: fontSize(20), marginTop: 8 },
+              ]}
+            >
+              {locale === 'pl'
+                ? 'Dla tej lokalizacji brak jest zgromadzonych danych o dostępności architektonicznej (wejście, wnętrze, toalety, otoczenie) w miejskiej bazie danych ani w OpenStreetMap.\n\nZgodnie ze standardem miejskim brak danych jest zawsze prezentowany jako brak informacji, nigdy jako brak barier.'
+                : locale === 'uk'
+                  ? 'Для цієї локації в міській базі даних та OpenStreetMap наразі відсутня інформація про доступність.\n\nВідсутність даних завжди позначається як відсутність інформації, а не як відсутність барʼєрів.'
+                  : 'There is currently no architectural accessibility data collected for this location in the municipal database or OpenStreetMap.\n\nIn accordance with accessibility standards, lack of data is always presented as no information, never as absence of barriers.'}
+            </Text>
+
+            <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={{ fontWeight: '700', fontSize: fontSize(13), color: colors.text, marginBottom: 8 }}>
+                {locale === 'pl'
+                  ? 'Bądź pierwszą osobą, która doda weryfikację tego miejsca:'
+                  : locale === 'uk'
+                    ? 'Будьте першим, хто додасть верифікацію цього місця:'
+                    : 'Be the first to add validation for this place:'}
+              </Text>
+              <GovButton
+                title={locale === 'pl' ? 'Oceń dostępność ze zdjęciem' : 'Rate accessibility with photo'}
+                icon={<Camera size={16} color={colors.accentText} weight="bold" />}
+                variant="primary"
+                onPress={() => setShowAddComment(true)}
+              />
+            </View>
+          </GovCard>
+        ) : null}
 
         {/* Conflicting Data Warning (R7) */}
         {conflicts.length > 0 ? (

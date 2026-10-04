@@ -262,15 +262,27 @@ export default function SearchScreen() {
           placeLon: String(placePos.lon),
         },
       } as any);
-    } catch (err: any) {
-      setErrorMsg(
-        err.message ||
-          (locale === 'pl'
-            ? 'Wystąpił błąd podczas sprawdzania miejsca.'
-            : locale === 'uk'
-              ? 'Сталася помилка під час перевірки місця.'
-              : 'An error occurred while checking place.')
-      );
+    } catch {
+      // Fallback report ensures the place always opens and displays the "Brak informacji" card
+      const fallbackReport = {
+        placeName: placeQuery,
+        position: placePos,
+        matchConfidence: 0,
+        isConfidentMatch: false,
+        factsByCategory: { entrance: [], inside: [], toilet: [], surroundings: [] },
+        allFacts: [],
+        summaryMessage: locale === 'pl' ? 'Brak informacji w bazie danych' : 'No information in database',
+        isSample: false,
+      };
+      setActivePlaceReport(fallbackReport as any);
+      router.push({
+        pathname: '/place',
+        params: {
+          placeName: placeQuery,
+          placeLat: String(placePos.lat),
+          placeLon: String(placePos.lon),
+        },
+      } as any);
     } finally {
       setLoading(false);
     }

@@ -78,8 +78,8 @@ export const krakowLightColors: ThemeColors = {
   blockerText: '#991B1B',
 
   warningBg: '#FEF3C7',
-  warningBorder: '#B45309',
-  warningText: '#92400E',
+  warningBorder: '#CA8A04',
+  warningText: '#854D0E',
 
   okBg: '#DEF7EC',
   okBorder: '#047857',
