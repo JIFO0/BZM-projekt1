@@ -596,9 +596,10 @@ function findingOnRoute(
 }
 
 /**
- * Map pins for the active route.
+ * Map pins for the active route only.
  * `route` — blockers and warnings on that line.
- * `all` — every evaluated point on that line, including ones that meet the profile.
+ * `all` — every measured point on that line, including ones that meet the profile
+ *         (a 3 cm kerb, an allowed surface, a crossing) and ones that do not.
  * `none` — no pins.
  * Resident reports stay only when they sit on the same line.
  */
@@ -626,6 +627,7 @@ export function selectMapFindings(input: {
   const problems = sidewalk.filter(
     (finding) => finding.severity === 'blocker' || finding.severity === 'warning',
   );
-  const base = input.mode === 'route' ? problems : sidewalk;
+  const described = sidewalk.filter((finding) => finding.severity !== 'unknown');
+  const base = input.mode === 'route' ? problems : described.length > 0 ? described : sidewalk;
   return [...base, ...reportsOnRoute];
 }

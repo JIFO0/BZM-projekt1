@@ -178,11 +178,6 @@ export function MapView({
       else if (f.severity === 'ok') color = colors.okBorder;
       else if (f.severity === 'unknown') color = colors.unknownBorder;
 
-      const distLabel =
-        f.distanceFromStartMetres && f.distanceFromStartMetres > 0
-          ? ` (${f.distanceFromStartMetres} m)`
-          : '';
-
       const typeLabel =
         f.type === 'steps'
           ? locale === 'pl' ? 'Schody' : locale === 'uk' ? 'Сходи' : 'Steps'
@@ -204,13 +199,15 @@ export function MapView({
       const cleanVal = localizedVal.replace(/\s*\(?wheelchair=[a-z_]+\)?/gi, '').trim();
       const isReport = f.type === 'report';
 
+      const valueText = cleanVal || localizedVal || f.fact.value;
       return {
         index: i + 1,
         type: f.type,
         lat: f.fact.subject.lat,
         lon: f.fact.subject.lon,
-        title: isReport ? typeLabel : `#${i + 1}${distLabel}: ${typeLabel}`,
-        value: cleanVal || localizedVal || f.fact.value,
+        title: isReport ? typeLabel : `${typeLabel}: ${valueText}`,
+        short: isReport ? typeLabel : valueText,
+        value: valueText,
         severity: f.severity,
         color,
       };
@@ -385,6 +382,23 @@ export function MapView({
       box-sizing: border-box;
       padding: 2px;
       transition: transform 0.15s ease-out;
+    }
+    .custom-marker-label {
+      position: absolute;
+      left: ${customMarkerSize + 2}px;
+      top: 6px;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: #ffffff;
+      border: 1.5px solid #0f172a;
+      border-radius: 8px;
+      padding: 1px 5px;
+      font: 700 11px/1.3 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+      color: #0f172a;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.28);
+      pointer-events: none;
     }
     .endpoint-marker {
       background-color: ${colors.okBorder};
@@ -801,16 +815,33 @@ export function MapView({
 
     var markersLayer = L.layerGroup().addTo(map);
 
+    function escHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
     function renderMarkers(markersList) {
       if (!map || !markersLayer) return;
       markersLayer.clearLayers();
       if (!Array.isArray(markersList)) return;
 
+      var seenAt = {};
       markersList.forEach(function(m) {
+        if (typeof m.lat !== 'number' || typeof m.lon !== 'number') return;
+        var pileKey = m.lat.toFixed(5) + ',' + m.lon.toFixed(5);
+        var pile = seenAt[pileKey] || 0;
+        seenAt[pileKey] = pile + 1;
+        var lat = m.lat + pile * 0.00004;
+        var lon = m.lon + pile * 0.00004;
         var iconSvg = getObstacleSvgIcon(m.type, m.color);
+        var label = escHtml(m.short || m.value || '');
         var icon = L.divIcon({
           className: 'custom-marker',
-          html: '<div class="custom-marker-badge" style="border-color:' + m.color + '; color:' + m.color + ';" title="' + m.title + '">' + iconSvg + '</div>',
+          html: '<div class="custom-marker-badge" style="border-color:' + m.color + '; color:' + m.color + ';" title="' + escHtml(m.title) + '">' + iconSvg + '</div>' +
+            (label ? '<div class="custom-marker-label" style="border-color:' + m.color + '; color:' + m.color + ';">' + label + '</div>' : ''),
           iconSize: [${customMarkerSize}, ${customMarkerSize}],
           iconAnchor: [${customMarkerAnchor}, ${customMarkerAnchor}]
         });
@@ -820,12 +851,12 @@ export function MapView({
         var statusColor = m.severity === 'blocker' ? '${colors.blockerText}' : m.severity === 'warning' ? '${colors.warningText}' : m.severity === 'ok' ? '${colors.okText}' : '${colors.unknownText}';
 
         var popupHtml = '<div style="min-width: 170px; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;">' +
-          '<div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px; color: #0f172a;">' + m.title + '</div>' +
-          '<div style="font-size: 12px; margin-bottom: 6px; color: #334155; line-height: 1.35;">' + m.value + '</div>' +
+          '<div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px; color: #0f172a;">' + escHtml(m.title) + '</div>' +
+          '<div style="font-size: 12px; margin-bottom: 6px; color: #334155; line-height: 1.35;">' + escHtml(m.value) + '</div>' +
           '<span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10.5px; font-weight: 700; background: ' + statusBg + '; color: ' + statusColor + ';">' + statusText + '</span>' +
           '</div>';
 
-        var marker = L.marker([m.lat, m.lon], { icon: icon }).addTo(markersLayer);
+        var marker = L.marker([lat, lon], { icon: icon }).addTo(markersLayer);
         marker.bindPopup(popupHtml);
       });
     }

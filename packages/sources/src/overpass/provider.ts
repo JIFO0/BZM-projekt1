@@ -15,6 +15,51 @@ import {
 import { failureFromHttp, failureFromUnknown, parseJsonBody } from '../mapy/http';
 import { OVERPASS_INTERPRETER, overpassHeaders } from './policy';
 
+/** Accessibility points on a walked line: kerbs, crossings, steps, footways. */
+export function buildRouteAccessibilityQuery(bboxStr: string): string {
+  return `[out:json][timeout:25];
+(
+  node["kerb"](${bboxStr});
+  node["kerb:height"](${bboxStr});
+  node["kerb:left"](${bboxStr});
+  node["kerb:right"](${bboxStr});
+  node["barrier"="kerb"](${bboxStr});
+  node["highway"="crossing"](${bboxStr});
+  node["highway"="steps"](${bboxStr});
+  node["highway"="elevator"](${bboxStr});
+  node["ramp"](${bboxStr});
+  way["highway"="steps"](${bboxStr});
+  way["highway"="footway"](${bboxStr});
+  way["highway"="path"](${bboxStr});
+  way["highway"="pedestrian"](${bboxStr});
+  way["highway"="crossing"](${bboxStr});
+  way["highway"="corridor"](${bboxStr});
+  way["footway"="sidewalk"](${bboxStr});
+  way["footway"="crossing"](${bboxStr});
+  way["kerb"](${bboxStr});
+  way["kerb:height"](${bboxStr});
+  way["highway"="elevator"](${bboxStr});
+);
+out geom tags;`;
+}
+
+/** Smaller retry when the full pedestrian query does not return. */
+export function buildRouteKerbQuery(bboxStr: string): string {
+  return `[out:json][timeout:12];
+(
+  node["kerb"](${bboxStr});
+  node["kerb:height"](${bboxStr});
+  node["kerb:left"](${bboxStr});
+  node["kerb:right"](${bboxStr});
+  node["barrier"="kerb"](${bboxStr});
+  node["highway"="crossing"](${bboxStr});
+  node["highway"="steps"](${bboxStr});
+  way["highway"="steps"](${bboxStr});
+  way["highway"="crossing"](${bboxStr});
+);
+out geom tags;`;
+}
+
 function pointOnRoute(
   element: { lat?: number; lon?: number; center?: { lat?: number; lon?: number }; geometry?: Array<{ lat?: number; lon?: number }> },
   route: Array<[number, number]> | undefined,
@@ -102,35 +147,20 @@ export class OsmOverpassProvider implements AccessibilityDataSource {
       if (lat > maxLat) maxLat = lat;
     }
     const bboxStr = `${(minLat - bufferDeg).toFixed(6)},${(minLon - bufferDeg).toFixed(6)},${(maxLat + bufferDeg).toFixed(6)},${(maxLon + bufferDeg).toFixed(6)}`;
-
-    // A tight box around the walked line. Points off the sidewalk are dropped
-    // later by the route corridor check.
-    const ql = `[out:json][timeout:20];
-(
-  node["highway"="steps"](${bboxStr});
-  way["highway"="steps"](${bboxStr});
-  node["kerb"](${bboxStr});
-  node["kerb:height"](${bboxStr});
-  node["kerb:left"](${bboxStr});
-  node["kerb:right"](${bboxStr});
-  way["kerb"](${bboxStr});
-  way["kerb:height"](${bboxStr});
-  node["barrier"="kerb"](${bboxStr});
-  node["highway"="crossing"](${bboxStr});
-  way["highway"="crossing"](${bboxStr});
-  way["surface"](${bboxStr});
-  way["incline"](${bboxStr});
-  way["width"](${bboxStr});
-  node["wheelchair"](${bboxStr});
-  way["wheelchair"](${bboxStr});
-  node["highway"="elevator"](${bboxStr});
-  way["highway"="elevator"](${bboxStr});
-  node["ramp"](${bboxStr});
-  way["ramp"](${bboxStr});
-);
-out geom tags;`;
-
-    return this.executeQuery(ql, 20000, query.coordinates, Math.max(query.corridorMetres, 35));
+    const corridor = Math.max(query.corridorMetres, 35);
+    // Pedestrian features and measured kerbs only. A blanket `way["surface"]`
+    // query covers every carriageway in the box and Overpass times out, which
+    // used to drop every kerb and crossing on the route.
+    try {
+      return await this.executeQuery(
+        buildRouteAccessibilityQuery(bboxStr),
+        25000,
+        query.coordinates,
+        corridor,
+      );
+    } catch {
+      return this.executeQuery(buildRouteKerbQuery(bboxStr), 12000, query.coordinates, corridor);
+    }
   }
 
   async fetchPlace(query: PlaceQuery): Promise<AccessibilityBundle> {
@@ -313,6 +343,31 @@ out center tags qt;`;
             subject: { type: 'segment', ref: id, lat, lon },
             criterion: 'surface',
             value: String(tags.surface),
+            status: statusFromOsmTags({
+              conflicting: false,
+              checkDate,
+              now,
+              stalenessMonths: this.stalenessMonths,
+            }),
+            source: {
+              name: 'OpenStreetMap',
+              url: `https://www.openstreetmap.org/${el.type}/${el.id}`,
+              licence: 'ODbL',
+              objectId: id,
+            },
+            retrievedAt,
+            lastEditedAt,
+            lastConfirmedAt: checkDate,
+          });
+        }
+
+        if (tags.width || tags.est_width || tags.maxwidth) {
+          const widthVal = tags.width || tags.est_width || tags.maxwidth;
+          facts.push({
+            id: `${id}-width`,
+            subject: { type: 'segment', ref: id, lat, lon },
+            criterion: 'width',
+            value: String(widthVal),
             status: statusFromOsmTags({
               conflicting: false,
               checkDate,

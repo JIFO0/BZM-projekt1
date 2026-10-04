@@ -54,6 +54,7 @@ import { GovCard } from '@/components/GovCard';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { LocationPicker } from '@/components/LocationPicker';
 import { MapLocationPopup } from '@/components/MapLocationPopup';
+import { BarrierViewControl } from '@/components/BarrierViewControl';
 import { MapView } from '@/components/MapView';
 import { t } from '@/i18n/strings';
 import {
@@ -283,6 +284,25 @@ export default function MapHomeScreen() {
   const [fromPos, setFromPos] = useState<LonLat | null>(null);
   const [toQuery, setToQuery] = useState('');
   const [toPos, setToPos] = useState<LonLat | null>(null);
+
+  const fromPosRef = useRef<LonLat | null>(null);
+  const fromQueryRef = useRef<string>('');
+  const toPosRef = useRef<LonLat | null>(null);
+  const toQueryRef = useRef<string>('');
+
+  useEffect(() => {
+    fromPosRef.current = fromPos;
+  }, [fromPos]);
+  useEffect(() => {
+    fromQueryRef.current = fromQuery;
+  }, [fromQuery]);
+  useEffect(() => {
+    toPosRef.current = toPos;
+  }, [toPos]);
+  useEffect(() => {
+    toQueryRef.current = toQuery;
+  }, [toQuery]);
+
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
 
@@ -504,11 +524,19 @@ export default function MapHomeScreen() {
       : null;
     const endObj = isEndObject ? overrideEnd : null;
 
-    let resolvedStart = startObj?.position !== undefined ? startObj.position : fromPos;
-    let resolvedEnd = endObj?.position !== undefined ? endObj.position : toPos;
+    let resolvedStart =
+      startObj?.position !== undefined
+        ? startObj.position
+        : (fromPosRef.current ?? fromPos);
+    let resolvedEnd =
+      endObj?.position !== undefined
+        ? endObj.position
+        : (toPosRef.current ?? toPos);
 
-    let startName = (startObj ? startObj.name : fromQuery) || '';
-    let endName = (endObj ? endObj.name : toQuery) || '';
+    let startName =
+      (startObj ? startObj.name : (fromQueryRef.current || fromQuery)) || '';
+    let endName =
+      (endObj ? endObj.name : (toQueryRef.current || toQuery)) || '';
 
     if (!startName.trim() && resolvedStart) {
       startName = `${resolvedStart.lat.toFixed(5)}, ${resolvedStart.lon.toFixed(5)}`;
@@ -545,8 +573,12 @@ export default function MapHomeScreen() {
 
       setFromQuery(startName);
       setFromPos(resolvedStart);
+      fromQueryRef.current = startName;
+      fromPosRef.current = resolvedStart;
       setToQuery(endName);
       setToPos(resolvedEnd);
+      toQueryRef.current = endName;
+      toPosRef.current = resolvedEnd;
 
       const result = await planAndAnalyzeRoute({
         start: { name: startName, position: resolvedStart },
@@ -620,6 +652,8 @@ export default function MapHomeScreen() {
       const destPos = pendingDestination.position;
       setToQuery(destName);
       setToPos(destPos);
+      toQueryRef.current = destName;
+      toPosRef.current = destPos;
       setActiveTab('route');
       setPopupExpanded(true);
       setMapCenter({ lat: destPos.lat, lon: destPos.lon });
@@ -640,6 +674,8 @@ export default function MapHomeScreen() {
       const startPoint = { lon: loc.lon, lat: loc.lat };
       setFromQuery(startName);
       setFromPos(startPoint);
+      fromQueryRef.current = startName;
+      fromPosRef.current = startPoint;
       setMapCenter({ lat: loc.lat, lon: loc.lon });
       setStatusMessage(t(locale, 'gpsStartPointSet'));
       setTimeout(() => setStatusMessage(null), 2500);
@@ -656,6 +692,8 @@ export default function MapHomeScreen() {
               const startPoint = { lon: 19.9373, lat: 50.0619 };
               setFromQuery(startName);
               setFromPos(startPoint);
+              fromQueryRef.current = startName;
+              fromPosRef.current = startPoint;
               setMapCenter({ lat: 50.0619, lon: 19.9373 });
               clearActiveRoute();
             },
@@ -669,16 +707,20 @@ export default function MapHomeScreen() {
 
   // Swap Points (A ⇄ B)
   const handleSwapPoints = () => {
-    const prevFromQuery = fromQuery;
-    const prevFromPos = fromPos;
-    const newFromQuery = toQuery;
-    const newFromPos = toPos;
+    const prevFromQuery = fromQueryRef.current || fromQuery;
+    const prevFromPos = fromPosRef.current || fromPos;
+    const newFromQuery = toQueryRef.current || toQuery;
+    const newFromPos = toPosRef.current || toPos;
     const newToQuery = prevFromQuery;
     const newToPos = prevFromPos;
     setFromQuery(newFromQuery);
     setFromPos(newFromPos);
+    fromQueryRef.current = newFromQuery;
+    fromPosRef.current = newFromPos;
     setToQuery(newToQuery);
     setToPos(newToPos);
+    toQueryRef.current = newToQuery;
+    toPosRef.current = newToPos;
     clearActiveRoute();
   };
 
@@ -693,6 +735,8 @@ export default function MapHomeScreen() {
       if (pickingTarget === 'start') {
         setFromPos(coords);
         setFromQuery(coordName);
+        fromPosRef.current = coords;
+        fromQueryRef.current = coordName;
         setPickingTarget(null);
         clearActiveRoute();
         setStatusMessage(`${t(locale, 'pointA')}: ${coordName}`);
@@ -701,6 +745,7 @@ export default function MapHomeScreen() {
           .then((rev) => {
             if (rev?.name) {
               setFromQuery(rev.name);
+              fromQueryRef.current = rev.name;
               setStatusMessage(`${t(locale, 'pointA')}: ${rev.name}`);
               setTimeout(() => setStatusMessage(null), 3000);
             }
@@ -709,6 +754,8 @@ export default function MapHomeScreen() {
       } else if (pickingTarget === 'end') {
         setToPos(coords);
         setToQuery(coordName);
+        toPosRef.current = coords;
+        toQueryRef.current = coordName;
         setPickingTarget(null);
         clearActiveRoute();
         setStatusMessage(`${t(locale, 'pointB')}: ${coordName}`);
@@ -717,6 +764,7 @@ export default function MapHomeScreen() {
           .then((rev) => {
             if (rev?.name) {
               setToQuery(rev.name);
+              toQueryRef.current = rev.name;
               setStatusMessage(`${t(locale, 'pointB')}: ${rev.name}`);
               setTimeout(() => setStatusMessage(null), 3000);
             }
@@ -974,6 +1022,8 @@ export default function MapHomeScreen() {
   const handleSetPlaceAsDestination = (p: (typeof DEFAULT_PRESET_PLACES)[number]) => {
     setToQuery(p.name);
     setToPos(p.position);
+    toQueryRef.current = p.name;
+    toPosRef.current = p.position;
     setActiveTab('route');
     setStatusMessage(`Ustawiono cel trasy: ${p.name}`);
     setTimeout(() => setStatusMessage(null), 3000);
@@ -988,8 +1038,12 @@ export default function MapHomeScreen() {
     setRouteVariants(null);
     setFromQuery('');
     setFromPos(null);
+    fromQueryRef.current = '';
+    fromPosRef.current = null;
     setToQuery('');
     setToPos(null);
+    toQueryRef.current = '';
+    toPosRef.current = null;
     router.setParams({
       fromName: undefined,
       fromLat: undefined,
@@ -1195,6 +1249,19 @@ export default function MapHomeScreen() {
           isPickingMode={pickingTarget !== null}
         />
 
+        {activeWalkingRoute ? (
+          <View style={styles.floatingBarrierControl}>
+            <BarrierViewControl
+              compact
+              mode={barrierViewMode}
+              onChangeMode={setBarrierViewMode}
+              hasActiveRoute
+              routeBarriersCount={mapPins.problems.length}
+              allBarriersCount={mapPins.evaluated.length}
+            />
+          </View>
+        ) : null}
+
         {/* Floating Map Action Buttons (Apple / Google Maps style) */}
         <View style={styles.floatingControlsRight}>
           <Pressable
@@ -1334,6 +1401,8 @@ export default function MapHomeScreen() {
                 const targetName = clickedLocation.name;
                 setFromPos(targetPos);
                 setFromQuery(targetName);
+                fromPosRef.current = targetPos;
+                fromQueryRef.current = targetName;
                 setStatusMessage(`${t(locale, 'pointA')}: ${targetName}`);
                 setClickedLocation(null);
                 setTimeout(() => setStatusMessage(null), 3000);
@@ -1344,6 +1413,8 @@ export default function MapHomeScreen() {
                 const targetName = clickedLocation.name;
                 setToPos(targetPos);
                 setToQuery(targetName);
+                toPosRef.current = targetPos;
+                toQueryRef.current = targetName;
                 setStatusMessage(`${t(locale, 'pointB')}: ${targetName}`);
                 setClickedLocation(null);
                 setTimeout(() => setStatusMessage(null), 3000);
@@ -1619,6 +1690,8 @@ export default function MapHomeScreen() {
                     onChangePoint={(p) => {
                       setFromQuery(p.name);
                       setFromPos(p.position ?? null);
+                      fromQueryRef.current = p.name;
+                      fromPosRef.current = p.position ?? null;
                       clearActiveRoute();
                       if (p.position) {
                         setMapCenter({ lat: p.position.lat, lon: p.position.lon });
@@ -1627,10 +1700,13 @@ export default function MapHomeScreen() {
                     onClear={() => {
                       setFromQuery('');
                       setFromPos(null);
+                      fromQueryRef.current = '';
+                      fromPosRef.current = null;
                       clearActiveRoute();
                     }}
                     onQueryChange={(text) => {
                       setFromQuery(text);
+                      fromQueryRef.current = text;
                       if (activeWalkingRoute) {
                         clearActiveRoute();
                       }
@@ -1695,6 +1771,8 @@ export default function MapHomeScreen() {
                     onChangePoint={(p) => {
                       setToQuery(p.name);
                       setToPos(p.position ?? null);
+                      toQueryRef.current = p.name;
+                      toPosRef.current = p.position ?? null;
                       clearActiveRoute();
                       if (p.position) {
                         setMapCenter({ lat: p.position.lat, lon: p.position.lon });
@@ -1703,10 +1781,13 @@ export default function MapHomeScreen() {
                     onClear={() => {
                       setToQuery('');
                       setToPos(null);
+                      toQueryRef.current = '';
+                      toPosRef.current = null;
                       clearActiveRoute();
                     }}
                     onQueryChange={(text) => {
                       setToQuery(text);
+                      toQueryRef.current = text;
                       if (activeWalkingRoute) {
                         clearActiveRoute();
                       }
@@ -2028,6 +2109,8 @@ export default function MapHomeScreen() {
                             const destPos = placePos;
                             setToQuery(destName);
                             setToPos(destPos);
+                            toQueryRef.current = destName;
+                            toPosRef.current = destPos;
                             setActiveTab('route');
                             setStatusMessage(`Ustawiono cel trasy: ${destName}`);
                             setTimeout(() => setStatusMessage(null), 3000);
@@ -2731,6 +2814,13 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
     overflow: 'hidden',
+  },
+  floatingBarrierControl: {
+    position: 'absolute',
+    top: 64,
+    left: 14,
+    right: 70,
+    zIndex: 20,
   },
   floatingControlsRight: {
     position: 'absolute',

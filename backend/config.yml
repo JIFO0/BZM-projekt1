@@ -9,7 +9,7 @@ graphhopper:
   graph.encoded_values: >
     foot_access, foot_average_speed, foot_priority, foot_road_access,
     surface, smoothness, max_width, footway, road_class,
-    hike_rating, mtb_rating, road_environment, ferry_speed
+    hike_rating, mtb_rating, road_environment, ferry_speed, country
 
   profiles:
     - name: foot

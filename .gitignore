@@ -62,6 +62,8 @@ app-example
 backend/data/graph-cache/
 backend/data/*.osm.pbf
 backend/data/*.pbf
+backend/*.jar
+backend/config-local.yml
 
 # Geoportal tile cache
 data/tiles/
