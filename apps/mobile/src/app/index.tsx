@@ -53,6 +53,7 @@ import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
+import { HazardDetailModal } from '@/components/HazardDetailModal';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { LocationPicker } from '@/components/LocationPicker';
 import { MapLocationPopup } from '@/components/MapLocationPopup';
@@ -71,6 +72,7 @@ import {
   reverseGeocodeLocation,
   suggestPlaces,
   uploadPhotoToServer,
+  verifyServerHazard,
   type RouteVariantId,
   type RoutingEngineHealth,
   type ServerPlaceComment,
@@ -83,7 +85,7 @@ import {
   selectMapFindings,
 } from '@/services/barriers';
 import { triggerGentleHaptic } from '@/services/haptics';
-import { useSession } from '@/state/session';
+import { useSession, type LocalReport } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
 const ROAD_TYPE_OPTIONS = [
@@ -329,6 +331,8 @@ export default function MapHomeScreen() {
   const [serverHazards, setServerHazards] = useState<ServerRouteHazard[]>([]);
   const [reportEmail, setReportEmail] = useState('');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [selectedHazard, setSelectedHazard] = useState<ServerRouteHazard | LocalReport | null>(null);
+  const [isVotingHazard, setIsVotingHazard] = useState(false);
 
   useEffect(() => {
     if (userAccount?.email && !reportEmail) {
@@ -440,6 +444,10 @@ export default function MapHomeScreen() {
         position: hazard.position,
         createdAt: hazard.createdAt,
         status: hazard.status,
+        category: hazard.category,
+        photoUrl: hazard.photoUrl,
+        stillHereCount: hazard.stillHereCount,
+        fixedCount: hazard.fixedCount,
       })),
       ...localReports.map((report) => ({
         id: report.id,
@@ -447,6 +455,10 @@ export default function MapHomeScreen() {
         position: report.position,
         createdAt: report.createdAt,
         status: report.status,
+        category: (report as any).category,
+        photoUrl: (report as any).photoUrl,
+        stillHereCount: (report as any).stillHereCount,
+        fixedCount: (report as any).fixedCount,
       })),
     ]);
     const cityBarriers = getAllCityBarriers(activeThresholds);
@@ -818,21 +830,13 @@ export default function MapHomeScreen() {
           })
           .catch(() => { });
       } else if (pickingTarget === 'report') {
+        const coordText = `${coords.lat.toFixed(6)}, ${coords.lon.toFixed(6)}`;
         setReportPos(coords);
-        setReportQuery(coordName);
+        setReportQuery(coordText);
         setPickingTarget(null);
         setReportPopupOpen(true);
-        setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${coordName}`);
+        setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${coordText}`);
         setTimeout(() => setStatusMessage(null), 3000);
-        reverseGeocodeLocation(coords.lat, coords.lon, locale)
-          .then((rev) => {
-            if (rev?.name) {
-              setReportQuery(rev.name);
-              setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${rev.name}`);
-              setTimeout(() => setStatusMessage(null), 3000);
-            }
-          })
-          .catch(() => { });
       }
       return;
     }
@@ -870,6 +874,51 @@ export default function MapHomeScreen() {
       isLoading: false,
     });
   };
+
+  const handleReportMarkerClick = useCallback(
+    (reportInfo: any) => {
+      setClickedLocation(null);
+      const existing = serverHazards.find((h) => h.id === reportInfo.reportId);
+      if (existing) {
+        setSelectedHazard(existing);
+        return;
+      }
+      const local = localReports.find((r) => r.id === reportInfo.reportId);
+      if (local) {
+        setSelectedHazard(local);
+        return;
+      }
+      setSelectedHazard({
+        id: reportInfo.reportId || `report-${Date.now()}`,
+        position: reportInfo.position || { lat: 50.0619, lon: 19.9373 },
+        description: reportInfo.description || '',
+        category: reportInfo.category || 'obstacle',
+        photoUrl: reportInfo.photoUrl,
+        createdAt: reportInfo.createdAt || new Date().toISOString(),
+        stillHereCount: reportInfo.stillHereCount ?? 0,
+        fixedCount: reportInfo.fixedCount ?? 0,
+        status: 'reported',
+      });
+    },
+    [serverHazards, localReports]
+  );
+
+  const handleVoteHazard = useCallback(
+    async (hazardId: string, action: 'still_here' | 'fixed' | 'unset', voterEmail: string) => {
+      setIsVotingHazard(true);
+      try {
+        const updated = await verifyServerHazard(hazardId, { action, email: voterEmail });
+        setServerHazards((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
+        setSelectedHazard(updated);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, message: err?.message || 'Vote failed' };
+      } finally {
+        setIsVotingHazard(false);
+      }
+    },
+    []
+  );
 
   // 3. Inspect Place (supports optional direct query/position overrides and screen navigation)
   const handleInspectPlace = async (
@@ -1181,13 +1230,22 @@ export default function MapHomeScreen() {
         setReportSuccess(false);
         setStatusMessage(null);
         setReportPopupOpen(false);
+        setReportPos(null);
+        setReportQuery('');
       }, 2000);
+      setClickedLocation(null);
     } catch (err: any) {
       addLocalReport(reportDesc.trim(), {
         photoUrl: uploadedUrl,
         category: newReportCategory,
         position,
       });
+      setReportDesc('');
+      setNewReportPhoto(null);
+      setReportPopupOpen(false);
+      setReportPos(null);
+      setReportQuery('');
+      setClickedLocation(null);
       Alert.alert(
         locale === 'pl' ? 'Błąd serwera' : locale === 'uk' ? 'Помилка сервера' : 'Server error',
         err.message ||
@@ -1200,6 +1258,35 @@ export default function MapHomeScreen() {
     } finally {
       setIsSubmittingReport(false);
     }
+  };
+
+  const openReportDialog = (explicitPos?: LonLat) => {
+    if (explicitPos) {
+      const coordText = `${explicitPos.lat.toFixed(6)}, ${explicitPos.lon.toFixed(6)}`;
+      setReportPos(explicitPos);
+      setReportQuery(coordText);
+    } else {
+      const activePin = clickedLocation
+        ? { lat: clickedLocation.lat, lon: clickedLocation.lon }
+        : (activeTab === 'place' && inspectedPlace)
+          ? { lat: inspectedPlace.lat, lon: inspectedPlace.lon }
+          : null;
+
+      if (activePin) {
+        const coordText = `${activePin.lat.toFixed(6)}, ${activePin.lon.toFixed(6)}`;
+        setReportPos(activePin);
+        setReportQuery(coordText);
+      } else if (userLocation) {
+        const coordText = `${userLocation.lat.toFixed(6)}, ${userLocation.lon.toFixed(6)}`;
+        setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
+        setReportQuery(coordText);
+      } else {
+        const coordText = `${mapCenter.lat.toFixed(6)}, ${mapCenter.lon.toFixed(6)}`;
+        setReportPos({ lat: mapCenter.lat, lon: mapCenter.lon });
+        setReportQuery(coordText);
+      }
+    }
+    setReportPopupOpen(true);
   };
 
   // Add Place Accessibility Validation with Photo
@@ -1311,6 +1398,7 @@ export default function MapHomeScreen() {
                 : undefined
           }
           onMapClick={handleMapClick}
+          onReportClick={handleReportMarkerClick}
           isPickingMode={pickingTarget !== null}
         />
 
@@ -1354,16 +1442,7 @@ export default function MapHomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={t(locale, 'tabReport')}
             onPress={() => {
-              if (!reportPos) {
-                if (userLocation) {
-                  setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
-                  setReportQuery(t(locale, 'myLocationShort'));
-                } else {
-                  setReportPos({ lat: mapCenter.lat, lon: mapCenter.lon });
-                  setReportQuery('Kraków Centrum');
-                }
-              }
-              setReportPopupOpen(true);
+              openReportDialog();
             }}
             style={[
               styles.floatingBtn,
@@ -2753,13 +2832,15 @@ export default function MapHomeScreen() {
                   if (!userLocation) {
                     fetchUserLocation().then((loc) => {
                       if (!loc) return;
+                      const coordText = `${loc.lat.toFixed(6)}, ${loc.lon.toFixed(6)}`;
                       setReportPos({ lat: loc.lat, lon: loc.lon });
-                      setReportQuery(t(locale, 'myLocationShort'));
+                      setReportQuery(coordText);
                     });
                     return;
                   }
+                  const coordText = `${userLocation.lat.toFixed(6)}, ${userLocation.lon.toFixed(6)}`;
                   setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
-                  setReportQuery(t(locale, 'myLocationShort'));
+                  setReportQuery(coordText);
                 }}
                 onPickOnMap={() => {
                   setPickingTarget('report');
@@ -2890,6 +2971,14 @@ export default function MapHomeScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      <HazardDetailModal
+        visible={Boolean(selectedHazard)}
+        hazard={selectedHazard}
+        onClose={() => setSelectedHazard(null)}
+        onVote={handleVoteHazard}
+        isVoting={isVotingHazard}
+      />
 
       <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
     </SafeAreaView>

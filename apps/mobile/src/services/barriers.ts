@@ -562,6 +562,10 @@ export interface CitizenReportPoint {
   position?: { lat: number; lon: number };
   createdAt: string;
   status?: string;
+  category?: 'obstacle' | 'hole' | 'surface' | 'flood' | 'other' | string;
+  photoUrl?: string;
+  stillHereCount?: number;
+  fixedCount?: number;
 }
 
 /** Resident reports are their own obstacle type and only appear where a location is known. */
@@ -601,6 +605,13 @@ export function citizenReportsAsFindings(reports: CitizenReportPoint[]): RouteFi
       type: 'report',
       severity: 'warning',
       fact,
+      ...({
+        reportId: report.id,
+        category: report.category,
+        photoUrl: report.photoUrl,
+        stillHereCount: report.stillHereCount || 0,
+        fixedCount: report.fixedCount || 0,
+      } as any),
     });
   }
 

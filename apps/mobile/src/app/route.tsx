@@ -4,7 +4,7 @@ import {
   type RouteFinding,
 } from '@krakow-bez-barier/core';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -39,6 +39,7 @@ import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
+import { HazardDetailModal } from '@/components/HazardDetailModal';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { MapView } from '@/components/MapView';
 import { RouteFindingRow } from '@/components/RouteFindingRow';
@@ -47,7 +48,7 @@ import {
   getLocalizedFindingType,
   t,
 } from '@/i18n/strings';
-import { fetchServerHazards, planAndAnalyzeRoute, type RouteVariantId, type ServerRouteHazard } from '@/services/api';
+import { fetchServerHazards, planAndAnalyzeRoute, verifyServerHazard, type RouteVariantId, type ServerRouteHazard } from '@/services/api';
 import { triggerGentleHaptic } from '@/services/haptics';
 import { city } from '@/config/city';
 import {
@@ -56,7 +57,7 @@ import {
   getAllCityBarriers,
   selectMapFindings,
 } from '@/services/barriers';
-import { useSession } from '@/state/session';
+import { useSession, type LocalReport } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
 function extractRouteParams(params: Record<string, any>) {
@@ -258,6 +259,9 @@ export default function RouteScreen() {
     return getAllCityBarriers(activeThresholds);
   }, [activeThresholds]);
 
+  const [selectedHazard, setSelectedHazard] = useState<ServerRouteHazard | LocalReport | null>(null);
+  const [isVotingHazard, setIsVotingHazard] = useState(false);
+
   const reportFindings = useMemo(
     () =>
       citizenReportsAsFindings([
@@ -267,6 +271,10 @@ export default function RouteScreen() {
           position: hazard.position,
           createdAt: hazard.createdAt,
           status: hazard.status,
+          category: hazard.category,
+          photoUrl: hazard.photoUrl,
+          stillHereCount: hazard.stillHereCount,
+          fixedCount: hazard.fixedCount,
         })),
         ...localReports.map((report) => ({
           id: report.id,
@@ -274,6 +282,10 @@ export default function RouteScreen() {
           position: report.position,
           createdAt: report.createdAt,
           status: report.status,
+          category: (report as any).category,
+          photoUrl: (report as any).photoUrl,
+          stillHereCount: (report as any).stillHereCount,
+          fixedCount: (report as any).fixedCount,
         })),
       ]),
     [serverHazards, localReports],
@@ -290,6 +302,50 @@ export default function RouteScreen() {
       corridorMetres: city.corridorMeters,
     });
   }, [barrierViewMode, activeRouteReport?.findings, activeWalkingRoute?.coordinates, reportFindings, allCityBarriers, activeThresholds]);
+
+  const handleReportMarkerClick = useCallback(
+    (reportInfo: any) => {
+      const existing = serverHazards.find((h) => h.id === reportInfo.reportId);
+      if (existing) {
+        setSelectedHazard(existing);
+        return;
+      }
+      const local = localReports.find((r) => r.id === reportInfo.reportId);
+      if (local) {
+        setSelectedHazard(local);
+        return;
+      }
+      setSelectedHazard({
+        id: reportInfo.reportId || `report-${Date.now()}`,
+        position: reportInfo.position || { lat: 50.0619, lon: 19.9373 },
+        description: reportInfo.description || '',
+        category: reportInfo.category || 'obstacle',
+        photoUrl: reportInfo.photoUrl,
+        createdAt: reportInfo.createdAt || new Date().toISOString(),
+        stillHereCount: reportInfo.stillHereCount ?? 0,
+        fixedCount: reportInfo.fixedCount ?? 0,
+        status: 'reported',
+      });
+    },
+    [serverHazards, localReports]
+  );
+
+  const handleVoteHazard = useCallback(
+    async (hazardId: string, action: 'still_here' | 'fixed' | 'unset', voterEmail: string) => {
+      setIsVotingHazard(true);
+      try {
+        const updated = await verifyServerHazard(hazardId, { action, email: voterEmail });
+        setServerHazards((prev) => prev.map((h) => (h.id === updated.id ? updated : h)));
+        setSelectedHazard(updated);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, message: err?.message || 'Vote failed' };
+      } finally {
+        setIsVotingHazard(false);
+      }
+    },
+    []
+  );
 
   if (loading) {
     return (
@@ -781,6 +837,7 @@ export default function RouteScreen() {
               route={activeWalkingRoute}
               findings={displayedFindings}
               userLocation={userLocation}
+              onReportClick={handleReportMarkerClick}
             />
           </View>
         ) : null}
@@ -820,6 +877,14 @@ export default function RouteScreen() {
 
         <GovFooter />
       </ScrollView>
+
+      <HazardDetailModal
+        visible={Boolean(selectedHazard)}
+        hazard={selectedHazard}
+        onClose={() => setSelectedHazard(null)}
+        onVote={handleVoteHazard}
+        isVoting={isVotingHazard}
+      />
 
       <DebugModal visible={debugVisible} onClose={() => setDebugVisible(false)} locale={locale} />
     </SafeAreaView>
