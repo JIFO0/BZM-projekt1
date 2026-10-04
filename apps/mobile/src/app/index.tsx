@@ -816,21 +816,13 @@ export default function MapHomeScreen() {
           })
           .catch(() => { });
       } else if (pickingTarget === 'report') {
+        const coordText = `${coords.lat.toFixed(6)}, ${coords.lon.toFixed(6)}`;
         setReportPos(coords);
-        setReportQuery(coordName);
+        setReportQuery(coordText);
         setPickingTarget(null);
         setReportPopupOpen(true);
-        setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${coordName}`);
+        setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${coordText}`);
         setTimeout(() => setStatusMessage(null), 3000);
-        reverseGeocodeLocation(coords.lat, coords.lon, locale)
-          .then((rev) => {
-            if (rev?.name) {
-              setReportQuery(rev.name);
-              setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${rev.name}`);
-              setTimeout(() => setStatusMessage(null), 3000);
-            }
-          })
-          .catch(() => { });
       }
       return;
     }
@@ -1179,13 +1171,22 @@ export default function MapHomeScreen() {
         setReportSuccess(false);
         setStatusMessage(null);
         setReportPopupOpen(false);
+        setReportPos(null);
+        setReportQuery('');
       }, 2000);
+      setClickedLocation(null);
     } catch (err: any) {
       addLocalReport(reportDesc.trim(), {
         photoUrl: uploadedUrl,
         category: newReportCategory,
         position,
       });
+      setReportDesc('');
+      setNewReportPhoto(null);
+      setReportPopupOpen(false);
+      setReportPos(null);
+      setReportQuery('');
+      setClickedLocation(null);
       Alert.alert(
         locale === 'pl' ? 'Błąd serwera' : locale === 'uk' ? 'Помилка сервера' : 'Server error',
         err.message ||
@@ -1198,6 +1199,35 @@ export default function MapHomeScreen() {
     } finally {
       setIsSubmittingReport(false);
     }
+  };
+
+  const openReportDialog = (explicitPos?: LonLat) => {
+    if (explicitPos) {
+      const coordText = `${explicitPos.lat.toFixed(6)}, ${explicitPos.lon.toFixed(6)}`;
+      setReportPos(explicitPos);
+      setReportQuery(coordText);
+    } else {
+      const activePin = clickedLocation
+        ? { lat: clickedLocation.lat, lon: clickedLocation.lon }
+        : (activeTab === 'place' && inspectedPlace)
+          ? { lat: inspectedPlace.lat, lon: inspectedPlace.lon }
+          : null;
+
+      if (activePin) {
+        const coordText = `${activePin.lat.toFixed(6)}, ${activePin.lon.toFixed(6)}`;
+        setReportPos(activePin);
+        setReportQuery(coordText);
+      } else if (userLocation) {
+        const coordText = `${userLocation.lat.toFixed(6)}, ${userLocation.lon.toFixed(6)}`;
+        setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
+        setReportQuery(coordText);
+      } else {
+        const coordText = `${mapCenter.lat.toFixed(6)}, ${mapCenter.lon.toFixed(6)}`;
+        setReportPos({ lat: mapCenter.lat, lon: mapCenter.lon });
+        setReportQuery(coordText);
+      }
+    }
+    setReportPopupOpen(true);
   };
 
   // Add Place Accessibility Validation with Photo
@@ -1352,16 +1382,7 @@ export default function MapHomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={t(locale, 'tabReport')}
             onPress={() => {
-              if (!reportPos) {
-                if (userLocation) {
-                  setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
-                  setReportQuery(t(locale, 'myLocationShort'));
-                } else {
-                  setReportPos({ lat: mapCenter.lat, lon: mapCenter.lon });
-                  setReportQuery('Kraków Centrum');
-                }
-              }
-              setReportPopupOpen(true);
+              openReportDialog();
             }}
             style={[
               styles.floatingBtn,
@@ -2751,13 +2772,15 @@ export default function MapHomeScreen() {
                   if (!userLocation) {
                     fetchUserLocation().then((loc) => {
                       if (!loc) return;
+                      const coordText = `${loc.lat.toFixed(6)}, ${loc.lon.toFixed(6)}`;
                       setReportPos({ lat: loc.lat, lon: loc.lon });
-                      setReportQuery(t(locale, 'myLocationShort'));
+                      setReportQuery(coordText);
                     });
                     return;
                   }
+                  const coordText = `${userLocation.lat.toFixed(6)}, ${userLocation.lon.toFixed(6)}`;
                   setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
-                  setReportQuery(t(locale, 'myLocationShort'));
+                  setReportQuery(coordText);
                 }}
                 onPickOnMap={() => {
                   setPickingTarget('report');
