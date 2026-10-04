@@ -431,6 +431,8 @@ export default function MapHomeScreen() {
   // Interactive map picking target
   const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | 'report' | null>(null);
 
+  const hasActiveRoute = (activeWalkingRoute?.coordinates.length ?? 0) > 0;
+
   const mapPins = useMemo(() => {
     const reports = citizenReportsAsFindings([
       ...serverHazards.map((hazard) => ({
@@ -448,21 +450,23 @@ export default function MapHomeScreen() {
         status: report.status,
       })),
     ]);
-    const cityBarriers = getAllCityBarriers(activeThresholds);
-    const effectiveFindings = routeBarriers.length > 0 ? routeBarriers : cityBarriers;
     const shared = {
-      routeFindings: effectiveFindings,
+      routeFindings: routeBarriers,
       reports,
       allCityBarriers,
-      routeCoordinates: activeWalkingRoute?.coordinates,
+      routeCoordinates: hasActiveRoute ? activeWalkingRoute?.coordinates : [],
       corridorMetres: city.corridorMeters,
     };
+    if (!hasActiveRoute) {
+      const displayed = selectMapFindings({ ...shared, mode: 'route' });
+      return { displayed, problems: displayed, evaluated: displayed };
+    }
     return {
       displayed: selectMapFindings({ ...shared, mode: barrierViewMode }),
       problems: selectMapFindings({ ...shared, mode: 'route' }),
       evaluated: selectMapFindings({ ...shared, mode: 'all' }),
     };
-  }, [barrierViewMode, routeBarriers, serverHazards, localReports, allCityBarriers, activeWalkingRoute?.coordinates, activeThresholds]);
+  }, [barrierViewMode, routeBarriers, serverHazards, localReports, allCityBarriers, hasActiveRoute, activeWalkingRoute?.coordinates]);
   const displayedFindings = mapPins.displayed;
 
   // Clicked map location popup state
@@ -1312,13 +1316,13 @@ export default function MapHomeScreen() {
           isPickingMode={pickingTarget !== null}
         />
 
-        {activeWalkingRoute ? (
+        {hasActiveRoute ? (
           <View style={styles.floatingBarrierControl}>
             <BarrierViewControl
               compact
               mode={barrierViewMode}
               onChangeMode={setBarrierViewMode}
-              hasActiveRoute={Boolean(activeWalkingRoute)}
+              hasActiveRoute
               routeBarriersCount={mapPins.problems.length}
               allBarriersCount={mapPins.evaluated.length}
             />
@@ -2086,22 +2090,6 @@ export default function MapHomeScreen() {
                       </View>
                     </GovCard>
                   ) : null}
-
-                  {/* Fast Demo Scenarios */}
-                  <View style={styles.demoSection}>
-                    <Text style={[styles.demoSectionTitle, { color: colors.muted, fontSize: fontSize(12.5) }]}>
-                      {t(locale, 'fastDemoRoutes')}
-                    </Text>
-                    <View style={styles.demoButtonsRow}>
-                      <GovButton
-                        variant="outline"
-                        title="Dworzec → Sukiennice"
-                        icon={<Path size={14} weight="bold" color={colors.accent} />}
-                        onPress={() => loadDemoRoute(1)}
-                        style={styles.halfBtn}
-                      />
-                    </View>
-                  </View>
                 </View>
               ) : null}
 

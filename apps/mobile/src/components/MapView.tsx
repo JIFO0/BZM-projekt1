@@ -426,23 +426,6 @@ export function MapView({
       padding: 2px;
       transition: transform 0.15s ease-out;
     }
-    .custom-marker-label {
-      position: absolute;
-      left: ${customMarkerSize + 2}px;
-      top: 6px;
-      max-width: 120px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      background: #ffffff;
-      border: 1.5px solid #0f172a;
-      border-radius: 8px;
-      padding: 1px 5px;
-      font: 700 11px/1.3 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
-      color: #0f172a;
-      white-space: nowrap;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.28);
-      pointer-events: none;
-    }
     .endpoint-marker {
       background-color: ${colors.okBorder};
       color: #FFFFFF;
@@ -880,13 +863,11 @@ export function MapView({
         var lat = m.lat + pile * 0.00004;
         var lon = m.lon + pile * 0.00004;
         var iconSvg = getObstacleSvgIcon(m.type, m.color);
-        var label = escHtml(m.short || m.value || '');
         var isWarning = m.severity === 'warning';
         var badgeBg = isWarning ? '#FEF9C3' : '#FFFFFF';
         var icon = L.divIcon({
           className: 'custom-marker',
-          html: '<div class="custom-marker-badge" style="background-color:' + badgeBg + '; border-color:' + m.color + '; color:' + m.color + ';" title="' + escHtml(m.title) + '">' + iconSvg + '</div>' +
-            (label ? '<div class="custom-marker-label" style="border-color:' + m.color + '; color:' + m.color + ';">' + label + '</div>' : ''),
+          html: '<div class="custom-marker-badge" style="background-color:' + badgeBg + '; border-color:' + m.color + '; color:' + m.color + ';" title="' + escHtml(m.title) + '">' + iconSvg + '</div>',
           iconSize: [${customMarkerSize}, ${customMarkerSize}],
           iconAnchor: [${customMarkerAnchor}, ${customMarkerAnchor}]
         });
@@ -1014,7 +995,7 @@ export function MapView({
       } else {
         var inspectedIcon = L.divIcon({
           className: 'clicked-location-marker',
-          html: inspectedSvgIconHtml + (label ? '<div class="custom-marker-label" style="border-color:${colors.accent}; color:${colors.accent}; top:-22px; left:-20px;">' + label + '</div>' : ''),
+          html: inspectedSvgIconHtml,
           iconSize: [${clickedPinWidth}, ${clickedPinHeight}],
           iconAnchor: [${clickedPinAnchorX}, ${clickedPinAnchorY}]
         });
