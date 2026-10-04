@@ -1492,42 +1492,6 @@ export default function MapHomeScreen() {
                 {t(locale, 'searchPlaceholderUnified')}
               </Text>
             </Pressable>
-
-            {/* Quick Action Destination Chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickChipsScroll}>
-              <Pressable
-                onPress={() => loadDemoRoute(1)}
-                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
-              >
-                <Path size={14} weight="bold" color={colors.accent} />
-                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  Dworzec → Sukiennice
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => loadDemoPlace(0)}
-                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
-              >
-                <Buildings size={14} weight="bold" color={colors.accent} />
-                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  Sukiennice
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  setActiveTab('profile');
-                  setPopupExpanded(true);
-                }}
-                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
-              >
-                <SlidersHorizontal size={14} weight="bold" color={colors.accent} />
-                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  {t(locale, 'surfacesChip')} ({blockedList.length})
-                </Text>
-              </Pressable>
-            </ScrollView>
           </View>
         ) : (
           /* Expanded Full Popup View with Tabs */
