@@ -1,17 +1,16 @@
 import {
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowLeft, Globe, PersonArmsSpread, User } from 'phosphor-react-native';
+import { ArrowLeft, Gear, PersonArmsSpread } from 'phosphor-react-native';
 
 import { KrakowCoatOfArms } from '@/components/KrakowCoatOfArms';
-import { t, type Locale } from '@/i18n/strings';
+import { t } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -41,15 +40,13 @@ export function KrakowHeader({
   const { width } = useWindowDimensions();
   const {
     locale,
-    setLocale,
     colors,
     isHighContrast,
     fontSize,
     setAccessibilityModalVisible,
     highlightLinks,
     increasedSpacing,
-    userAccount,
-    setUserModalVisible,
+    setSettingsModalVisible,
   } = useSession();
 
   const handleDefaultBack = () => {
@@ -70,10 +67,10 @@ export function KrakowHeader({
   const minTouch = increasedSpacing ? spacing.touchExpanded : spacing.touch - 4;
   const isMobile = compact !== undefined ? compact : (width > 0 ? width < 768 : Platform.OS !== 'web');
 
-  const renderButtons = () => (
+  const renderButtons = (mobileMode: boolean = isMobile) => (
     <>
-      {/* 0. Optional Back to Map Button */}
-      {showBack ? (
+      {/* 0. Optional Back to Map Button (desktop only) */}
+      {showBack && !mobileMode ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={backLabel}
@@ -115,6 +112,7 @@ export function KrakowHeader({
         onPress={() => setAccessibilityModalVisible(true)}
         style={[
           styles.a11yBtn,
+          mobileMode && styles.mobileBtn,
           {
             backgroundColor: isHighContrast ? colors.accent : '#003865',
             borderColor: isHighContrast ? colors.focus : '#38BDF8',
@@ -130,6 +128,7 @@ export function KrakowHeader({
           color={isHighContrast ? colors.accentText : '#FFFFFF'}
         />
         <Text
+          numberOfLines={1}
           style={[
             styles.a11yBtnText,
             {
@@ -143,16 +142,15 @@ export function KrakowHeader({
         </Text>
       </Pressable>
 
-      {/* 2. Language Toggle */}
+      {/* 2. Settings Button */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${t(locale, 'switchLanguage')}: ${locale === 'uk' ? 'UA' : locale.toUpperCase()}`}
-        onPress={() => {
-          const nextLocale: Record<Locale, Locale> = { pl: 'en', en: 'uk', uk: 'pl' };
-          setLocale(nextLocale[locale]);
-        }}
+        accessibilityLabel={t(locale, 'settingsTitle')}
+        accessibilityHint="Otwiera panel ustawień aplikacji, wyboru języka, widoku barier i konta"
+        onPress={() => setSettingsModalVisible(true)}
         style={[
           styles.secondaryBtn,
+          mobileMode && styles.mobileBtn,
           {
             borderColor: colors.border,
             backgroundColor: isHighContrast ? colors.background : 'rgba(255,255,255,0.12)',
@@ -160,71 +158,23 @@ export function KrakowHeader({
           },
         ]}
       >
-        <Globe
-          size={15}
+        <Gear
+          size={16}
           weight="bold"
           color={isHighContrast ? colors.text : colors.headerText}
         />
         <Text
+          numberOfLines={1}
           style={[
             styles.secondaryBtnText,
             {
               color: isHighContrast ? colors.text : colors.headerText,
               fontSize: fontSize(12),
+              fontWeight: '600',
             },
           ]}
         >
-          {locale === 'uk' ? 'UA' : locale.toUpperCase()}
-        </Text>
-      </Pressable>
-
-      {/* 3. User Account / Profile Button */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={
-          userAccount
-            ? `${t(locale, 'userAccount')}: ${userAccount.displayName || userAccount.email}`
-            : t(locale, 'userAccountLoginTitle')
-        }
-        accessibilityHint="Otwiera panel logowania i profilu użytkownika"
-        onPress={() => setUserModalVisible(true)}
-        style={[
-          styles.secondaryBtn,
-          {
-            borderColor: userAccount
-              ? (isHighContrast ? colors.focus : colors.okBorder)
-              : colors.border,
-            backgroundColor: userAccount
-              ? (isHighContrast ? colors.accent : colors.okBg)
-              : (isHighContrast ? colors.background : 'rgba(255,255,255,0.12)'),
-            minHeight: minTouch,
-          },
-        ]}
-      >
-        <User
-          size={16}
-          weight={userAccount ? 'fill' : 'bold'}
-          color={
-            userAccount
-              ? (isHighContrast ? colors.accentText : colors.okText)
-              : (isHighContrast ? colors.text : colors.headerText)
-          }
-        />
-        <Text
-          style={[
-            styles.secondaryBtnText,
-            {
-              color: isHighContrast
-                ? (userAccount ? colors.accentText : colors.text)
-                : colors.headerText,
-              fontSize: fontSize(12),
-              fontWeight: userAccount ? '800' : '600',
-            },
-          ]}
-        >
-          {userAccount
-            ? (userAccount.displayName.split(' ')[0] || userAccount.email.split('@')[0])
-            : t(locale, 'userAccount')}
+          {t(locale, 'settings')}
         </Text>
       </Pressable>
     </>
@@ -293,39 +243,12 @@ export function KrakowHeader({
               </Text>
             </View>
           </View>
-
-          <View
-            style={[
-              styles.wcagTag,
-              {
-                backgroundColor: isHighContrast ? colors.surface : 'rgba(255,255,255,0.18)',
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.wcagTagText,
-                {
-                  color: colors.headerText,
-                  fontSize: fontSize(9.5),
-                },
-              ]}
-            >
-              WCAG AAA
-            </Text>
-          </View>
         </View>
 
         {/* Rząd 2: Pasek przycisków funkcyjnych */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.compactScrollView}
-          contentContainerStyle={styles.compactScroll}
-        >
-          {renderButtons()}
-        </ScrollView>
+        <View style={styles.mobileButtonsRow}>
+          {renderButtons(true)}
+        </View>
       </View>
     );
   }
@@ -447,6 +370,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 1,
   },
+  mobileButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: 8,
+  },
+  mobileBtn: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   compactContainer: {
     width: '100%',
     paddingVertical: 6,
@@ -456,31 +389,10 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
   },
-  compactScrollView: {
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-  compactScroll: {
-    flexGrow: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
   container: {
     width: '100%',
     flexGrow: 0,
     flexShrink: 0,
-  },
-  wcagTag: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-  },
-  wcagTagText: {
-    fontWeight: '900',
-    letterSpacing: 0.3,
   },
   mainBar: {
     flexDirection: 'row',
@@ -516,10 +428,11 @@ const styles = StyleSheet.create({
   a11yBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 8,
-    gap: 5,
+    gap: 6,
   },
   a11yBtnText: {
     fontWeight: '800',
@@ -528,11 +441,12 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1.5,
-    gap: 4,
+    gap: 6,
   },
   secondaryBtnText: {
     fontWeight: '700',

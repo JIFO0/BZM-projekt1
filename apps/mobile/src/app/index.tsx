@@ -47,7 +47,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BarrierViewControl } from '@/components/BarrierViewControl';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
@@ -1252,30 +1251,6 @@ export default function MapHomeScreen() {
                 <ArrowsDownUp size={18} weight="bold" color={colors.accent} />
               </Pressable>
             ) : null}
-          </View>
-        ) : null}
-
-        {/* Floating Barrier View Mode Selector (Bez barier | Na trasie | Wszystkie) */}
-        {activeWalkingRoute ? (
-          <View
-            style={[
-              styles.floatingBarrierControlWrapper,
-              { top: activeRouteReport ? 62 : 14 },
-            ]}
-          >
-            <BarrierViewControl
-              mode={barrierViewMode}
-              onChangeMode={(newMode) => {
-                if (newMode === 'route' && !activeWalkingRoute) {
-                  setStatusMessage(t(locale, 'noActiveRouteForBarriers'));
-                  setTimeout(() => setStatusMessage(null), 3500);
-                }
-                setBarrierViewMode(newMode);
-              }}
-              routeBarriersCount={mapPins.problems.length}
-              allBarriersCount={mapPins.evaluated.length}
-              hasActiveRoute={Boolean(activeWalkingRoute)}
-            />
           </View>
         ) : null}
 

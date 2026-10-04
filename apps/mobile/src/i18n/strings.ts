@@ -464,6 +464,20 @@ const pl = {
   mapClickActionSetStart: 'Start (A)',
   mapClickActionSetEnd: 'Cel (B)',
   resolvingAddress: 'Ustalanie adresu...',
+  settings: 'Ustawienia',
+  settingsTitle: 'Ustawienia aplikacji',
+  settingsSubtitle: 'Personalizacja, widok barier i profil',
+  settingsBarrierSection: 'Widok barier na mapie',
+  settingsBarrierDesc: 'Wybierz, które punkty i przeszkody mają być widoczne na mapie.',
+  settingsBarrierAllTitle: 'Wszystkie punkty',
+  settingsBarrierAllHint: 'Pokazuje wszystkie punkty i właściwości chodnika, także te zgodne z profilem.',
+  settingsBarrierRouteTitle: 'Tylko bariery na trasie',
+  settingsBarrierRouteHint: 'Pokazuje tylko zidentyfikowane bariery, stopnie i ostrzeżenia utrudniające przejście.',
+  settingsBarrierNoneTitle: 'Brak barier (czysta mapa)',
+  settingsBarrierNoneHint: 'Ukrywa znaczniki barier, pozostawiając sam zarys wyznaczonej trasy.',
+  settingsLanguageSection: 'Język interfejsu',
+  settingsAccountSection: 'Konto użytkownika i Karta Krakowska',
+  settingsA11yShortcut: 'Otwórz Centrum Ułatwień Dostępności (WCAG)',
 };
 
 const en: typeof pl = {
@@ -927,6 +941,20 @@ const en: typeof pl = {
   mapClickActionSetStart: 'Start (A)',
   mapClickActionSetEnd: 'Destination (B)',
   resolvingAddress: 'Resolving address...',
+  settings: 'Settings',
+  settingsTitle: 'Application settings',
+  settingsSubtitle: 'Personalization, barrier view and profile',
+  settingsBarrierSection: 'Barrier view on map',
+  settingsBarrierDesc: 'Select which markers and obstacles should be visible on the map.',
+  settingsBarrierAllTitle: 'All points',
+  settingsBarrierAllHint: 'Shows every sidewalk point, including those meeting accessibility profile.',
+  settingsBarrierRouteTitle: 'Barriers on route only',
+  settingsBarrierRouteHint: 'Shows only identified barriers, steps and warnings hindering travel.',
+  settingsBarrierNoneTitle: 'No barriers (clean map)',
+  settingsBarrierNoneHint: 'Hides obstacle markers, displaying only the calculated route line.',
+  settingsLanguageSection: 'Interface language',
+  settingsAccountSection: 'User account & Krakow Card',
+  settingsA11yShortcut: 'Open Accessibility Center (WCAG)',
 };
 
 const uk: typeof pl = {
@@ -1395,6 +1423,20 @@ const uk: typeof pl = {
   mapClickActionSetStart: 'Старт (A)',
   mapClickActionSetEnd: 'Ціль (B)',
   resolvingAddress: 'Визначення адреси...',
+  settings: 'Налаштування',
+  settingsTitle: 'Налаштування додатку',
+  settingsSubtitle: 'Персоналізація, відображення бар’єрів та акаунт',
+  settingsBarrierSection: 'Відображення бар’єрів на карті',
+  settingsBarrierDesc: 'Оберіть, які маркери та перешкоди показувати на карті.',
+  settingsBarrierAllTitle: 'Всі точки',
+  settingsBarrierAllHint: 'Показує всі точки тротуару, включно з тими, що відповідають профілю.',
+  settingsBarrierRouteTitle: 'Лише бар’єри на маршруті',
+  settingsBarrierRouteHint: 'Показує лише виявлені бар’єри, сходи та попередження.',
+  settingsBarrierNoneTitle: 'Без бар\'єрів (чиста карта)',
+  settingsBarrierNoneHint: 'Приховує маркери перешкод, залишаючи лише лінію маршруту.',
+  settingsLanguageSection: 'Мова інтерфейсу',
+  settingsAccountSection: 'Акаунт користувача та Картка Краківська',
+  settingsA11yShortcut: 'Відкрити Центр Доступності (WCAG)',
 };
 
 const dictionaries: Record<Locale, typeof pl> = { pl, en, uk };

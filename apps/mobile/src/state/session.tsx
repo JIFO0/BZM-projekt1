@@ -138,6 +138,10 @@ interface SessionValue {
   loginUser: (credentials?: { email?: string; password?: string; name?: string; identifier?: string }) => void;
   logoutUser: () => void;
 
+  // Settings Modal State
+  settingsModalVisible: boolean;
+  setSettingsModalVisible: (val: boolean) => void;
+
   // Backwards compatibility aliases
   krakowCardUser: UserAccount | null;
   krakowCardModalVisible: boolean;
@@ -505,6 +509,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // User Account (Mockup email account - zero server storage)
   const [userModalVisible, setUserModalVisible] = useState<boolean>(false);
+  const [settingsModalVisible, setSettingsModalVisible] = useState<boolean>(false);
   const [userAccount, setUserAccount] = useState<UserAccount | null>(null);
 
   const loginUser = useCallback(
@@ -780,6 +785,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUserModalVisible,
       loginUser,
       logoutUser,
+      // Settings Modal
+      settingsModalVisible,
+      setSettingsModalVisible,
       // Backward compatibility aliases
       krakowCardUser: userAccount,
       krakowCardModalVisible: userModalVisible,
@@ -860,6 +868,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUserModalVisible,
       loginUser,
       logoutUser,
+      settingsModalVisible,
+      setSettingsModalVisible,
       contrastMode,
       setContrastMode,
       textSize,

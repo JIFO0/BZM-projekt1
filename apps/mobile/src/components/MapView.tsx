@@ -13,6 +13,7 @@ import { useSession } from '@/state/session';
 import { city } from '@/config/city';
 import { getLocalizedFactValue, t } from '@/i18n/strings';
 import { subscribeHarmonyHeading } from '@/services/harmony';
+import { getTextSizeMultiplier } from '@/theme/tokens';
 
 export interface MapViewProps {
   route?: WalkingRoute | null;
@@ -43,7 +44,28 @@ export function MapView({
   onMapClick,
   isPickingMode = false,
 }: MapViewProps) {
-  const { colors, isHighContrast, locale } = useSession();
+  const { colors, isHighContrast, locale, textSize, fontSize } = useSession();
+  const iconScale = getTextSizeMultiplier(textSize);
+
+  const customMarkerSize = Math.round(30 * iconScale);
+  const customMarkerAnchor = Math.round(customMarkerSize / 2);
+  const obstacleSvgSize = Math.round(16 * iconScale);
+  const obstacleStrokeWidth = (2.3 * Math.min(1.35, iconScale)).toFixed(1);
+
+  const endpointMarkerSize = Math.round(34 * iconScale);
+  const endpointMarkerAnchor = Math.round(endpointMarkerSize / 2);
+  const endpointFontSize = Math.round(14 * iconScale);
+  const endpointLineHeight = endpointMarkerSize - Math.round(6 * iconScale);
+  const endpointBorder = Math.max(2, Math.round(3 * iconScale));
+
+  const userMarkerSize = Math.round(26 * iconScale);
+  const userMarkerAnchor = Math.round(userMarkerSize / 2);
+  const userDotSize = Math.round(14 * iconScale);
+
+  const clickedPinWidth = Math.round(30 * iconScale);
+  const clickedPinHeight = Math.round(38 * iconScale);
+  const clickedPinAnchorX = Math.round(clickedPinWidth / 2);
+  const clickedPinAnchorY = clickedPinHeight;
   const iframeRef = useRef<any>(null);
   const webViewRef = useRef<WebView>(null);
   const isMapLoaded = useRef(false);
@@ -317,10 +339,10 @@ export function MapView({
     .custom-marker-badge {
       background-color: #FFFFFF;
       border-radius: 50%;
-      border-width: 3px;
+      border-width: ${Math.max(2, Math.round(3 * iconScale))}px;
       border-style: solid;
-      width: 30px;
-      height: 30px;
+      width: ${customMarkerSize}px;
+      height: ${customMarkerSize}px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.38);
       display: flex;
       align-items: center;
@@ -332,14 +354,14 @@ export function MapView({
     .endpoint-marker {
       background-color: ${colors.okBorder};
       color: #FFFFFF;
-      border: 3px solid #FFFFFF;
+      border: ${endpointBorder}px solid #FFFFFF;
       border-radius: 50%;
       font-weight: 800;
       text-align: center;
-      line-height: 28px;
-      font-size: 14px;
-      width: 34px !important;
-      height: 34px !important;
+      line-height: ${endpointLineHeight}px;
+      font-size: ${endpointFontSize}px;
+      width: ${endpointMarkerSize}px !important;
+      height: ${endpointMarkerSize}px !important;
       box-shadow: 0 3px 6px rgba(0,0,0,0.4);
       z-index: 10000 !important;
     }
@@ -354,12 +376,12 @@ export function MapView({
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 26px !important;
-      height: 26px !important;
+      width: ${userMarkerSize}px !important;
+      height: ${userMarkerSize}px !important;
     }
     .user-dot {
-      width: 14px;
-      height: 14px;
+      width: ${userDotSize}px;
+      height: ${userDotSize}px;
       background-color: #007AFF;
       border: 2.5px solid #FFFFFF;
       border-radius: 50%;
@@ -369,8 +391,8 @@ export function MapView({
     }
     .user-pulse {
       position: absolute;
-      width: 26px;
-      height: 26px;
+      width: ${userMarkerSize}px;
+      height: ${userMarkerSize}px;
       border-radius: 50%;
       background: rgba(0, 122, 255, 0.35);
       animation: user-pulse-anim 2s infinite ease-out;
@@ -396,8 +418,8 @@ export function MapView({
       100% { transform: scale(1.7); opacity: 0; }
     }
     .clicked-location-marker {
-      width: 30px;
-      height: 38px;
+      width: ${clickedPinWidth}px;
+      height: ${clickedPinHeight}px;
       position: relative;
       background: transparent !important;
       border: none !important;
@@ -406,20 +428,20 @@ export function MapView({
       position: absolute;
       top: 0;
       left: 0;
-      width: 30px;
-      height: 38px;
+      width: ${clickedPinWidth}px;
+      height: ${clickedPinHeight}px;
       filter: drop-shadow(0 3px 5px rgba(0,0,0,0.45));
       z-index: 2;
       pointer-events: none;
     }
     .clicked-pin-pulse {
       position: absolute;
-      top: 38px;
-      left: 15px;
-      width: 22px;
-      height: 22px;
-      margin-top: -11px;
-      margin-left: -11px;
+      top: ${clickedPinHeight}px;
+      left: ${clickedPinAnchorX}px;
+      width: ${Math.round(22 * iconScale)}px;
+      height: ${Math.round(22 * iconScale)}px;
+      margin-top: -${Math.round(11 * iconScale)}px;
+      margin-left: -${Math.round(11 * iconScale)}px;
       border-radius: 50%;
       background: rgba(0, 92, 169, 0.4);
       animation: user-pulse-anim 1.8s infinite ease-out;
@@ -437,7 +459,7 @@ export function MapView({
     }
     .leaflet-popup-content {
       margin: 10px 12px;
-      font-size: 13px;
+      font-size: ${fontSize(13)}px;
       line-height: 1.4;
     }
   </style>
@@ -646,8 +668,8 @@ export function MapView({
       var startIcon = L.divIcon({
         className: 'endpoint-marker start',
         html: 'A',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        iconSize: [${endpointMarkerSize}, ${endpointMarkerSize}],
+        iconAnchor: [${endpointMarkerAnchor}, ${endpointMarkerAnchor}]
       });
       var startPopupLabel = ${JSON.stringify(t(locale, 'from') || 'Start')};
       var startFallback = ${JSON.stringify(locale === 'pl' ? 'Początek trasy' : locale === 'uk' ? 'Початок маршруту' : 'Start')};
@@ -660,8 +682,8 @@ export function MapView({
       var endIcon = L.divIcon({
         className: 'endpoint-marker destination',
         html: 'B',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
+        iconSize: [${endpointMarkerSize}, ${endpointMarkerSize}],
+        iconAnchor: [${endpointMarkerAnchor}, ${endpointMarkerAnchor}]
       });
       var endPopupLabel = ${JSON.stringify(t(locale, 'to') || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'))};
       var endFallback = ${JSON.stringify(locale === 'pl' ? 'Koniec trasy' : locale === 'uk' ? 'Кінець маршруту' : 'Destination')};
@@ -670,21 +692,23 @@ export function MapView({
     }
 
     function getObstacleSvgIcon(type, color) {
-      var sWidth = "2.3";
+      var sWidth = "${obstacleStrokeWidth}";
+      var svgW = "${obstacleSvgSize}";
+      var svgH = "${obstacleSvgSize}";
       if (type === 'steps') {
-        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M21 5h-5v5h-5v5H6v5H3" />' +
           '</svg>';
       }
       if (type === 'kerb') {
-        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M3 17h6V7h12" />' +
           '<line x1="9" y1="7" x2="9" y2="17" stroke-width="3.5" />' +
           '</svg>';
       }
       if (type === 'surface') {
         // Nawierzchnia / droga: perspektywa jezdni z krawędziami i linią przerywaną
-        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M4 21L8 3" />' +
           '<path d="M20 21L16 3" />' +
           '<line x1="12" y1="4" x2="12" y2="7" stroke-width="2" />' +
@@ -693,20 +717,20 @@ export function MapView({
           '</svg>';
       }
       if (type === 'wheelchair') {
-        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
           '<circle cx="12" cy="5" r="2.5" />' +
           '<path d="M9 19a5 5 0 1 0 5-5H9v-5h4" />' +
           '</svg>';
       }
       if (type === 'incline') {
-        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M3 19h18L3 8v11z" fill="' + color + '" fill-opacity="0.18" />' +
           '<path d="M14 6h7v7" />' +
           '<path d="M21 6L10 17" />' +
           '</svg>';
       }
       if (type === 'width') {
-        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
           '<line x1="3" y1="4" x2="3" y2="20" stroke-width="2.6" />' +
           '<line x1="21" y1="4" x2="21" y2="20" stroke-width="2.6" />' +
           '<path d="M3 12h6m-2-3l3 3-3 3" />' +
@@ -714,12 +738,12 @@ export function MapView({
           '</svg>';
       }
       if (type === 'report') {
-        return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M5 21V4" />' +
           '<path d="M5 4h12l-2.5 4L17 12H5" fill="' + color + '" fill-opacity="0.2" />' +
           '</svg>';
       }
-      return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+      return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
         '<circle cx="12" cy="12" r="9" />' +
         '<line x1="12" y1="8" x2="12" y2="12" stroke-width="2.5" />' +
         '<circle cx="12" cy="16" r="0.8" fill="' + color + '" />' +
@@ -738,8 +762,8 @@ export function MapView({
         var icon = L.divIcon({
           className: 'custom-marker',
           html: '<div class="custom-marker-badge" style="border-color:' + m.color + '; color:' + m.color + ';" title="' + m.title + '">' + iconSvg + '</div>',
-          iconSize: [30, 30],
-          iconAnchor: [15, 15]
+          iconSize: [${customMarkerSize}, ${customMarkerSize}],
+          iconAnchor: [${customMarkerAnchor}, ${customMarkerAnchor}]
         });
 
         var statusText = m.severity === 'blocker' ? '${t(locale, 'severityBlocker')}' : m.severity === 'warning' ? '${t(locale, 'severityWarning')}' : m.severity === 'ok' ? '${t(locale, 'severityOk')}' : m.severity;
@@ -784,8 +808,8 @@ export function MapView({
         var userIcon = L.divIcon({
           className: 'user-location-marker',
           html: markerHtml,
-          iconSize: [26, 26],
-          iconAnchor: [13, 13]
+          iconSize: [${userMarkerSize}, ${userMarkerSize}],
+          iconAnchor: [${userMarkerAnchor}, ${userMarkerAnchor}]
         });
         var userPopupLabel = ${JSON.stringify(locale === 'pl' ? 'Twoja lokalizacja' : locale === 'uk' ? 'Ваше розташування' : 'Your location')};
         userMarker = L.marker([lat, lon], {
@@ -798,7 +822,7 @@ export function MapView({
     var clickedMarker = null;
     var clickedSvgIconHtml = '<div class="clicked-pin-pulse"></div>' +
       '<div class="clicked-pin-icon">' +
-        '<svg width="30" height="38" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+        '<svg width="${clickedPinWidth}" height="${clickedPinHeight}" viewBox="0 0 24 30" fill="none" xmlns="http://www.w3.org/2000/svg">' +
           '<path d="M12 0C5.37258 0 0 5.37258 0 12C0 19.8 10.8 29.1 11.26 29.5C11.68 29.87 12.32 29.87 12.74 29.5C13.2 29.1 24 19.8 24 12C24 5.37258 18.6274 0 12 0Z" fill="${colors.accent}"/>' +
           '<circle cx="12" cy="11" r="5.2" fill="#FFFFFF"/>' +
           '<circle cx="12" cy="11" r="2.8" fill="${colors.accent}"/>' +
@@ -813,8 +837,8 @@ export function MapView({
         var clickedIcon = L.divIcon({
           className: 'clicked-location-marker',
           html: clickedSvgIconHtml,
-          iconSize: [30, 38],
-          iconAnchor: [15, 38]
+          iconSize: [${clickedPinWidth}, ${clickedPinHeight}],
+          iconAnchor: [${clickedPinAnchorX}, ${clickedPinAnchorY}]
         });
         clickedMarker = L.marker([lat, lon], {
           icon: clickedIcon,
@@ -913,6 +937,8 @@ export function MapView({
     locale,
     isPickingMode,
     isGeoportal,
+    iconScale,
+    fontSize,
   ]);
 
   useEffect(() => {
