@@ -12,6 +12,7 @@ import { WebView } from 'react-native-webview';
 import { useSession } from '@/state/session';
 import { city } from '@/config/city';
 import { getLocalizedFactValue, t } from '@/i18n/strings';
+import { subscribeHarmonyHeading } from '@/services/harmony';
 
 export interface MapViewProps {
   route?: WalkingRoute | null;
@@ -78,6 +79,10 @@ export function MapView({
           win.updateUserMarker(msg.lat, msg.lon);
           return;
         }
+        if (msg.type === 'SET_HEADING' && typeof win.updateUserMarker === 'function') {
+          win.updateUserMarker(undefined, undefined, (msg as any).heading);
+          return;
+        }
         if (msg.type === 'SET_CENTER' && typeof win.setMapCenter === 'function') {
           win.setMapCenter(msg.lat, msg.lon, msg.zoom);
           return;
@@ -101,6 +106,9 @@ export function MapView({
       } else if (msg.type === 'SET_USER_LOCATION') {
         const js = `if (typeof updateUserMarker === 'function') { updateUserMarker(${msg.lat}, ${msg.lon}); } true;`;
         webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'SET_HEADING') {
+        const js = `if (typeof updateUserMarker === 'function') { updateUserMarker(undefined, undefined, ${(msg as any).heading}); } true;`;
+        webViewRef.current.injectJavaScript(js);
       } else if (msg.type === 'SET_CENTER') {
         const js = `if (typeof setMapCenter === 'function') { setMapCenter(${msg.lat}, ${msg.lon}, ${msg.zoom || 16}); } true;`;
         webViewRef.current.injectJavaScript(js);
@@ -113,6 +121,12 @@ export function MapView({
       }
     }
   }, []);
+
+  useEffect(() => {
+    return subscribeHarmonyHeading((h) => {
+      sendToMap({ type: 'SET_HEADING', heading: h } as any);
+    });
+  }, [sendToMap]);
 
   const markersData = useMemo(() => {
     return findings.map((f, i) => {
@@ -254,6 +268,14 @@ export function MapView({
     ? MAPY_ATTRIBUTION.attribution
     : OSM_ATTRIBUTION.attribution;
 
+  const routeSignature = route
+    ? `${route.lengthMetres}:${route.coordinates.length}:${route.coordinates[0]?.join(',') ?? ''}:${route.coordinates[route.coordinates.length - 1]?.join(',') ?? ''}:${(route.surfaceSpans ?? []).map((span) => `${span.tone}:${span.coordinates.length}`).join('|')}`
+    : '';
+  const startSignature = startLocation
+    ? `${startLocation.lat},${startLocation.lon},${startLocation.name}`
+    : '';
+  const endSignature = endLocation ? `${endLocation.lat},${endLocation.lon},${endLocation.name}` : '';
+
   // htmlContent is memoized so it does NOT reload on userLocation updates
   const htmlContent = useMemo(() => {
     const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
@@ -261,8 +283,8 @@ export function MapView({
       tone: span.tone,
       coordinates: span.coordinates.map(([lon, lat]) => [lat, lon]),
     }));
-    const okRouteColor = isHighContrast ? '#42A5F5' : '#005CA9';
-    const otherRouteColor = '#F57C00';
+    const okRouteColor = isHighContrast ? '#42A5F5' : colors.accent;
+    const otherRouteColor = colors.warningBorder;
 
     const startPin = startLocation || (route && route.coordinates.length > 0 ? {
       name: 'Start',
@@ -308,24 +330,24 @@ export function MapView({
       transition: transform 0.15s ease-out;
     }
     .endpoint-marker {
-      background-color: #22C55E;
+      background-color: ${colors.okBorder};
       color: #FFFFFF;
       border: 3px solid #FFFFFF;
       border-radius: 50%;
       font-weight: 800;
       text-align: center;
-      line-height: 26px;
-      font-size: 13px;
-      width: 32px !important;
-      height: 32px !important;
+      line-height: 28px;
+      font-size: 14px;
+      width: 34px !important;
+      height: 34px !important;
       box-shadow: 0 3px 6px rgba(0,0,0,0.4);
       z-index: 10000 !important;
     }
     .endpoint-marker.start {
-      background-color: #22C55E;
+      background-color: ${colors.okBorder};
     }
     .endpoint-marker.destination {
-      background-color: #D32F2F;
+      background-color: ${colors.blockerBorder};
     }
     .user-location-marker {
       position: relative;
@@ -353,6 +375,20 @@ export function MapView({
       background: rgba(0, 122, 255, 0.35);
       animation: user-pulse-anim 2s infinite ease-out;
       z-index: 1;
+    }
+    .user-heading {
+      position: absolute;
+      top: -8px;
+      left: 7px;
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 12px solid #007AFF;
+      transform-origin: 6px 21px;
+      transition: transform 0.2s ease-out;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+      z-index: 3;
     }
     @keyframes user-pulse-anim {
       0% { transform: scale(0.6); opacity: 0.9; }
@@ -585,8 +621,17 @@ export function MapView({
       L.polyline(routeCoords, { color: '#FFFFFF', weight: 8, opacity: 0.95 }).addTo(map);
       if (surfaceSpans.length > 0) {
         surfaceSpans.forEach(function(span) {
-          var color = span.tone === 'other' ? '${otherRouteColor}' : '${okRouteColor}';
-          routeLine = L.polyline(span.coordinates, { color: color, weight: 5, opacity: 0.95 }).addTo(map);
+          var isWarning = span.tone === 'other';
+          var color = isWarning ? '${otherRouteColor}' : '${okRouteColor}';
+          var polyOpts = {
+            color: color,
+            weight: isWarning ? 6 : 5,
+            opacity: 0.95
+          };
+          if (isWarning) {
+            polyOpts.dashArray = '8, 8';
+          }
+          routeLine = L.polyline(span.coordinates, polyOpts).addTo(map);
         });
       } else {
         routeLine = L.polyline(routeCoords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(map);
@@ -698,8 +743,8 @@ export function MapView({
         });
 
         var statusText = m.severity === 'blocker' ? '${t(locale, 'severityBlocker')}' : m.severity === 'warning' ? '${t(locale, 'severityWarning')}' : m.severity === 'ok' ? '${t(locale, 'severityOk')}' : m.severity;
-        var statusBg = m.severity === 'blocker' ? '#fee2e2' : m.severity === 'warning' ? '#ffedd5' : m.severity === 'ok' ? '#dcfce7' : '#f1f5f9';
-        var statusColor = m.severity === 'blocker' ? '#b91c1c' : m.severity === 'warning' ? '#c2410c' : m.severity === 'ok' ? '#15803d' : '#475569';
+        var statusBg = m.severity === 'blocker' ? '${colors.blockerBg}' : m.severity === 'warning' ? '${colors.warningBg}' : m.severity === 'ok' ? '${colors.okBg}' : '${colors.unknownBg}';
+        var statusColor = m.severity === 'blocker' ? '${colors.blockerText}' : m.severity === 'warning' ? '${colors.warningText}' : m.severity === 'ok' ? '${colors.okText}' : '${colors.unknownText}';
 
         var popupHtml = '<div style="min-width: 170px; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;">' +
           '<div style="font-weight: 700; font-size: 13.5px; margin-bottom: 4px; color: #0f172a;">' + m.title + '</div>' +
@@ -713,18 +758,32 @@ export function MapView({
     }
 
     window.updateMarkers = renderMarkers;
-    renderMarkers(${JSON.stringify(initialMarkersRef.current)});
+    renderMarkers(${JSON.stringify(markersData)});
 
     var userMarker = null;
+    window._currentHeading = null;
 
-    window.updateUserMarker = function(lat, lon) {
+    window.updateUserMarker = function(lat, lon, heading) {
       if (!map) return;
+      if (typeof heading === 'number') {
+        window._currentHeading = heading;
+      }
+      var currentHeading = window._currentHeading;
+      var headingHtml = (typeof currentHeading === 'number') ? '<div class="user-heading" style="transform: rotate(' + currentHeading + 'deg);"></div>' : '';
+      var markerHtml = '<div class="user-pulse"></div><div class="user-dot"></div>' + headingHtml;
+
       if (userMarker) {
-        userMarker.setLatLng([lat, lon]);
-      } else {
+        if (typeof lat === 'number' && typeof lon === 'number') {
+          userMarker.setLatLng([lat, lon]);
+        }
+        var elem = userMarker.getElement();
+        if (elem) {
+          elem.innerHTML = markerHtml;
+        }
+      } else if (typeof lat === 'number' && typeof lon === 'number') {
         var userIcon = L.divIcon({
           className: 'user-location-marker',
-          html: '<div class="user-pulse"></div><div class="user-dot"></div>',
+          html: markerHtml,
           iconSize: [26, 26],
           iconAnchor: [13, 13]
         });
@@ -818,7 +877,9 @@ export function MapView({
         } else if (data.type === 'SET_CENTER') {
           window.setMapCenter(data.lat, data.lon, data.zoom);
         } else if (data.type === 'SET_USER_LOCATION') {
-          window.updateUserMarker(data.lat, data.lon);
+          window.updateUserMarker(data.lat, data.lon, data.heading);
+        } else if (data.type === 'SET_HEADING') {
+          window.updateUserMarker(undefined, undefined, data.heading);
         } else if (data.type === 'SET_CLICKED_LOCATION') {
           window.updateClickedMarker(data.lat, data.lon);
         } else if (data.type === 'CLEAR_CLICKED_LOCATION') {
@@ -841,9 +902,9 @@ export function MapView({
 </html>
     `;
   }, [
-    route,
-    startLocation,
-    endLocation,
+    routeSignature,
+    startSignature,
+    endSignature,
     zoom,
     tileUrl,
     tileAttribution,

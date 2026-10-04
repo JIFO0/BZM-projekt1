@@ -192,10 +192,10 @@ export function KrakowHeader({
           styles.secondaryBtn,
           {
             borderColor: userAccount
-              ? (isHighContrast ? colors.focus : '#22C55E')
+              ? (isHighContrast ? colors.focus : colors.okBorder)
               : colors.border,
             backgroundColor: userAccount
-              ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.22)')
+              ? (isHighContrast ? colors.accent : colors.okBg)
               : (isHighContrast ? colors.background : 'rgba(255,255,255,0.12)'),
             minHeight: minTouch,
           },
@@ -206,7 +206,7 @@ export function KrakowHeader({
           weight={userAccount ? 'fill' : 'bold'}
           color={
             userAccount
-              ? (isHighContrast ? colors.accentText : '#4ADE80')
+              ? (isHighContrast ? colors.accentText : colors.okText)
               : (isHighContrast ? colors.text : colors.headerText)
           }
         />

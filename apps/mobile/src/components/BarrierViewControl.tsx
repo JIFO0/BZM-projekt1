@@ -4,7 +4,6 @@ import {
   Warning,
 } from 'phosphor-react-native';
 import {
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -109,12 +108,16 @@ export function BarrierViewControl({
               opt.count !== undefined ? `. Liczba barier: ${opt.count}` : ''
             }`}
             onPress={() => onChangeMode(opt.id)}
-            style={[
+            style={(state: any) => [
               styles.segment,
               compact && styles.segmentCompact,
               isSelected && {
                 backgroundColor: colors.accent,
                 borderColor: colors.accent,
+              },
+              state?.focused && {
+                borderColor: colors.focus,
+                borderWidth: 2.5,
               },
             ]}
           >
@@ -171,6 +174,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 3,
     gap: 3,
+    minHeight: 48,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -182,16 +186,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 7,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 20,
     gap: 5,
-    minHeight: Platform.OS === 'web' ? 34 : 36,
+    minHeight: 44,
   },
   segmentCompact: {
-    paddingVertical: 5,
+    paddingVertical: 8,
     paddingHorizontal: 6,
-    minHeight: 30,
+    minHeight: 44,
   },
   segmentText: {
     letterSpacing: -0.2,

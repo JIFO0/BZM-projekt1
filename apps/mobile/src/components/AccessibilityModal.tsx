@@ -75,8 +75,8 @@ export function AccessibilityModal() {
       id: 'standard-light',
       label: t(locale, 'contrastModeStandardLight'),
       bgSample: '#FFFFFF',
-      textSample: '#005CA9',
-      borderSample: '#005CA9',
+      textSample: '#004F93',
+      borderSample: '#004F93',
     },
     {
       id: 'standard-dark',

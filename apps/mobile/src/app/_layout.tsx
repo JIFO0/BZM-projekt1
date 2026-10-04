@@ -1,6 +1,7 @@
+import { useEffect } from 'react';
+import { Platform, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AccessibilityModal } from '@/components/AccessibilityModal';
@@ -12,6 +13,34 @@ function RootNavigatorInner() {
   const { colors, contrastMode } = useSession();
 
   const isDarkContent = contrastMode === 'standard-light' || contrastMode === 'hc-black-yellow';
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const styleId = 'wcag-aaa-focus-styles';
+    let styleTag = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = styleId;
+      document.head.appendChild(styleTag);
+    }
+    styleTag.textContent = `
+      *:focus-visible,
+      [data-focusable="true"]:focus-visible,
+      [tabindex]:focus-visible,
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      textarea:focus-visible,
+      a:focus-visible,
+      [role="button"]:focus-visible,
+      [role="tab"]:focus-visible,
+      [role="radio"]:focus-visible {
+        outline: 3px solid ${colors.focus} !important;
+        outline-offset: 2px !important;
+        box-shadow: 0 0 0 4px rgba(0, 56, 101, 0.25) !important;
+      }
+    `;
+  }, [colors.focus]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>

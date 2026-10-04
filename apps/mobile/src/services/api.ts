@@ -23,7 +23,6 @@ import {
   OsmOverpassProvider,
   OsmRoutingProvider,
 } from '@krakow-bez-barier/sources';
-import { getAllCityFacts } from '@/services/barriers';
 
 function getMapyApiKey(): string {
   return process.env.EXPO_PUBLIC_MAPY_API_KEY || '';
@@ -116,6 +115,17 @@ export interface PlanRouteResult {
   selectedVariant?: RouteVariantId;
 }
 
+function mergeRouteFacts(onGeometry: Fact[], aroundRoute: Fact[]): Fact[] {
+  const seen = new Set(onGeometry.map((fact) => fact.id));
+  const merged = [...onGeometry];
+  for (const fact of aroundRoute) {
+    if (seen.has(fact.id)) continue;
+    seen.add(fact.id);
+    merged.push(fact);
+  }
+  return merged;
+}
+
 export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<PlanRouteResult> {
   const { start, end, profileId, debugState } = params;
 
@@ -153,8 +163,10 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
       const sameLine =
         pair.accessible.coordinates.length === pair.fastest.coordinates.length &&
         pair.accessible.lengthMetres === pair.fastest.lengthMetres;
-      const accessibleFacts = await loadFacts(pair.accessible.coordinates);
-      const fastestFacts = sameLine ? accessibleFacts : await loadFacts(pair.fastest.coordinates);
+      const accessibleOverpass = await loadFacts(pair.accessible.coordinates);
+      const fastestOverpass = sameLine ? accessibleOverpass : await loadFacts(pair.fastest.coordinates);
+      const accessibleFacts = mergeRouteFacts(pair.accessibleFacts, accessibleOverpass);
+      const fastestFacts = mergeRouteFacts(pair.fastestFacts, fastestOverpass);
 
       const accessibleReport = analyzeRoute({
         routeId: `route-accessible-${Date.now()}`,
@@ -302,15 +314,6 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     }
   }
 
-  // Merge known curated city barriers (krakow center barriers, etc.) with OSM facts
-  const cityFacts = getAllCityFacts();
-  const existingFactIds = new Set(facts.map((f) => f.id));
-  for (const cf of cityFacts) {
-    if (!existingFactIds.has(cf.id)) {
-      facts.push(cf);
-    }
-  }
-
   // 3. Deterministic route analysis in core
   const report = analyzeRoute({
     routeId: `route-${Date.now()}`,
@@ -331,33 +334,21 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     DEMO_SNAPSHOT.routes[1]!;
 
   if (isSample) {
-    const shortestFacts = [...sampleShortest.facts];
-    const shortestFactIds = new Set(shortestFacts.map((f) => f.id));
-    for (const cf of cityFacts) {
-      if (!shortestFactIds.has(cf.id)) shortestFacts.push(cf);
-    }
-
     const shortestReport = analyzeRoute({
       routeId: `route-shortest-${Date.now()}`,
       profileId,
       routeCoordinates: sampleShortest.walkingRoute.coordinates,
-      facts: shortestFacts,
+      facts: sampleShortest.facts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,
     });
 
-    const accessibleFacts = [...sampleAccessible.facts];
-    const accessibleFactIds = new Set(accessibleFacts.map((f) => f.id));
-    for (const cf of cityFacts) {
-      if (!accessibleFactIds.has(cf.id)) accessibleFacts.push(cf);
-    }
-
     const accessibleReport = analyzeRoute({
       routeId: `route-accessible-${Date.now()}`,
       profileId,
       routeCoordinates: sampleAccessible.walkingRoute.coordinates,
-      facts: accessibleFacts,
+      facts: sampleAccessible.facts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,

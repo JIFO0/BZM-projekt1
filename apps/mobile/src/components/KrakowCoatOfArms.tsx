@@ -24,7 +24,7 @@ export function KrakowCoatOfArms({ size = 'medium', showTitle = true }: KrakowCo
   const shieldColor = isHighContrast ? colors.surface : '#C62828';
   const borderColor = isHighContrast ? colors.border : '#8E0000';
   const wallColor = isHighContrast ? colors.text : '#FFFFFF';
-  const roofColor = isHighContrast ? colors.accent : '#005CA9';
+  const roofColor = colors.accent;
   const goldColor = isHighContrast ? colors.text : '#F59E0B';
   const eagleColor = isHighContrast ? colors.text : '#FFFFFF';
   const gateInterior = isHighContrast ? colors.background : '#1E293B';

@@ -608,16 +608,24 @@ export function selectMapFindings(input: {
   reports: RouteFinding[];
   routeCoordinates?: Array<[number, number]>;
   corridorMetres: number;
+  /** User reports sit on the pavement beside the walked line. */
+  reportCorridorMetres?: number;
 }): RouteFinding[] {
   if (input.mode === 'none') return [];
   const coordinates = input.routeCoordinates ?? [];
-  const reportsOnRoute =
-    coordinates.length > 0
-      ? input.reports.filter((report) => findingOnRoute(report, coordinates, input.corridorMetres))
-      : [];
-  const base =
-    input.mode === 'route'
-      ? input.routeFindings.filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning')
-      : input.routeFindings;
+  if (coordinates.length === 0) return [];
+
+  const sidewalkMetres = Math.max(input.corridorMetres, 40);
+  const onSidewalk = (finding: RouteFinding, metres: number) =>
+    findingOnRoute(finding, coordinates, metres);
+
+  const sidewalk = input.routeFindings.filter((finding) => onSidewalk(finding, sidewalkMetres));
+  const reportsOnRoute = input.reports.filter((report) =>
+    onSidewalk(report, input.reportCorridorMetres ?? Math.max(sidewalkMetres, 45)),
+  );
+  const problems = sidewalk.filter(
+    (finding) => finding.severity === 'blocker' || finding.severity === 'warning',
+  );
+  const base = input.mode === 'route' ? problems : sidewalk;
   return [...base, ...reportsOnRoute];
 }

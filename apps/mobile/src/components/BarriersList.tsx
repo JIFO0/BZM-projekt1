@@ -46,13 +46,13 @@ export function BarriersList({ route, locale }: BarriersListProps) {
   const getSeverityBadge = (severity: RouteBarrier['severity']) => {
     switch (severity) {
       case 'blocker':
-        return { label: t(locale, 'severityBlocker'), bg: '#D32F2F', text: '#FFFFFF' };
+        return { label: t(locale, 'severityBlocker'), bg: colors.blockerBorder, text: colors.surface };
       case 'warning':
-        return { label: t(locale, 'severityWarning'), bg: '#F57C00', text: '#FFFFFF' };
+        return { label: t(locale, 'severityWarning'), bg: colors.warningBorder, text: colors.surface };
       case 'unknown':
-        return { label: t(locale, 'statusUnknown'), bg: '#607D8B', text: '#FFFFFF' };
+        return { label: t(locale, 'statusUnknown'), bg: colors.unknownBorder, text: colors.surface };
       case 'ok':
-        return { label: t(locale, 'severityOk'), bg: '#388E3C', text: '#FFFFFF' };
+        return { label: t(locale, 'severityOk'), bg: colors.okBorder, text: colors.surface };
       default:
         return { label: severity, bg: colors.border, text: colors.text };
     }
@@ -66,16 +66,16 @@ export function BarriersList({ route, locale }: BarriersListProps) {
         style={[
           styles.honestyCard,
           {
-            backgroundColor: summary.blockerCount > 0 ? '#FFEBEE' : '#FFF8E1',
-            borderColor: summary.blockerCount > 0 ? '#D32F2F' : '#FFA000',
+            backgroundColor: summary.blockerCount > 0 ? colors.blockerBg : colors.warningBg,
+            borderColor: summary.blockerCount > 0 ? colors.blockerBorder : colors.warningBorder,
           },
         ]}
       >
-        <Text style={[styles.honestyTitle, { color: summary.blockerCount > 0 ? '#C62828' : '#F57F17' }]}>
+        <Text style={[styles.honestyTitle, { color: summary.blockerCount > 0 ? colors.blockerText : colors.warningText }]}>
           {honestyNoteText}
         </Text>
         {summary.coverageRatio !== null && (
-          <Text style={styles.coverageText}>
+          <Text style={[styles.coverageText, { color: colors.text }]}>
             {t(locale, 'dataCoverage')}: {Math.round(summary.coverageRatio * 100)}%
           </Text>
         )}
@@ -84,11 +84,11 @@ export function BarriersList({ route, locale }: BarriersListProps) {
       {/* Metrics Row */}
       <View style={styles.metricsRow}>
         <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.metricValue, { color: '#D32F2F' }]}>{summary.blockerCount}</Text>
+          <Text style={[styles.metricValue, { color: colors.blockerText }]}>{summary.blockerCount}</Text>
           <Text style={[styles.metricLabel, { color: colors.muted }]}>{t(locale, 'blockersCount')}</Text>
         </View>
         <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.metricValue, { color: '#F57C00' }]}>{summary.warningCount}</Text>
+          <Text style={[styles.metricValue, { color: colors.warningText }]}>{summary.warningCount}</Text>
           <Text style={[styles.metricLabel, { color: colors.muted }]}>{t(locale, 'warningsCount')}</Text>
         </View>
         <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
