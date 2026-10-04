@@ -15,15 +15,10 @@
 # 1. Web Frontend (Expo Production Build)
 http://accessible.krakow.local {
     handle /api/* {
-        header Access-Control-Allow-Origin "*"
-        header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE"
-        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
         reverse_proxy api:3000
     }
 
     handle /uploads/* {
-        header Access-Control-Allow-Origin "*"
-        header Access-Control-Allow-Methods "GET, OPTIONS"
         reverse_proxy api:3000
     }
 
@@ -58,16 +53,16 @@ http://hopper.accessible.krakow.local {
 
 # 4. Fallback for direct localhost access without /etc/hosts resolution
 http://localhost, http://127.0.0.1 {
-    @options method OPTIONS
-    handle @options {
-        header Access-Control-Allow-Origin "*"
-        header Access-Control-Allow-Methods "GET, POST, OPTIONS"
-        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
-        header Access-Control-Max-Age "86400"
-        respond 204
-    }
-
     handle /route* {
+        @options method OPTIONS
+        handle @options {
+            header Access-Control-Allow-Origin "*"
+            header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+            header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+            header Access-Control-Max-Age "86400"
+            respond 204
+        }
+
         header Access-Control-Allow-Origin "*"
         header Access-Control-Allow-Methods "GET, POST, OPTIONS"
         header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
@@ -75,15 +70,10 @@ http://localhost, http://127.0.0.1 {
     }
 
     handle /api/* {
-        header Access-Control-Allow-Origin "*"
-        header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE"
-        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
         reverse_proxy api:3000
     }
 
     handle /uploads/* {
-        header Access-Control-Allow-Origin "*"
-        header Access-Control-Allow-Methods "GET, OPTIONS"
         reverse_proxy api:3000
     }
 

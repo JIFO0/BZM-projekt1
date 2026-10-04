@@ -586,7 +586,7 @@ export type BarrierMapMode = 'none' | 'route' | 'all';
 
 function findingOnRoute(
   finding: RouteFinding,
-  routeCoordinates: Array<[number, number]>,
+  routeCoordinates: [number, number][],
   corridorMetres: number,
 ): boolean {
   const { lat, lon } = finding.fact.subject;
@@ -596,28 +596,46 @@ function findingOnRoute(
 }
 
 /**
- * Map pins for the active route.
- * `route` — blockers and warnings on that line.
- * `all` — every evaluated point on that line, including ones that meet the profile.
- * `none` — no pins.
- * Resident reports stay only when they sit on the same line.
+ * Map findings for display on the interactive map.
+ * - When no route is active: displays all citizen reports (plus all city barriers if mode is 'all').
+ * - When an active route exists:
+ *   - 'route': shows blockers/warnings along the route and citizen reports within the route corridor.
+ *   - 'all': shows all city barriers (or full route findings) plus all citizen reports.
+ *   - 'none': hides all findings.
  */
 export function selectMapFindings(input: {
   mode: BarrierMapMode;
   routeFindings: RouteFinding[];
   reports: RouteFinding[];
-  routeCoordinates?: Array<[number, number]>;
+  allCityBarriers?: RouteFinding[];
+  routeCoordinates?: [number, number][];
   corridorMetres: number;
 }): RouteFinding[] {
   if (input.mode === 'none') return [];
-  const coordinates = input.routeCoordinates ?? [];
-  const reportsOnRoute =
-    coordinates.length > 0
-      ? input.reports.filter((report) => findingOnRoute(report, coordinates, input.corridorMetres))
-      : [];
-  const base =
-    input.mode === 'route'
-      ? input.routeFindings.filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning')
-      : input.routeFindings;
-  return [...base, ...reportsOnRoute];
+
+  const hasRoute = Boolean(input.routeCoordinates && input.routeCoordinates.length > 0);
+
+  if (!hasRoute) {
+    // Browsing the map: show all city barriers (if mode is 'all') plus all citizen reports
+    const base = input.mode === 'all' && input.allCityBarriers ? input.allCityBarriers : [];
+    return [...base, ...input.reports];
+  }
+
+  // Active route exists:
+  if (input.mode === 'all') {
+    const base =
+      input.allCityBarriers && input.allCityBarriers.length > 0
+        ? input.allCityBarriers
+        : input.routeFindings;
+    return [...base, ...input.reports];
+  }
+
+  // Mode is 'route': show route blockers/warnings + reports on the route corridor
+  const reportsOnRoute = input.reports.filter((report) =>
+    findingOnRoute(report, input.routeCoordinates!, input.corridorMetres),
+  );
+  const routeBase = input.routeFindings.filter(
+    (finding) => finding.severity === 'blocker' || finding.severity === 'warning',
+  );
+  return [...routeBase, ...reportsOnRoute];
 }

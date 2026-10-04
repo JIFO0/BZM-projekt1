@@ -53,7 +53,11 @@ import {
 import { fetchServerHazards, planAndAnalyzeRoute, type RouteVariantId, type ServerRouteHazard } from '@/services/api';
 import { triggerGentleHaptic } from '@/services/haptics';
 import { city } from '@/config/city';
-import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
+import {
+  citizenReportsAsFindings,
+  getAllCityBarriers,
+  selectMapFindings,
+} from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -142,6 +146,7 @@ export default function RouteScreen() {
     userLocation,
     barrierViewMode,
     setBarrierViewMode,
+    localReports,
     activeThresholds,
     debugState,
   } = useSession();
@@ -251,18 +256,29 @@ export default function RouteScreen() {
     fetchServerHazards().then(setServerHazards).catch(() => { });
   }, []);
 
+  const allCityBarriers = useMemo(() => {
+    return getAllCityBarriers(activeThresholds);
+  }, [activeThresholds]);
+
   const reportFindings = useMemo(
     () =>
-      citizenReportsAsFindings(
-        serverHazards.map((hazard) => ({
+      citizenReportsAsFindings([
+        ...serverHazards.map((hazard) => ({
           id: hazard.id,
           description: hazard.description,
           position: hazard.position,
           createdAt: hazard.createdAt,
           status: hazard.status,
-        }))
-      ),
-    [serverHazards],
+        })),
+        ...localReports.map((report) => ({
+          id: report.id,
+          description: report.description,
+          position: report.position,
+          createdAt: report.createdAt,
+          status: report.status,
+        })),
+      ]),
+    [serverHazards, localReports],
   );
 
   const displayedFindings = useMemo(() => {
@@ -270,10 +286,11 @@ export default function RouteScreen() {
       mode: barrierViewMode,
       routeFindings: activeRouteReport?.findings || [],
       reports: reportFindings,
+      allCityBarriers,
       routeCoordinates: activeWalkingRoute?.coordinates,
       corridorMetres: city.corridorMeters,
     });
-  }, [barrierViewMode, activeRouteReport?.findings, activeWalkingRoute?.coordinates, reportFindings]);
+  }, [barrierViewMode, activeRouteReport?.findings, activeWalkingRoute?.coordinates, reportFindings, allCityBarriers]);
 
   if (loading) {
     return (
@@ -817,7 +834,7 @@ export default function RouteScreen() {
               mode={barrierViewMode}
               onChangeMode={setBarrierViewMode}
               routeBarriersCount={(report.findings || []).filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning').length}
-              allBarriersCount={(report.findings || []).length}
+              allBarriersCount={allCityBarriers.length > 0 ? allCityBarriers.length : (report.findings || []).length}
               hasActiveRoute={true}
             />
             <MapView

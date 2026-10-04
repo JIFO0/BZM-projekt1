@@ -39,15 +39,17 @@ export function resolveBackendApiUrl(): string {
     return process.env.EXPO_PUBLIC_API_URL;
   }
   if (typeof window !== 'undefined' && window.location) {
-    const hostname = window.location.hostname;
-    if (hostname === 'accessible.krakow.local') {
-      return window.location.origin;
+    const { hostname, origin } = window.location;
+    // When served via Caddy gateway, reverse-proxy handles /api/* on the same origin
+    if (hostname === 'accessible.krakow.local' || hostname === 'localhost' || hostname === '127.0.0.1') {
+      // If running on port 80/443 (Caddy gateway)
+      if (window.location.port === '' || window.location.port === '80' || window.location.port === '443') {
+        return origin;
+      }
+      return 'http://localhost:3000';
     }
     if (hostname.endsWith('.local')) {
       return `http://api.${hostname}`;
-    }
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:3000';
     }
     return `http://${hostname}:3000`;
   }

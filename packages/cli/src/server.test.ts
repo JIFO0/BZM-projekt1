@@ -56,4 +56,14 @@ describe('Server component', () => {
       done(err);
     });
   });
+
+  test('returns single standard CORS header Access-Control-Allow-Origin: *', (done) => {
+    http.get(`http://127.0.0.1:${port}/status`, (res) => {
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe('*');
+      done();
+    }).on('error', (err) => {
+      done(err);
+    });
+  });
 });

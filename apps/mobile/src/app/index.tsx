@@ -73,7 +73,11 @@ import {
   addPlaceServerComment,
 } from '@/services/api';
 import { city } from '@/config/city';
-import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
+import {
+  citizenReportsAsFindings,
+  getAllCityBarriers,
+  selectMapFindings,
+} from '@/services/barriers';
 import { triggerGentleHaptic } from '@/services/haptics';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
@@ -236,11 +240,16 @@ export default function MapHomeScreen() {
     barrierViewMode,
     setBarrierViewMode,
     localReports,
+    addLocalReport,
   } = useSession();
 
   const routeBarriers = useMemo(() => {
     return activeRouteReport?.findings || [];
   }, [activeRouteReport]);
+
+  const allCityBarriers = useMemo(() => {
+    return getAllCityBarriers(activeThresholds);
+  }, [activeThresholds]);
 
   // Map state
   const [mapCenter, setMapCenter] = useState<{ lat: number; lon: number }>({
@@ -293,6 +302,12 @@ export default function MapHomeScreen() {
   const [serverHazards, setServerHazards] = useState<ServerRouteHazard[]>([]);
   const [reportEmail, setReportEmail] = useState('');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  useEffect(() => {
+    if (userAccount?.email && !reportEmail) {
+      setReportEmail(userAccount.email);
+    }
+  }, [userAccount?.email, reportEmail]);
 
   // New Hazard Report with Photo state
   const [newReportCategory, setNewReportCategory] = useState<'hole' | 'obstacle' | 'flood' | 'surface' | 'other'>('obstacle');
@@ -397,16 +412,24 @@ export default function MapHomeScreen() {
         position: hazard.position,
         createdAt: hazard.createdAt,
         status: hazard.status,
-      }))
+      })),
+      ...localReports.map((report) => ({
+        id: report.id,
+        description: report.description,
+        position: report.position,
+        createdAt: report.createdAt,
+        status: report.status,
+      })),
     ]);
     return selectMapFindings({
       mode: barrierViewMode,
       routeFindings: routeBarriers,
       reports,
+      allCityBarriers,
       routeCoordinates: activeWalkingRoute?.coordinates,
       corridorMetres: city.corridorMeters,
     });
-  }, [barrierViewMode, routeBarriers, serverHazards, activeWalkingRoute?.coordinates]);
+  }, [barrierViewMode, routeBarriers, serverHazards, localReports, allCityBarriers, activeWalkingRoute?.coordinates]);
 
   // Clicked map location popup state
   const [clickedLocation, setClickedLocation] = useState<{
@@ -865,7 +888,6 @@ export default function MapHomeScreen() {
     setRouteVariants(null);
     setFromQuery('');
     setFromPos(null);
-    setToQuery('');
     setToPos(null);
     router.setParams({
       fromName: undefined,
@@ -881,8 +903,8 @@ export default function MapHomeScreen() {
 
   // Submit hazard report directly to server with email and optional photo
   const handleSubmitServerReport = async () => {
-    const trimmedEmail = reportEmail.trim();
-    if (!trimmedEmail || !trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
+    const effectiveEmail = (reportEmail.trim() || userAccount?.email || 'mieszkaniec@krakow.pl').trim();
+    if (!effectiveEmail || !effectiveEmail.includes('@') || !effectiveEmail.includes('.')) {
       Alert.alert(
         t(locale, 'warningTitle'),
         locale === 'pl'
@@ -895,12 +917,10 @@ export default function MapHomeScreen() {
       Alert.alert(t(locale, 'warningTitle'), t(locale, 'reportDescRequired'));
       return;
     }
-    if (!reportPos) {
-      Alert.alert(t(locale, 'warningTitle'), t(locale, 'reportLocationRequired'));
-      return;
-    }
 
-    const position = { lat: reportPos.lat, lon: reportPos.lon };
+    const position = reportPos
+      ? { lat: reportPos.lat, lon: reportPos.lon }
+      : { lat: mapCenter.lat, lon: mapCenter.lon };
 
     let uploadedUrl: string | undefined = undefined;
     if (newReportPhoto) {
@@ -924,7 +944,7 @@ export default function MapHomeScreen() {
       await createServerHazard({
         description: reportDesc.trim(),
         category: newReportCategory,
-        email: trimmedEmail,
+        email: effectiveEmail,
         photoUrl: uploadedUrl,
         position,
       });
@@ -938,7 +958,7 @@ export default function MapHomeScreen() {
         locale === 'pl'
           ? 'Zgłoszenie zostało przesłane na serwer i oznaczone na mapie.'
           : locale === 'uk'
-            ? 'Повідомлення надіслано на сервер та відображено на карті.'
+            ? 'Повідомлення надіслано на сервер та відображено na карті.'
             : 'Report submitted to server and displayed on map.'
       );
       setTimeout(() => {
@@ -947,14 +967,19 @@ export default function MapHomeScreen() {
         setReportPopupOpen(false);
       }, 2000);
     } catch (err: any) {
+      addLocalReport(reportDesc.trim(), {
+        photoUrl: uploadedUrl,
+        category: newReportCategory,
+        position,
+      });
       Alert.alert(
         locale === 'pl' ? 'Błąd serwera' : locale === 'uk' ? 'Помилка сервера' : 'Server error',
         err.message ||
         (locale === 'pl'
-          ? 'Nie udało się zapisać zgłoszenia na serwerze.'
+          ? 'Nie udało się zapisać zgłoszenia na serwerze (zapisano lokalnie).'
           : locale === 'uk'
-            ? 'Не вдалося зберегти повідомлення на сервері.'
-            : 'Failed to submit report to server.')
+            ? 'Не вдалося зберегти повідомлення на сервері (збережено локально).'
+            : 'Failed to submit report to server (saved locally).')
       );
     } finally {
       setIsSubmittingReport(false);
@@ -1099,9 +1124,14 @@ export default function MapHomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={t(locale, 'tabReport')}
             onPress={() => {
-              if (!reportPos && userLocation) {
-                setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
-                setReportQuery(t(locale, 'myLocationShort'));
+              if (!reportPos) {
+                if (userLocation) {
+                  setReportPos({ lat: userLocation.lat, lon: userLocation.lon });
+                  setReportQuery(t(locale, 'myLocationShort'));
+                } else {
+                  setReportPos({ lat: mapCenter.lat, lon: mapCenter.lon });
+                  setReportQuery('Kraków Centrum');
+                }
               }
               setReportPopupOpen(true);
             }}
@@ -1176,7 +1206,7 @@ export default function MapHomeScreen() {
               routeBarriersCount={
                 routeBarriers.filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning').length
               }
-              allBarriersCount={routeBarriers.length}
+              allBarriersCount={allCityBarriers.length > 0 ? allCityBarriers.length : routeBarriers.length}
               hasActiveRoute={Boolean(activeWalkingRoute)}
             />
           </View>
