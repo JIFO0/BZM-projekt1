@@ -595,25 +595,12 @@ function findingOnRoute(
   return nearest != null && nearest.distanceToLineMetres <= corridorMetres;
 }
 
-function dedupeFindings(findings: RouteFinding[]): RouteFinding[] {
-  const seen = new Set<string>();
-  const unique: RouteFinding[] = [];
-  for (const finding of findings) {
-    const { lat, lon } = finding.fact.subject;
-    const key = `${finding.fact.id}|${finding.type}|${lat ?? ''}|${lon ?? ''}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push(finding);
-  }
-  return unique;
-}
-
 /**
  * Map findings for display on the interactive map.
- * - When no route is active: every city barrier (blocker/warning) and citizen report.
+ * - When no route is active: displays all citizen reports (plus all city barriers if mode is 'all', or blocker/warning barriers if mode is 'route').
  * - When an active route exists:
- *   - 'route': blockers and warnings that belong to this walk (route analysis plus city barriers in the corridor) and reports in the corridor.
- *   - 'all': every measured point on that sidewalk, including ones that meet the profile.
+ *   - 'route': shows blockers/warnings along the route corridor and citizen reports within the corridor.
+ *   - 'all': shows all measured sidewalk points along the route corridor and citizen reports within the corridor.
  *   - 'none': hides all findings.
  */
 export function selectMapFindings(input: {
@@ -628,29 +615,25 @@ export function selectMapFindings(input: {
 }): RouteFinding[] {
   if (input.mode === 'none') return [];
   const coordinates = input.routeCoordinates ?? [];
-  const cityBarriers = input.allCityBarriers ?? [];
+  const findingsPool =
+    input.routeFindings.length > 0
+      ? input.routeFindings
+      : (input.allCityBarriers ?? []);
 
   if (coordinates.length === 0) {
-    const pool = cityBarriers.length > 0 ? cityBarriers : input.routeFindings;
-    const problems = pool.filter(
+    const problems = findingsPool.filter(
       (finding) => finding.severity === 'blocker' || finding.severity === 'warning',
     );
-    return dedupeFindings([...problems, ...input.reports]);
+    const described = findingsPool.filter((finding) => finding.severity !== 'unknown');
+    const base = input.mode === 'route' ? problems : described.length > 0 ? described : findingsPool;
+    return [...base, ...input.reports];
   }
 
   const sidewalkMetres = Math.max(input.corridorMetres, 40);
   const onSidewalk = (finding: RouteFinding, metres: number) =>
     findingOnRoute(finding, coordinates, metres);
 
-  const located = (finding: RouteFinding) => {
-    const { lat, lon } = finding.fact.subject;
-    return lat != null && lon != null;
-  };
-  // Analysis already kept these on the walked line. Re-checking against a
-  // simplified geometry was dropping them, so they stay with the route.
-  const analysisOnRoute = input.routeFindings.filter(located);
-  const cityOnRoute = cityBarriers.filter((finding) => onSidewalk(finding, sidewalkMetres));
-  const sidewalk = dedupeFindings([...analysisOnRoute, ...cityOnRoute]);
+  const sidewalk = input.routeFindings.filter((finding) => onSidewalk(finding, sidewalkMetres));
   const reportsOnRoute = input.reports.filter((report) =>
     onSidewalk(report, input.reportCorridorMetres ?? Math.max(sidewalkMetres, 45)),
   );
@@ -659,5 +642,5 @@ export function selectMapFindings(input: {
   );
   const described = sidewalk.filter((finding) => finding.severity !== 'unknown');
   const base = input.mode === 'route' ? problems : described.length > 0 ? described : sidewalk;
-  return dedupeFindings([...base, ...reportsOnRoute]);
+  return [...base, ...reportsOnRoute];
 }
