@@ -20,10 +20,12 @@ import {
   User,
   UserCheck,
   UserCircle,
+  Warning,
   X,
 } from 'phosphor-react-native';
 import { useState } from 'react';
 
+import { BarrierViewControl } from '@/components/BarrierViewControl';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { t, type Locale } from '@/i18n/strings';
@@ -38,6 +40,9 @@ export function SettingsModal() {
     isHighContrast,
     fontSize,
     increasedSpacing,
+    barrierViewMode,
+    setBarrierViewMode,
+    activeWalkingRoute,
     userAccount,
     loginUser,
     logoutUser,
@@ -236,6 +241,28 @@ export function SettingsModal() {
                   );
                 })}
               </View>
+            </View>
+
+            {/* 2. SEKCJA: WIDOK BARIER NA MAPIE */}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <Warning size={18} weight="bold" color={colors.accent} />
+                <Text
+                  accessibilityRole="header"
+                  style={[styles.sectionTitle, { color: colors.text, fontSize: fontSize(15) }]}
+                >
+                  {t(locale, 'settingsBarrierSection')}
+                </Text>
+              </View>
+              <Text style={[styles.sectionDesc, { color: colors.muted, fontSize: fontSize(12) }]}>
+                {t(locale, 'settingsBarrierDesc')}
+              </Text>
+              <BarrierViewControl
+                mode={barrierViewMode}
+                onChangeMode={setBarrierViewMode}
+                hasActiveRoute={Boolean(activeWalkingRoute)}
+                style={{ marginTop: 4 }}
+              />
             </View>
 
             {/* 3. SEKCJA: KONTO UŻYTKOWNIKA I KARTA KRAKOWSKA */}
@@ -543,6 +570,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: '800',
     letterSpacing: -0.2,
+  },
+  sectionDesc: {
+    marginBottom: 8,
+    lineHeight: 16,
   },
   languageRow: {
     flexDirection: 'row',

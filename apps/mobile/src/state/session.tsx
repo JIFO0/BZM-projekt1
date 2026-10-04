@@ -418,7 +418,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [routeVariants, setRouteVariants] = useState<Record<RouteVariantId, RouteVariant> | null>(null);
   const [selectedRouteVariant, setSelectedRouteVariant] = useState<RouteVariantId>('accessible');
   const [activePlaceReport, setActivePlaceReport] = useState<PlaceAnalysisReport | null>(null);
-  const [barrierViewMode, setBarrierViewMode] = useState<BarrierViewMode>('route');
+  const [barrierViewMode, setBarrierViewMode] = useState<BarrierViewMode>('none');
+
+  const prevHasRouteRef = useRef(Boolean(activeWalkingRoute));
+  useEffect(() => {
+    const hasRoute = Boolean(activeWalkingRoute);
+    if (hasRoute !== prevHasRouteRef.current) {
+      prevHasRouteRef.current = hasRoute;
+      if (hasRoute) {
+        setBarrierViewMode('route');
+      } else {
+        setBarrierViewMode('none');
+      }
+    }
+  }, [activeWalkingRoute]);
 
   const routeVariantsRef = useRef(routeVariants);
   routeVariantsRef.current = routeVariants;

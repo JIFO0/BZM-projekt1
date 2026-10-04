@@ -669,10 +669,11 @@ export default function MapHomeScreen() {
     setActiveRouteReport(null);
     setActiveRouteFacts([]);
     setRouteVariants(null);
+    setBarrierViewMode('none');
     router.setParams({
       variant: undefined,
     });
-  }, [setActiveWalkingRoute, setActiveRouteReport, setActiveRouteFacts, setRouteVariants]);
+  }, [setActiveWalkingRoute, setActiveRouteReport, setActiveRouteFacts, setRouteVariants, setBarrierViewMode]);
 
   // Handle pending destination set from place screen or external sources
   useEffect(() => {
@@ -1093,6 +1094,7 @@ export default function MapHomeScreen() {
     setActiveRouteReport(null);
     setActiveRouteFacts([]);
     setRouteVariants(null);
+    setBarrierViewMode('none');
     setFromQuery('');
     setFromPos(null);
     fromQueryRef.current = '';
@@ -1310,16 +1312,18 @@ export default function MapHomeScreen() {
           isPickingMode={pickingTarget !== null}
         />
 
-        <View style={styles.floatingBarrierControl}>
-          <BarrierViewControl
-            compact
-            mode={barrierViewMode}
-            onChangeMode={setBarrierViewMode}
-            hasActiveRoute={Boolean(activeWalkingRoute)}
-            routeBarriersCount={mapPins.problems.length}
-            allBarriersCount={mapPins.evaluated.length}
-          />
-        </View>
+        {activeWalkingRoute ? (
+          <View style={styles.floatingBarrierControl}>
+            <BarrierViewControl
+              compact
+              mode={barrierViewMode}
+              onChangeMode={setBarrierViewMode}
+              hasActiveRoute={Boolean(activeWalkingRoute)}
+              routeBarriersCount={mapPins.problems.length}
+              allBarriersCount={mapPins.evaluated.length}
+            />
+          </View>
+        ) : null}
 
         {/* Floating Map Action Buttons (Apple / Google Maps style) */}
         <View style={styles.floatingControlsRight}>

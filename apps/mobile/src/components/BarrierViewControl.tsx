@@ -42,46 +42,74 @@ export function BarrierViewControl({
     hint: string;
     count?: number;
     icon: (selected: boolean) => React.ReactNode;
-  }[] = [
-    {
-      id: 'route',
-      label: t(locale, 'barrierModeRoute'),
-      hint: t(locale, 'barrierModeRouteHint'),
-      count: hasActiveRoute ? routeBarriersCount : undefined,
-      icon: (selected) => (
-        <Warning
-          size={compact ? 15 : 17}
-          weight="bold"
-          color={selected ? colors.surface : colors.muted}
-        />
-      ),
-    },
-    {
-      id: 'all',
-      label: t(locale, 'barrierModeAll'),
-      hint: t(locale, 'barrierModeAllHint'),
-      count: allBarriersCount > 0 ? allBarriersCount : undefined,
-      icon: (selected) => (
-        <Path
-          size={compact ? 15 : 17}
-          weight="bold"
-          color={selected ? colors.surface : colors.muted}
-        />
-      ),
-    },
-    {
-      id: 'none',
-      label: t(locale, 'barrierModeNone'),
-      hint: t(locale, 'barrierModeNoneHint'),
-      icon: (selected) => (
-        <Prohibit
-          size={compact ? 15 : 17}
-          weight="bold"
-          color={selected ? colors.surface : colors.muted}
-        />
-      ),
-    },
-  ];
+  }[] = !hasActiveRoute
+    ? [
+        {
+          id: 'none',
+          label: t(locale, 'barrierModeNone'),
+          hint: t(locale, 'barrierModeNoneHint'),
+          icon: (selected) => (
+            <Prohibit
+              size={compact ? 15 : 17}
+              weight="bold"
+              color={selected ? colors.accentText : colors.muted}
+            />
+          ),
+        },
+        {
+          id: 'all',
+          label: t(locale, 'barrierModeAllBarriers'),
+          hint: t(locale, 'barrierModeAllHint'),
+          count: allBarriersCount > 0 ? allBarriersCount : undefined,
+          icon: (selected) => (
+            <Path
+              size={compact ? 15 : 17}
+              weight="bold"
+              color={selected ? colors.accentText : colors.muted}
+            />
+          ),
+        },
+      ]
+    : [
+        {
+          id: 'route',
+          label: t(locale, 'barrierModeRoute'),
+          hint: t(locale, 'barrierModeRouteHint'),
+          count: routeBarriersCount,
+          icon: (selected) => (
+            <Warning
+              size={compact ? 15 : 17}
+              weight="bold"
+              color={selected ? colors.accentText : colors.muted}
+            />
+          ),
+        },
+        {
+          id: 'all',
+          label: t(locale, 'barrierModeAll'),
+          hint: t(locale, 'barrierModeAllHint'),
+          count: allBarriersCount > 0 ? allBarriersCount : undefined,
+          icon: (selected) => (
+            <Path
+              size={compact ? 15 : 17}
+              weight="bold"
+              color={selected ? colors.accentText : colors.muted}
+            />
+          ),
+        },
+        {
+          id: 'none',
+          label: t(locale, 'barrierModeNone'),
+          hint: t(locale, 'barrierModeNoneHint'),
+          icon: (selected) => (
+            <Prohibit
+              size={compact ? 15 : 17}
+              weight="bold"
+              color={selected ? colors.accentText : colors.muted}
+            />
+          ),
+        },
+      ];
 
   return (
     <View
@@ -127,7 +155,9 @@ export function BarrierViewControl({
               style={[
                 styles.segmentText,
                 {
-                  color: isSelected ? colors.surface : colors.text,
+                  color: isSelected
+                    ? (isHighContrast ? colors.accentText : colors.surface)
+                    : colors.text,
                   fontSize: fontSize(compact ? 12 : 13),
                   fontWeight: isSelected ? '700' : '600',
                 },
@@ -151,7 +181,9 @@ export function BarrierViewControl({
                   style={[
                     styles.countText,
                     {
-                      color: isSelected ? colors.surface : colors.text,
+                      color: isSelected
+                        ? (isHighContrast ? colors.accentText : colors.surface)
+                        : colors.text,
                       fontSize: fontSize(10.5),
                     },
                   ]}
