@@ -7,11 +7,9 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -29,7 +27,6 @@ import {
   Info,
   Lightning,
   ShieldCheck,
-  ShareNetwork,
   NotePencil,
   MapTrifold,
   ListChecks,
@@ -359,65 +356,7 @@ export default function RouteScreen() {
     minCoverage: 0.8,
   });
 
-  // Plain-text narrative for Voice / Share (WCAG D5 / WOW)
-  const generateNarrative = () => {
-    let narrative = '';
-    const totalUnknownMetres = report.totalUnknownStretchMetres ?? report.longestUnknownStretchMetres ?? 0;
-    if (locale === 'pl') {
-      narrative = `Raport barier dla trasy o długości ${(report.lengthMetres / 1000).toFixed(1)} km. `;
-      narrative += `Wykryto ${blockers.length} blokad, ${warnings.length} ostrzeżeń oraz ${unknownItems.length} elementów o nieznanym stanie. `;
-      narrative += `Całkowita długość odcinków o których brakuje danych wynosi ${totalUnknownMetres} metrów. `;
-      if (showNoBarriersSentence) {
-        narrative += 'Nie znaleziono przeszkód w dostępnych danych. ';
-      }
-      narrative += 'Główne punkty na trasie: ';
-      report.findings.forEach((f, idx) => {
-        const localizedCrit = getLocalizedFindingType(f.type, 'pl');
-        const localizedVal = getLocalizedFactValue(f.fact.value, 'pl', f.fact.criterion);
-        narrative += `Punkt ${idx + 1}, po ${f.distanceFromStartMetres} metrach: ${localizedCrit}, ${localizedVal}. `;
-      });
-    } else if (locale === 'uk') {
-      narrative = `Звіт про бар’єри для маршруту довжиною ${(report.lengthMetres / 1000).toFixed(1)} км. `;
-      narrative += `Виявлено ${blockers.length} блокад, ${warnings.length} попереджень та ${unknownItems.length} елементів із невідомим станом. `;
-      narrative += `Загальна довжина ділянок, про які бракує даних, становить ${totalUnknownMetres} метрів. `;
-      if (showNoBarriersSentence) {
-        narrative += 'У наявних даних перешкод не знайдено. ';
-      }
-      narrative += 'Основні точки на маршруті: ';
-      report.findings.forEach((f, idx) => {
-        const localizedCrit = getLocalizedFindingType(f.type, 'uk');
-        const localizedVal = getLocalizedFactValue(f.fact.value, 'uk', f.fact.criterion);
-        narrative += `Точка ${idx + 1}, через ${f.distanceFromStartMetres} метрів: ${localizedCrit}, ${localizedVal}. `;
-      });
-    } else {
-      narrative = `Barrier report for route of distance ${(report.lengthMetres / 1000).toFixed(1)} km. `;
-      narrative += `Detected ${blockers.length} blockers, ${warnings.length} warnings and ${unknownItems.length} items with unknown status. `;
-      narrative += `Total length of stretches with missing data is ${totalUnknownMetres} metres. `;
-      if (showNoBarriersSentence) {
-        narrative += 'No barriers found in available data. ';
-      }
-      narrative += 'Key waypoints along route: ';
-      report.findings.forEach((f, idx) => {
-        const localizedCrit = getLocalizedFindingType(f.type, 'en');
-        const localizedVal = getLocalizedFactValue(f.fact.value, 'en', f.fact.criterion);
-        narrative += `Point ${idx + 1}, after ${f.distanceFromStartMetres} metres: ${localizedCrit}, ${localizedVal}. `;
-      });
-    }
-    return narrative;
-  };
 
-
-
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        title: `${t(locale, 'appName')} - ${t(locale, 'routeReportTitle')}`,
-        message: generateNarrative(),
-      });
-    } catch {
-      Alert.alert(t(locale, 'errorTitle'), t(locale, 'routeErrorMsg'));
-    }
-  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -605,19 +544,6 @@ export default function RouteScreen() {
                 {t(locale, 'summaryCardTitle')}
               </Text>
             </View>
-            <View
-              style={[
-                styles.cityTag,
-                {
-                  backgroundColor: isHighContrast ? colors.background : colors.badgeBg,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text style={[styles.cityTagText, { color: colors.accent, fontSize: fontSize(11) }]}>
-                {t(locale, 'krakowRouteTag')}
-              </Text>
-            </View>
           </View>
 
           <View style={styles.metricRow}>
@@ -787,13 +713,6 @@ export default function RouteScreen() {
             </View>
           )}
 
-          {/* Share button */}
-          <GovButton
-            title={t(locale, 'shareSummary')}
-            icon={<ShareNetwork size={18} color={colors.text} weight="bold" />}
-            variant="outline"
-            onPress={handleShare}
-          />
 
           <GovButton
             title={t(locale, 'reportCorrection')}
