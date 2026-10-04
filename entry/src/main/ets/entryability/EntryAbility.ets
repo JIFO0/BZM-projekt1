@@ -24,7 +24,7 @@ export default class EntryAbility extends UIAbility {
         hilog.error(0x0000, TAG, 'Location permission request failed: %{public}s', JSON.stringify(err));
       });
 
-    windowStage.loadContent('pages/Index', (err) => {
+    windowStage.loadContent('pages/ReactApp', (err) => {
       if (err.code) {
         hilog.error(0x0000, TAG, 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
         return;

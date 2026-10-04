@@ -1,64 +1,38 @@
-import { webview } from '@kit.ArkWeb';
+import { router } from '@kit.ArkUI';
+import { deviceInfo } from '@kit.BasicServicesKit';
 
 @Entry
 @Component
 struct Index {
-  controller: webview.WebviewController = new webview.WebviewController();
-  @State showReact: boolean = false;
+  @State status: string = 'Ładowanie aplikacji…';
 
   aboutToAppear(): void {
-    try {
-      this.showReact = this.getUIContext().getHostContext() !== undefined;
-    } catch (err) {
-      this.showReact = false;
+    const model = deviceInfo.productModel ?? '';
+    const preview = model.length === 0 || model.toLowerCase().includes('preview');
+    if (preview) {
+      this.status = 'Podgląd ArkUI jest gotowy. React otwiera się na emulatorze.';
+      return;
     }
+    router.replaceUrl({ url: 'pages/ReactApp' }).catch(() => {
+      this.status = 'Nie udało się otworzyć interfejsu React.';
+    });
   }
 
-  @Builder
-  previewNotice() {
-    Column({ space: 16 }) {
+  build() {
+    Column({ space: 12 }) {
       Text('Kraków bez barier')
-        .fontSize(28)
+        .fontSize(32)
         .fontWeight(FontWeight.Bold)
         .fontColor('#FFFFFF')
-      Text('Podgląd DevEco nie rysuje komponentu Web, w którym działa React. Szary napis „Preview is not available” nie oznacza, że aplikacja jest zepsuta.')
+      Text(this.status)
         .fontSize(16)
         .fontColor('#FFFFFF')
-      Text('Uruchom moduł entry na emulatorze albo telefonie. Tam ładuje się wyeksportowany interfejs.')
-        .fontSize(16)
-        .fontColor('#FFFFFF')
+        .width('100%')
     }
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .alignItems(HorizontalAlign.Start)
     .padding(24)
     .backgroundColor('#208AEF')
-  }
-
-  build() {
-    if (this.showReact) {
-      Column() {
-        Web({ src: $rawfile('www/index.html'), controller: this.controller })
-          .javaScriptAccess(true)
-          .domStorageAccess(true)
-          .fileAccess(true)
-          .imageAccess(true)
-          .onlineImageAccess(true)
-          .geolocationAccess(true)
-          .mixedMode(MixedMode.All)
-          .width('100%')
-          .height('100%')
-          .onGeolocationShow((event) => {
-            if (event) {
-              event.geolocation.invoke(event.origin, true, false);
-            }
-          })
-      }
-      .width('100%')
-      .height('100%')
-    } else {
-      this.previewNotice()
-    }
   }
 }

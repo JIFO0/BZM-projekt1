@@ -111,9 +111,9 @@ describe('GraphHopper client', () => {
   it('keeps the barrier-free route when the extra walk stays reasonable', async () => {
     const mockFetch = jest.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as {
-        custom_model: { priority: Array<{ multiply_by?: string }> };
+        custom_model?: { priority: Array<{ multiply_by?: string }> };
       };
-      const strict = body.custom_model.priority.some((rule) => rule.multiply_by === '0.0');
+      const strict = body.custom_model?.priority?.some((rule) => rule.multiply_by === '0.0') ?? false;
       return {
         ok: true,
         status: 200,
@@ -147,9 +147,9 @@ describe('GraphHopper client', () => {
   it('switches to the practical sidewalk route and marks a non-ok surface when the detour is huge', async () => {
     const mockFetch = jest.fn(async (_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body)) as {
-        custom_model: { priority: Array<{ multiply_by?: string }> };
+        custom_model?: { priority: Array<{ multiply_by?: string }> };
       };
-      const strict = body.custom_model.priority.some((rule) => rule.multiply_by === '0.0');
+      const strict = body.custom_model?.priority?.some((rule) => rule.multiply_by === '0.0') ?? false;
       return {
         ok: true,
         status: 200,
