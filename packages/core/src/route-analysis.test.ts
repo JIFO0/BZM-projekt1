@@ -185,6 +185,8 @@ describe('Route Analysis (T5)', () => {
     }
 
     expect(report.longestUnknownStretchMetres).toBeGreaterThan(0);
+    expect(report.totalUnknownStretchMetres).toBeGreaterThan(0);
+    expect(report.totalUnknownStretchMetres).toBeGreaterThanOrEqual(report.longestUnknownStretchMetres);
     expect(report.coverage.length).toBeGreaterThan(0);
   });
 

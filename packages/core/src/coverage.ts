@@ -37,3 +37,20 @@ export function longestUnknownStretchMetres(
   }
   return Math.max(best, run);
 }
+
+/** Total cumulative length of all segments that have no data for the criterion. */
+export function totalUnknownStretchMetres(
+  segments: Array<{ lengthMetres: number; known: boolean }>,
+): number {
+  let total = 0;
+  for (const segment of segments) {
+    if (segment.lengthMetres < 0) {
+      throw new Error('segment length must be >= 0');
+    }
+    if (!segment.known) {
+      total += segment.lengthMetres;
+    }
+  }
+  return Math.round(total);
+}
+

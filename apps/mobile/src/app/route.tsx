@@ -362,43 +362,44 @@ export default function RouteScreen() {
   // Plain-text narrative for Voice / Share (WCAG D5 / WOW)
   const generateNarrative = () => {
     let narrative = '';
+    const totalUnknownMetres = report.totalUnknownStretchMetres ?? report.longestUnknownStretchMetres ?? 0;
     if (locale === 'pl') {
       narrative = `Raport barier dla trasy o długości ${(report.lengthMetres / 1000).toFixed(1)} km. `;
       narrative += `Wykryto ${blockers.length} blokad, ${warnings.length} ostrzeżeń oraz ${unknownItems.length} elementów o nieznanym stanie. `;
-      narrative += `Najdłuższy odcinek bez danych wynosi ${report.longestUnknownStretchMetres} metrów. `;
+      narrative += `Całkowita długość odcinków o których brakuje danych wynosi ${totalUnknownMetres} metrów. `;
       if (showNoBarriersSentence) {
         narrative += 'Nie znaleziono przeszkód w dostępnych danych. ';
       }
       narrative += 'Główne punkty na trasie: ';
       report.findings.forEach((f, idx) => {
         const localizedCrit = getLocalizedFindingType(f.type, 'pl');
-        const localizedVal = getLocalizedFactValue(f.fact.value, 'pl');
+        const localizedVal = getLocalizedFactValue(f.fact.value, 'pl', f.fact.criterion);
         narrative += `Punkt ${idx + 1}, po ${f.distanceFromStartMetres} metrach: ${localizedCrit}, ${localizedVal}. `;
       });
     } else if (locale === 'uk') {
       narrative = `Звіт про бар’єри для маршруту довжиною ${(report.lengthMetres / 1000).toFixed(1)} км. `;
       narrative += `Виявлено ${blockers.length} блокад, ${warnings.length} попереджень та ${unknownItems.length} елементів із невідомим станом. `;
-      narrative += `Найдовша ділянка без даних становить ${report.longestUnknownStretchMetres} метрів. `;
+      narrative += `Загальна довжина ділянок, про які бракує даних, становить ${totalUnknownMetres} метрів. `;
       if (showNoBarriersSentence) {
         narrative += 'У наявних даних перешкод не знайдено. ';
       }
       narrative += 'Основні точки на маршруті: ';
       report.findings.forEach((f, idx) => {
         const localizedCrit = getLocalizedFindingType(f.type, 'uk');
-        const localizedVal = getLocalizedFactValue(f.fact.value, 'uk');
+        const localizedVal = getLocalizedFactValue(f.fact.value, 'uk', f.fact.criterion);
         narrative += `Точка ${idx + 1}, через ${f.distanceFromStartMetres} метрів: ${localizedCrit}, ${localizedVal}. `;
       });
     } else {
       narrative = `Barrier report for route of distance ${(report.lengthMetres / 1000).toFixed(1)} km. `;
       narrative += `Detected ${blockers.length} blockers, ${warnings.length} warnings and ${unknownItems.length} items with unknown status. `;
-      narrative += `Longest stretch without data is ${report.longestUnknownStretchMetres} metres. `;
+      narrative += `Total length of stretches with missing data is ${totalUnknownMetres} metres. `;
       if (showNoBarriersSentence) {
         narrative += 'No barriers found in available data. ';
       }
       narrative += 'Key waypoints along route: ';
       report.findings.forEach((f, idx) => {
         const localizedCrit = getLocalizedFindingType(f.type, 'en');
-        const localizedVal = getLocalizedFactValue(f.fact.value, 'en');
+        const localizedVal = getLocalizedFactValue(f.fact.value, 'en', f.fact.criterion);
         narrative += `Point ${idx + 1}, after ${f.distanceFromStartMetres} metres: ${localizedCrit}, ${localizedVal}. `;
       });
     }
@@ -726,7 +727,7 @@ export default function RouteScreen() {
             </View>
           </View>
 
-          {/* Longest stretch with no data (R9) */}
+          {/* Total length of stretches with missing data (R9) */}
           <View
             style={[
               styles.highlightBox,
@@ -740,11 +741,11 @@ export default function RouteScreen() {
             <View style={styles.inlineHeaderRow}>
               <Ruler size={17} color={colors.accent} weight="bold" />
               <Text style={[styles.highlightTitle, { color: colors.text, fontSize: fontSize(14) }]}>
-                {t(locale, 'longestUnknownStretch')}:
+                {t(locale, 'totalUnknownStretch')}:
               </Text>
             </View>
             <Text style={[styles.highlightValue, { color: colors.accent, fontSize: fontSize(14.5) }]}>
-              {report.longestUnknownStretchMetres} {t(locale, 'metresContinuousNoData')}
+              {report.totalUnknownStretchMetres ?? report.longestUnknownStretchMetres ?? 0} {t(locale, 'metresNoData')}
             </Text>
           </View>
 

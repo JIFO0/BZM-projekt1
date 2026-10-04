@@ -365,7 +365,7 @@ export default function PlaceScreen() {
                     key={f.id}
                     style={[styles.conflictRow, { color: colors.conflictingText, fontSize: fontSize(13) }]}
                   >
-                    {`• ${t(locale, 'source')}: ${f.source.name} → ${t(locale, 'value')}: "${getLocalizedFactValue(f.value, locale)}"`}
+                    {`• ${t(locale, 'source')}: ${f.source.name} → ${t(locale, 'value')}: "${getLocalizedFactValue(f.value, locale, f.criterion)}"`}
                   </Text>
                 ))}
               </View>

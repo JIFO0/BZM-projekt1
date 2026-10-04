@@ -57,6 +57,8 @@ const pl = {
   infoCount: 'Udogodnienia / Informacje',
   unknownCount: 'Nierozpoznane odcinki',
   longestUnknownStretch: 'Najdłuższy odcinek bez danych',
+  totalUnknownStretch: 'Całkowita długość odcinków o których brakuje danych',
+  metresNoData: 'metrów bez danych',
   dataCoverage: 'Pokrycie danymi wzdłuż trasy',
   coverageRatio: 'pokrycie',
   noBarriersFound:
@@ -517,6 +519,8 @@ const en: typeof pl = {
   infoCount: 'Facilities / Info',
   unknownCount: 'Unknown stretches',
   longestUnknownStretch: 'Longest stretch without data',
+  totalUnknownStretch: 'Total length of stretches with missing data',
+  metresNoData: 'metres without data',
   dataCoverage: 'Data coverage along route',
   coverageRatio: 'coverage',
   noBarriersFound:
@@ -976,6 +980,8 @@ const uk: typeof pl = {
   infoCount: 'Зручності / Інформація',
   unknownCount: 'Невідомі ділянки',
   longestUnknownStretch: 'Найдовша ділянка без даних',
+  totalUnknownStretch: 'Загальна довжина ділянок, про які бракує даних',
+  metresNoData: 'метрів без даних',
   dataCoverage: 'Покриття даними вздовж маршруту',
   coverageRatio: 'покриття',
   noBarriersFound:
@@ -1621,11 +1627,55 @@ export function getLocalizedCategoryName(category: string, locale: Locale): stri
   return category;
 }
 
-export function getLocalizedFactValue(val: string, locale: Locale): string {
+export function getLocalizedFactValue(val: string, locale: Locale, criterion?: string): string {
   if (!val) return '';
 
+  const cmUnit = locale === 'uk' ? 'см' : 'cm';
+
+  // Convert kerb / millimetre measurements to centimetres (e.g. "140 mm" -> "14 cm", "20 mm" -> "2 cm", "50 mm" -> "5 cm")
+  let cleaned = val.replace(/(\d+(?:\.\d+)?)\s*mm\b/gi, (_match, p1) => {
+    const num = parseFloat(p1);
+    if (!Number.isFinite(num)) return _match;
+    const inCm = Math.round((num / 10) * 10) / 10;
+    return `${inCm} ${cmUnit}`;
+  });
+
+  const isKerb =
+    (criterion && (criterion.toLowerCase() === 'kerb' || criterion.toLowerCase().includes('krawężnik') || criterion.toLowerCase().startsWith('kerb:'))) ||
+    cleaned.toLowerCase().includes('krawężnik') ||
+    cleaned.toLowerCase().includes('kerb');
+
+  if (isKerb) {
+    // If value is a bare decimal metre (OSM kerb:height default unit is metres, e.g. "0.03" or "0.14" or "0.03 m")
+    const metreMatch = cleaned.match(/^([0-1]\.\d{1,2})\s*m?$/i);
+    if (metreMatch) {
+      const metres = parseFloat(metreMatch[1]!);
+      if (Number.isFinite(metres)) {
+        const inCm = Math.round(metres * 100 * 10) / 10;
+        cleaned = `${inCm} ${cmUnit}`;
+      }
+    }
+
+    const lowKerb = cleaned.toLowerCase().trim();
+    if (lowKerb === 'raised' || lowKerb === 'kerb=raised') {
+      return locale === 'pl' ? 'Podniesiony' : locale === 'uk' ? 'Підвищений' : 'Raised';
+    }
+    if (lowKerb === 'lowered' || lowKerb === 'kerb=lowered') {
+      return locale === 'pl' ? 'Obniżony' : locale === 'uk' ? 'Понижений' : 'Lowered';
+    }
+    if (lowKerb === 'flush' || lowKerb === 'kerb=flush') {
+      return locale === 'pl' ? `Wtopiony (0 ${cmUnit})` : locale === 'uk' ? `Врівень (0 ${cmUnit})` : `Flush (0 ${cmUnit})`;
+    }
+    if (lowKerb === 'rolled' || lowKerb === 'kerb=rolled') {
+      return locale === 'pl' ? 'Zaokrąglony' : locale === 'uk' ? 'Закруглений' : 'Rolled';
+    }
+    if (lowKerb === 'brak pomiaru') {
+      return locale === 'pl' ? 'Brak pomiaru' : locale === 'uk' ? 'Без заміру' : 'No measurement';
+    }
+  }
+
   // Clean up any ugly raw technical tag annotations like (wheelchair=limited), wheelchair=no, etc.
-  let cleaned = val.replace(/\s*\(?wheelchair=(limited|no|yes)\)?/gi, (_match, p1) => {
+  cleaned = cleaned.replace(/\s*\(?wheelchair=(limited|no|yes)\)?/gi, (_match, p1) => {
     const v = p1.toLowerCase();
     if (v === 'limited') return locale === 'pl' ? ' (ograniczona dostępność)' : locale === 'uk' ? ' (часткова доступність)' : ' (limited accessibility)';
     if (v === 'no') return locale === 'pl' ? ' (brak dostępności)' : locale === 'uk' ? ' (недоступно)' : ' (not accessible)';
@@ -1740,6 +1790,13 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
   }
 
   if (locale === 'uk') {
+    result = result.replace(/Wysokość krawężnika:/gi, 'Висота бордюру:');
+    result = result.replace(/limit profilu:/gi, 'ліміт профілю:');
+    result = result.replace(/szacunek/gi, 'оцінка');
+    result = result.replace(/porównywany z limitem profilu/gi, 'порівняно з лімітом профілю');
+    result = result.replace(/bez pomiaru OSM/gi, 'без виміру OSM');
+    result = result.replace(/Krawężnik podniesiony/gi, 'Підвищений бордюр');
+    result = result.replace(/Krawężnik obniżony/gi, 'Понижений бордюр');
     result = result.replace(/traffic_signals=yes/gi, 'світлофор');
     result = result.replace(/tactile_paving=yes/gi, 'тактильна плитка');
     result = result.replace(/sygnalizacja/gi, 'світлофор');
@@ -1755,6 +1812,13 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
   }
 
   // English
+  result = result.replace(/Wysokość krawężnika:/gi, 'Kerb height:');
+  result = result.replace(/limit profilu:/gi, 'profile limit:');
+  result = result.replace(/szacunek/gi, 'estimated');
+  result = result.replace(/porównywany z limitem profilu/gi, 'compared to profile limit');
+  result = result.replace(/bez pomiaru OSM/gi, 'without OSM measurement');
+  result = result.replace(/Krawężnik podniesiony/gi, 'Raised kerb');
+  result = result.replace(/Krawężnik obniżony/gi, 'Lowered kerb');
   result = result.replace(/traffic_signals=yes/gi, 'traffic signals');
   result = result.replace(/tactile_paving=yes/gi, 'tactile paving');
   result = result.replace(/sygnalizacja/gi, 'traffic signals');

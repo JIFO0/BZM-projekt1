@@ -144,7 +144,7 @@ export function MapView({
           ? locale === 'pl' ? 'Zgłoszenie' : locale === 'uk' ? 'Повідомлення' : 'Report'
           : f.type;
 
-      const localizedVal = getLocalizedFactValue(f.fact.value, locale);
+      const localizedVal = getLocalizedFactValue(f.fact.value, locale, f.fact.criterion);
       const cleanVal = localizedVal.replace(/\s*\(?wheelchair=[a-z_]+\)?/gi, '').trim();
       const isReport = f.type === 'report';
 

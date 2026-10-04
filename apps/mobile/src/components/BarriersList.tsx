@@ -108,7 +108,7 @@ export function BarriersList({ route, locale }: BarriersListProps) {
             const statusB = getStatusBadge(barrier.status);
             const severityB = getSeverityBadge(barrier.severity);
             const localizedCrit = getLocalizedFindingType(barrier.criterion, locale);
-            const localizedVal = getLocalizedFactValue(barrier.value, locale);
+            const localizedVal = getLocalizedFactValue(barrier.value, locale, barrier.criterion);
             const localizedMsg = getLocalizedBarrierMessage(barrier, locale) || barrier.message;
             const credibility = credibilityFromSource({
               name: barrier.source.name,

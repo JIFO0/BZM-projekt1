@@ -20,6 +20,7 @@ export interface RouteReport {
   findings: RouteFinding[];
   coverage: CoverageStat[];
   longestUnknownStretchMetres: number;
+  totalUnknownStretchMetres: number;
   generatedAt: string;
   sourceNames: string[];
   isSample: boolean;

@@ -19,7 +19,7 @@ export function FactRow({ fact, locale }: FactRowProps) {
   const [expanded, setExpanded] = useState(false);
 
   const criterionDisplay = getLocalizedCriterionName(fact.criterion, locale);
-  const valueDisplay = getLocalizedFactValue(fact.value, locale);
+  const valueDisplay = getLocalizedFactValue(fact.value, locale, fact.criterion);
 
   const dl = dateLabel(fact);
   let dateText = '';
