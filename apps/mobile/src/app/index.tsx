@@ -3,6 +3,7 @@ import {
   type LonLat,
   type ProfileId,
 } from '@krakow-bez-barier/core';
+import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
   ArrowRight,
@@ -30,7 +31,6 @@ import {
   Wheelchair,
   X,
 } from 'phosphor-react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -48,6 +48,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BarrierViewControl } from '@/components/BarrierViewControl';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
@@ -55,27 +56,26 @@ import { GovCard } from '@/components/GovCard';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { LocationPicker } from '@/components/LocationPicker';
 import { MapLocationPopup } from '@/components/MapLocationPopup';
-import { BarrierViewControl } from '@/components/BarrierViewControl';
 import { MapView } from '@/components/MapView';
+import { city } from '@/config/city';
 import { t } from '@/i18n/strings';
 import {
+  addPlaceServerComment,
+  checkRoutingEngineHealth,
+  createServerHazard,
   DEFAULT_PRESET_PLACES,
+  fetchPlaceServerComments,
+  fetchServerHazards,
   inspectPlace,
   planAndAnalyzeRoute,
   reverseGeocodeLocation,
   suggestPlaces,
-  type RouteVariantId,
-  type ServerRouteHazard,
-  type ServerPlaceComment,
-  fetchServerHazards,
-  createServerHazard,
   uploadPhotoToServer,
-  fetchPlaceServerComments,
-  addPlaceServerComment,
-  checkRoutingEngineHealth,
+  type RouteVariantId,
   type RoutingEngineHealth,
+  type ServerPlaceComment,
+  type ServerRouteHazard,
 } from '@/services/api';
-import { city } from '@/config/city';
 import {
   citizenReportsAsFindings,
   getAllCityBarriers,
@@ -779,7 +779,7 @@ export default function MapHomeScreen() {
               setTimeout(() => setStatusMessage(null), 3000);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       } else if (pickingTarget === 'end') {
         setToPos(coords);
         setToQuery(coordName);
@@ -798,7 +798,7 @@ export default function MapHomeScreen() {
               setTimeout(() => setStatusMessage(null), 3000);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       } else if (pickingTarget === 'place') {
         setPlacePos(coords);
         setPlaceQuery(coordName);
@@ -813,7 +813,7 @@ export default function MapHomeScreen() {
               setTimeout(() => setStatusMessage(null), 3000);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       } else if (pickingTarget === 'report') {
         setReportPos(coords);
         setReportQuery(coordName);
@@ -829,7 +829,7 @@ export default function MapHomeScreen() {
               setTimeout(() => setStatusMessage(null), 3000);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
       return;
     }
@@ -2155,15 +2155,15 @@ export default function MapHomeScreen() {
                         <Text style={[styles.resultSub, { color: colors.muted, fontSize: fontSize(13) }]}>
                           {activePlaceReport.isConfidentMatch
                             ? (locale === 'pl'
-                                ? 'Miejski obiekt zweryfikowany pod kątem dostępności'
-                                : locale === 'uk'
-                                  ? 'Об’єкт перевірено на доступність'
-                                  : 'Municipal place verified for accessibility')
+                              ? 'Miejski obiekt zweryfikowany pod kątem dostępności'
+                              : locale === 'uk'
+                                ? 'Об’єкт перевірено на доступність'
+                                : 'Municipal place verified for accessibility')
                             : (locale === 'pl'
-                                ? 'Brak szczegółowych danych o dostępności'
-                                : locale === 'uk'
-                                  ? 'Немає детальних даних про dostępність'
-                                  : 'No detailed accessibility data')}
+                              ? 'Brak szczegółowych danych o dostępności'
+                              : locale === 'uk'
+                                ? 'Немає детальних даних про dostępність'
+                                : 'No detailed accessibility data')}
                         </Text>
                       )}
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
