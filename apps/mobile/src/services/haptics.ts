@@ -1,14 +1,4 @@
-import { Platform } from 'react-native';
-
-declare global {
-  interface Window {
-    HarmonyBridge?: {
-      vibrate?: (durationMs?: number) => void;
-      isHarmonyOS?: () => boolean;
-      getDeviceInfo?: () => string;
-    };
-  }
-}
+import { isHarmonyOS } from './harmony';
 
 export type HapticAction = 'route' | 'report' | 'location' | 'default';
 
@@ -16,14 +6,7 @@ export type HapticAction = 'route' | 'report' | 'location' | 'default';
  * Checks whether the application is currently running inside the native HarmonyOS / OpenHarmony container.
  */
 export function isHarmonyOSPlatform(): boolean {
-  if (typeof window !== 'undefined' && window.HarmonyBridge?.isHarmonyOS) {
-    try {
-      return Boolean(window.HarmonyBridge.isHarmonyOS());
-    } catch {
-      return false;
-    }
-  }
-  return false;
+  return isHarmonyOS();
 }
 
 /**

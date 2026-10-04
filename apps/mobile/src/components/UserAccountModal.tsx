@@ -100,15 +100,15 @@ export function UserAccountModal() {
                   styles.headerIconWrapper,
                   {
                     backgroundColor: userAccount
-                      ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.15)')
-                      : (isHighContrast ? colors.background : 'rgba(0, 92, 169, 0.1)'),
-                    borderColor: userAccount ? '#22C55E' : colors.accent,
+                      ? (isHighContrast ? colors.accent : colors.okBg)
+                      : (isHighContrast ? colors.background : colors.badgeBg),
+                    borderColor: userAccount ? colors.okBorder : colors.accent,
                   },
                 ]}
               >
                 <User
                   size={24}
-                  color={userAccount ? (isHighContrast ? colors.accentText : '#16A34A') : colors.accent}
+                  color={userAccount ? (isHighContrast ? colors.accentText : colors.okText) : colors.accent}
                   weight="bold"
                 />
               </View>
@@ -229,9 +229,9 @@ export function UserAccountModal() {
                         </Text>
                       </View>
                     </View>
-                    <View style={styles.statusChip}>
-                      <CheckCircle size={13} color="#22C55E" weight="fill" />
-                      <Text style={[styles.statusChipText, { fontSize: fontSize(10.5) }]}>
+                    <View style={[styles.statusChip, { backgroundColor: colors.okBg, borderColor: colors.okBorder }]}>
+                      <CheckCircle size={13} color={colors.okText} weight="fill" />
+                      <Text style={[styles.statusChipText, { color: colors.okText, fontSize: fontSize(10.5) }]}>
                         MOCKUP
                       </Text>
                     </View>
@@ -513,15 +513,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#22C55E',
   },
   statusChipText: {
-    color: '#16A34A',
     fontWeight: '800',
     letterSpacing: 0.5,
   },

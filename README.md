@@ -35,7 +35,16 @@ npm run verify
 
 # 4. Uruchomienie aplikacji w Expo
 npm start
+
+# 5. Budowa aplikacji dla Huawei OpenHarmony (.hap)
+npm run build:hap
 ```
+
+Po uruchomieniu `npm run build:hap`:
+- Następuje automatyczny eksport zoptymalizowanego web bundle Expo do zasobów HarmonyOS (`entry/src/main/resources/rawfile/www`).
+- Oficjalny kompilator Huawei `hvigorw` kompiluje moduły ArkTS, weryfikuje zasoby i buduje pakiet:
+  `entry/build/default/outputs/default/entry-default-unsigned.hap` (API 24, ~7.5 MB).
+- Aplikacja w środowisku HarmonyOS korzysta z natywnego mostka ArkWeb (`HarmonyBridge`) i silnika wibracji `@kit.SensorServiceKit` (`vibrator`), realizując subtelną haptykę przy wyznaczeniu trasy, dodaniu zgłoszenia bariery oraz centrowaniu lokalizacji GPS.
 
 W `apps/mobile/.env` wstaw klucz z [developer.mapy.com](https://developer.mapy.com/rest-api-mapy-cz/how-to-start/). Bez klucza ekrany profilu i „O danych” i tak się otwierają, bo jeszcze nie wołają API.
 Po uruchomieniu `npm start`:

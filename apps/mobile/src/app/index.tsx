@@ -377,7 +377,7 @@ export default function MapHomeScreen() {
   // Interactive map picking target
   const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | 'report' | null>(null);
 
-  const displayedFindings = useMemo(() => {
+  const mapPins = useMemo(() => {
     const reports = citizenReportsAsFindings([
       ...serverHazards.map((hazard) => ({
         id: hazard.id,
@@ -387,14 +387,19 @@ export default function MapHomeScreen() {
         status: hazard.status,
       }))
     ]);
-    return selectMapFindings({
-      mode: barrierViewMode,
+    const shared = {
       routeFindings: routeBarriers,
       reports,
       routeCoordinates: activeWalkingRoute?.coordinates,
       corridorMetres: city.corridorMeters,
-    });
+    };
+    return {
+      displayed: selectMapFindings({ ...shared, mode: barrierViewMode }),
+      problems: selectMapFindings({ ...shared, mode: 'route' }),
+      evaluated: selectMapFindings({ ...shared, mode: 'all' }),
+    };
   }, [barrierViewMode, routeBarriers, serverHazards, activeWalkingRoute?.coordinates]);
+  const displayedFindings = mapPins.displayed;
 
   // Clicked map location popup state
   const [clickedLocation, setClickedLocation] = useState<{
@@ -1178,13 +1183,7 @@ export default function MapHomeScreen() {
 
         {/* Active Route Floating Pill (if route is active) */}
         {activeWalkingRoute && activeRouteReport ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(locale, 'btnShowRouteSummary')}
-            onPress={() => {
-              setActiveTab('route');
-              setPopupExpanded(true);
-            }}
+          <View
             style={[
               styles.floatingRoutePill,
               {
@@ -1194,12 +1193,43 @@ export default function MapHomeScreen() {
               },
             ]}
           >
-            <Path size={18} weight="bold" color={colors.accent} />
-            <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
-              {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
-              {formatBlockerCount(activeRouteReport.findings.filter((f) => f.severity === 'blocker').length, locale)}
-            </Text>
-          </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(locale, 'btnShowRouteSummary')}
+              onPress={() => {
+                setActiveTab('route');
+                setPopupExpanded(true);
+              }}
+              style={styles.routePillMain}
+            >
+              <Path size={18} weight="bold" color={colors.accent} />
+              <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
+                {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min
+                {routeVariants
+                  ? ` • ${t(locale, selectedRouteVariant === 'fastest' ? 'routePillShortest' : 'routePillAccessible')}`
+                  : ''}
+              </Text>
+            </Pressable>
+            {routeVariants ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(locale, 'routePillToggle')}
+                onPress={() =>
+                  selectRouteVariant(selectedRouteVariant === 'accessible' ? 'fastest' : 'accessible')
+                }
+                hitSlop={8}
+                style={(state: any) => [
+                  styles.routePillArrow,
+                  {
+                    borderColor: state?.focused ? colors.focus : colors.border,
+                    borderWidth: state?.focused ? 2.5 : 1.5,
+                  },
+                ]}
+              >
+                <ArrowsDownUp size={18} weight="bold" color={colors.accent} />
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
 
         {/* Floating Barrier View Mode Selector (Bez barier | Na trasie | Wszystkie) */}
@@ -1219,10 +1249,8 @@ export default function MapHomeScreen() {
                 }
                 setBarrierViewMode(newMode);
               }}
-              routeBarriersCount={
-                routeBarriers.filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning').length
-              }
-              allBarriersCount={routeBarriers.length}
+              routeBarriersCount={mapPins.problems.length}
+              allBarriersCount={mapPins.evaluated.length}
               hasActiveRoute={Boolean(activeWalkingRoute)}
             />
           </View>
@@ -1496,7 +1524,7 @@ export default function MapHomeScreen() {
                   <LocationPicker
                     label={t(locale, 'from')}
                     badge="A"
-                    badgeColor="#22C55E"
+                    badgeColor={colors.okBorder}
                     point={{ name: fromQuery, position: fromPos }}
                     onChangePoint={(p) => {
                       setFromQuery(p.name);
@@ -1564,7 +1592,7 @@ export default function MapHomeScreen() {
                   <LocationPicker
                     label={t(locale, 'to')}
                     badge="B"
-                    badgeColor="#D32F2F"
+                    badgeColor={colors.blockerBorder}
                     point={{ name: toQuery, position: toPos }}
                     onChangePoint={(p) => {
                       setToQuery(p.name);
@@ -1609,14 +1637,14 @@ export default function MapHomeScreen() {
                               accessibilityRole="button"
                               accessibilityState={{ selected: selectedRouteVariant === 'accessible' }}
                               onPress={() => selectRouteVariant('accessible')}
-                              style={[
+                              style={(state: any) => [
                                 styles.variantButton,
                                 {
                                   backgroundColor:
                                     selectedRouteVariant === 'accessible' ? colors.accent : colors.background,
                                   borderColor:
-                                    selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
-                                  borderWidth: selectedRouteVariant === 'accessible' ? 2 : 1,
+                                    state?.focused ? colors.focus : selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
+                                  borderWidth: state?.focused ? 3 : selectedRouteVariant === 'accessible' ? 2 : 1,
                                 },
                               ]}
                             >
@@ -1656,14 +1684,14 @@ export default function MapHomeScreen() {
                               accessibilityRole="button"
                               accessibilityState={{ selected: selectedRouteVariant === 'fastest' }}
                               onPress={() => selectRouteVariant('fastest')}
-                              style={[
+                              style={(state: any) => [
                                 styles.variantButton,
                                 {
                                   backgroundColor:
                                     selectedRouteVariant === 'fastest' ? colors.accent : colors.background,
                                   borderColor:
-                                    selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
-                                  borderWidth: selectedRouteVariant === 'fastest' ? 2 : 1,
+                                    state?.focused ? colors.focus : selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
+                                  borderWidth: state?.focused ? 3 : selectedRouteVariant === 'fastest' ? 2 : 1,
                                 },
                               ]}
                             >
@@ -2623,8 +2651,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 4,
+    minHeight: 48,
+    borderRadius: 24,
     gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -2649,6 +2678,23 @@ const styles = StyleSheet.create({
   routePillText: {
     flex: 1,
     fontWeight: '700',
+  },
+  routePillMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+  },
+  routePillArrow: {
+    width: 44,
+    height: 44,
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusToast: {
     position: 'absolute',
@@ -2949,6 +2995,7 @@ const styles = StyleSheet.create({
   variantButton: {
     flex: 1,
     padding: 10,
+    minHeight: 48,
     borderRadius: 8,
     gap: 3,
   },

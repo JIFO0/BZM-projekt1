@@ -449,14 +449,14 @@ export default function RouteScreen() {
                   selectRouteVariant('accessible');
                   router.setParams({ variant: 'accessible' });
                 }}
-                style={[
+                style={(state: any) => [
                   styles.variantButton,
                   {
                     backgroundColor:
                       selectedRouteVariant === 'accessible' ? colors.accent : colors.background,
                     borderColor:
-                      selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
-                    borderWidth: selectedRouteVariant === 'accessible' ? 2 : 1,
+                      state?.focused ? colors.focus : selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
+                    borderWidth: state?.focused ? 3 : selectedRouteVariant === 'accessible' ? 2 : 1,
                   },
                 ]}
               >
@@ -499,14 +499,14 @@ export default function RouteScreen() {
                   selectRouteVariant('fastest');
                   router.setParams({ variant: 'fastest' });
                 }}
-                style={[
+                style={(state: any) => [
                   styles.variantButton,
                   {
                     backgroundColor:
                       selectedRouteVariant === 'fastest' ? colors.accent : colors.background,
                     borderColor:
-                      selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
-                    borderWidth: selectedRouteVariant === 'fastest' ? 2 : 1,
+                      state?.focused ? colors.focus : selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
+                    borderWidth: state?.focused ? 3 : selectedRouteVariant === 'fastest' ? 2 : 1,
                   },
                 ]}
               >
@@ -816,8 +816,24 @@ export default function RouteScreen() {
               compact
               mode={barrierViewMode}
               onChangeMode={setBarrierViewMode}
-              routeBarriersCount={(report.findings || []).filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning').length}
-              allBarriersCount={(report.findings || []).length}
+              routeBarriersCount={
+                selectMapFindings({
+                  mode: 'route',
+                  routeFindings: report.findings,
+                  reports: reportFindings,
+                  routeCoordinates: activeWalkingRoute?.coordinates,
+                  corridorMetres: city.corridorMeters,
+                }).length
+              }
+              allBarriersCount={
+                selectMapFindings({
+                  mode: 'all',
+                  routeFindings: report.findings,
+                  reports: reportFindings,
+                  routeCoordinates: activeWalkingRoute?.coordinates,
+                  corridorMetres: city.corridorMeters,
+                }).length
+              }
               hasActiveRoute={true}
             />
             <MapView
@@ -996,6 +1012,7 @@ const styles = StyleSheet.create({
   variantButton: {
     flex: 1,
     padding: 12,
+    minHeight: 48,
     borderRadius: 8,
     gap: 4,
   },

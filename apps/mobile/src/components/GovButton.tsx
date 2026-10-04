@@ -73,14 +73,21 @@ export function GovButton({
       accessibilityHint={accessibilityHint}
       disabled={disabled || loading}
       onPress={onPress}
-      style={[
+      style={(state: any) => [
         styles.button,
         {
           minHeight,
           backgroundColor: bgColor,
-          borderColor,
-          borderWidth: isHighContrast ? 2.5 : 1.5,
-          borderBottomWidth: highlightLinks ? 4 : isHighContrast ? 2.5 : 1.5,
+          borderColor: state?.focused ? colors.focus : borderColor,
+          borderWidth: state?.focused ? 3 : isHighContrast ? 2.5 : 1.5,
+          borderBottomWidth: highlightLinks ? 4 : state?.focused ? 3 : isHighContrast ? 2.5 : 1.5,
+        },
+        state?.focused && {
+          shadowColor: colors.focus,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.8,
+          shadowRadius: 4,
+          elevation: 6,
         },
         style,
       ]}

@@ -3,6 +3,7 @@ import {
   noBarrierSentenceAllowed,
   evaluateWidth,
   type BarrierThresholds,
+  type Fact,
   type FactSource,
   type FactStatus,
   type RouteSurfaceSpan,
@@ -435,4 +436,53 @@ export function parseGraphHopperResponse(
     throw new Error(data?.message || 'Nie znaleziono trasy w GraphHopper');
   }
   return mapGraphHopperPathToResult(data.paths[0], thresholds, minCoverageThreshold);
+}
+
+/** Pins that sit on the walked geometry, not on a way centroid somewhere else. */
+export function factsFromAccessibleRoute(
+  result: AccessibleRouteResult,
+  retrievedAt = new Date().toISOString(),
+): Fact[] {
+  const facts: Fact[] = [];
+  for (const seg of result.segments) {
+    const mid = seg.coordinates[Math.floor(seg.coordinates.length / 2)];
+    if (!mid) continue;
+    const lat = mid[1];
+    const lon = mid[0];
+    if (seg.hasSteps && (seg.stepsSeverity === 'blocker' || seg.stepsSeverity === 'warning')) {
+      facts.push({
+        id: `gh-steps-${seg.index}`,
+        subject: { type: 'segment', ref: `gh-steps-${seg.index}`, lat, lon },
+        criterion: 'steps',
+        value: 'schody',
+        status: 'community',
+        source: OSM_SOURCE,
+        retrievedAt,
+      });
+    }
+    if (seg.surface && seg.surfaceSeverity !== 'unknown') {
+      facts.push({
+        id: `gh-surface-${seg.index}`,
+        subject: { type: 'segment', ref: `gh-surface-${seg.index}`, lat, lon },
+        criterion: 'surface',
+        value: seg.surface,
+        status: seg.surfaceStatus,
+        source: OSM_SOURCE,
+        retrievedAt,
+      });
+    }
+    if (seg.maxWidth != null && seg.widthSeverity === 'blocker') {
+      facts.push({
+        id: `gh-width-${seg.index}`,
+        subject: { type: 'segment', ref: `gh-width-${seg.index}`, lat, lon },
+        criterion: 'width',
+        value: String(seg.maxWidth),
+        unit: 'm',
+        status: seg.widthStatus,
+        source: OSM_SOURCE,
+        retrievedAt,
+      });
+    }
+  }
+  return facts;
 }

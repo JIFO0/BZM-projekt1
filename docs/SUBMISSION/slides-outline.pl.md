@@ -46,8 +46,9 @@ Plan prezentacji przygotowany na finał HackYeah 2026 w kategorii *Cracow Withou
 
 ### Slajd 7: Architektura i Gotowość Wdrożeniowa (Architektura 20%)
 - **Monorepo TypeScript:** Rygorystyczny podział – `packages/core` (czysta logika bez zależności od UI), `packages/sources` (adaptery Mapy.com i OSM), `apps/mobile` (Expo React Native).
-- **100% testów:** 36 testów jednostkowych (T1–T8) badających wszystkie warunki brzegowe.
+- **100% testów:** 121 testów jednostkowych badających wszystkie warunki brzegowe w 20 zestawach testowych.
 - **Odporność na awarie (R12):** Wbudowany offline demo snapshot dla Krakowa działający bez internetu i bez kluczy API.
+- **Natywna kompilacja OpenHarmony (API 24):** Gotowy pakiet `.hap` (7.5 MB) skompilowany z DevEco SDK i silnikiem Hvigor.
 
 ---
 
@@ -65,7 +66,12 @@ Plan prezentacji przygotowany na finał HackYeah 2026 w kategorii *Cracow Withou
 
 ---
 
-### Slajd 10: Efekt WOW i Korzyści Biznesowe (WOW 10%)
-- **WOW 1: Centrum Ułatwień Dostępności (WCAG 2.2 AAA):** Kompleksowe narzędzie z regulacją kontrastów, krojów dla dyslektyków, linijką czytania i pełną integracją z czytnikami ekranu.
-- **WOW 2: Narzędzie dla krakowskiej turystyki:** Możliwość osadzenia widżetu w portalach krakowskich hoteli, muzeów i punktów InfoKraków.
+### Slajd 10: Efekt WOW, Integracja Huawei i Korzyści Biznesowe (WOW 10% + Huawei Track)
+- **Głęboka integracja sprzętowa OpenHarmony (API 24):**
+  - **SensorServiceKit:** Dyskretna haptyka (sukces wyznaczenia trasy, wysłanie zgłoszenia) oraz natywny kompas (obrót wskaźnika kierunku jazdy wózka w czasie rzeczywistym).
+  - **BasicServicesKit + NetworkKit:** Monitorowanie zasilania i sieci – automatyczny zrzut do bezpiecznego trybu offline snapshot przy baterii poniżej 15% lub utracie łączności.
+  - **ArkUI + AbilityKit:** Autonomiczna adaptacja do systemowej skali czcionki i motywu ciemnego.
+  - **LocationKit:** Natywny fallback pozycji GNSS z poziomu systemu.
+- **Centrum Ułatwień Dostępności (WCAG 2.2 AAA):** Kompleksowe narzędzie z regulacją kontrastów, krojów dla dyslektyków, linijką czytania i pełną integracją z czytnikami ekranu.
+- **Narzędzie dla krakowskiej turystyki:** Możliwość osadzenia widżetu w portalach krakowskich hoteli, muzeów i punktów InfoKraków.
 - **Przekazanie praw:** Kod w 100% na licencjach permissywnych, w pełni gotowy do przekazania Gminie Miejskiej Kraków.
