@@ -1,5 +1,6 @@
 import type {
   BarrierThresholds,
+  Fact,
   ProfileId,
   RouteRequest,
   RoutingProvider,
@@ -7,6 +8,7 @@ import type {
   WalkingRoute,
 } from '@krakow-bez-barier/core';
 import { fetchGraphHopperRoute, fetchRouteRespectingDetour } from './client';
+import { factsFromAccessibleRoute } from './mapper';
 import type { AccessibleRouteResult } from './types';
 
 const DEFAULT_PROFILE_THRESHOLDS: Record<ProfileId, BarrierThresholds> = {
@@ -93,7 +95,12 @@ export class GraphHopperRoutingProvider implements RoutingProvider {
    * Barrier-light walk (without a wild detour) and the plain fastest foot walk.
    * Failing segments are attached as surface spans so the map can paint them orange.
    */
-  async routePair(request: RouteRequest): Promise<{ accessible: WalkingRoute; fastest: WalkingRoute }> {
+  async routePair(request: RouteRequest): Promise<{
+    accessible: WalkingRoute;
+    fastest: WalkingRoute;
+    accessibleFacts: Fact[];
+    fastestFacts: Fact[];
+  }> {
     const profileThresholds =
       request.thresholds ||
       this.thresholds ||
@@ -130,6 +137,8 @@ export class GraphHopperRoutingProvider implements RoutingProvider {
         retrievedAt,
         surfaceSpans: planned.fastest.surfaceSpans ?? [],
       },
+      accessibleFacts: factsFromAccessibleRoute(planned.result, retrievedAt),
+      fastestFacts: factsFromAccessibleRoute(planned.fastest, retrievedAt),
     };
   }
 

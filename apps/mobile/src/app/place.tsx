@@ -42,7 +42,7 @@ import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
-import { t } from '@/i18n/strings';
+import { t, getLocalizedCriterionName, getLocalizedFactValue, getLocalizedCategoryName } from '@/i18n/strings';
 import {
   inspectPlace,
   fetchPlaceServerComments,
@@ -138,25 +138,29 @@ export default function PlaceScreen() {
       return;
     }
 
-    if (
-      placeParams.placeLat !== undefined &&
-      !isNaN(placeParams.placeLat) &&
-      placeParams.placeLon !== undefined &&
-      !isNaN(placeParams.placeLon)
-    ) {
-      setLoading(true);
-      inspectPlace(
-        placeParams.placeName || 'Miejsce',
-        { lat: placeParams.placeLat, lon: placeParams.placeLon },
-        debugState,
-      )
-        .then((result) => {
-          setActivePlaceReport(result.report);
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    }
-  }, [activePlaceReport, placeParams, debugState, setActivePlaceReport]);
+    const lat = placeParams.placeLat ?? 50.0619;
+    const lon = placeParams.placeLon ?? 19.9373;
+    const name = placeParams.placeName || (locale === 'pl' ? 'Wybrane miejsce' : 'Selected place');
+
+    setLoading(true);
+    inspectPlace(name, { lat, lon }, debugState)
+      .then((result) => {
+        setActivePlaceReport(result.report);
+      })
+      .catch(() => {
+        setActivePlaceReport({
+          placeName: name,
+          position: { lat, lon },
+          matchConfidence: 0,
+          isConfidentMatch: false,
+          factsByCategory: { entrance: [], inside: [], toilet: [], surroundings: [] },
+          allFacts: [],
+          summaryMessage: locale === 'pl' ? 'Brak informacji w bazie danych' : 'No information in database',
+          isSample: false,
+        });
+      })
+      .finally(() => setLoading(false));
+  }, [activePlaceReport, placeParams, debugState, setActivePlaceReport, locale]);
 
   if (loading) {
     return (
@@ -299,8 +303,6 @@ export default function PlaceScreen() {
       <Stack.Screen options={{ headerShown: false, title: report.placeName }} />
       <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
 
-      <DemoBanner isSample={report.isSample} />
-
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -310,11 +312,13 @@ export default function PlaceScreen() {
           },
         ]}
       >
-        {/* Place Header & Match Confidence */}
+        {/* Place Header */}
         <GovCard variant="accent">
           <View style={styles.cardTopRow}>
-            <Text style={[styles.krakowPlaceTag, { color: colors.accent, fontSize: fontSize(12) }]}>
-              {t(locale, 'municipalObjectKrakow')}
+            <Text style={[styles.krakowPlaceTag, { color: report.allFacts.length === 0 ? colors.warningBorder : colors.accent, fontSize: fontSize(12) }]}>
+              {report.allFacts.length === 0
+                ? (locale === 'pl' ? 'Lokalizacja na mapie Krakowa' : locale === 'uk' ? 'Локація на карті Кракова' : 'Location on Krakow map')
+                : t(locale, 'municipalObjectKrakow')}
             </Text>
           </View>
           <Text
@@ -330,64 +334,62 @@ export default function PlaceScreen() {
           >
             {report.placeName}
           </Text>
-          <Text
-            style={[
-              styles.summaryMsg,
-              {
-                color: colors.muted,
-                fontSize: fontSize(14.5),
-                lineHeight: fontSize(22),
-              },
-            ]}
-          >
-            {report.summaryMessage}
-          </Text>
-
-          <View style={styles.confidenceRow}>
-            <Text style={[styles.confLabel, { color: colors.text, fontSize: fontSize(14) }]}>
-              {t(locale, 'matchConfidence')}:
-            </Text>
-            <View
-              style={[
-                styles.confBadge,
-                {
-                  backgroundColor: report.isConfidentMatch ? colors.okBg : colors.unknownBg,
-                  borderColor: report.isConfidentMatch ? colors.okBorder : colors.unknownBorder,
-                  borderWidth: isHighContrast ? 2 : 1.5,
-                },
-              ]}
-            >
-              <View style={styles.inlineBadgeRow}>
-                {report.isConfidentMatch ? (
-                  <CheckCircle size={15} color={colors.okText} weight="bold" />
-                ) : (
-                  <Question size={15} color={colors.unknownText} weight="bold" />
-                )}
-                <Text
-                  style={[
-                    styles.confBadgeText,
-                    {
-                      color: report.isConfidentMatch ? colors.okText : colors.unknownText,
-                      fontSize: fontSize(13),
-                    },
-                  ]}
-                >
-                  {report.isConfidentMatch
-                    ? `${Math.round(report.matchConfidence * 100)}% (${t(locale, 'confidentMatch')})`
-                    : t(locale, 'noPlaceData')}
-                </Text>
-              </View>
-            </View>
-          </View>
 
           <GovButton
-            title="Wyznacz trasę do tego miejsca"
+            title={locale === 'pl' ? 'Wyznacz trasę do tego miejsca' : locale === 'uk' ? 'Прокласти маршрут сюди' : 'Plan route to this place'}
             icon={<NavigationArrow size={18} color={colors.accentText} weight="bold" />}
             variant="primary"
             onPress={handleRouteHere}
             style={{ marginTop: 14 }}
           />
         </GovCard>
+
+        {/* Karta: Brak informacji o dostępności w bazie danych */}
+        {report.allFacts.length === 0 ? (
+          <GovCard variant="warning">
+            <View style={styles.inlineHeaderRow}>
+              <Question size={22} color={colors.warningText} weight="bold" />
+              <Text
+                accessibilityRole="header"
+                style={[styles.alertTitle, { color: colors.warningText, fontSize: fontSize(16.5) }]}
+              >
+                {locale === 'pl'
+                  ? 'Brak informacji w bazie danych'
+                  : locale === 'uk'
+                    ? 'Немає інформації в базі даних'
+                    : 'No information in database'}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.alertBody,
+                { color: colors.text, fontSize: fontSize(13.5), lineHeight: fontSize(20), marginTop: 8 },
+              ]}
+            >
+              {locale === 'pl'
+                ? 'Dla tej lokalizacji brak jest zgromadzonych danych o dostępności architektonicznej (wejście, wnętrze, toalety, otoczenie) w miejskiej bazie danych ani w OpenStreetMap.\n\nZgodnie ze standardem miejskim brak danych jest zawsze prezentowany jako brak informacji, nigdy jako brak barier.'
+                : locale === 'uk'
+                  ? 'Для цієї локації в міській базі даних та OpenStreetMap наразі відсутня інформація про доступність.\n\nВідсутність даних завжди позначається як відсутність інформації, а не як відсутність барʼєрів.'
+                  : 'There is currently no architectural accessibility data collected for this location in the municipal database or OpenStreetMap.\n\nIn accordance with accessibility standards, lack of data is always presented as no information, never as absence of barriers.'}
+            </Text>
+
+            <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={{ fontWeight: '700', fontSize: fontSize(13), color: colors.text, marginBottom: 8 }}>
+                {locale === 'pl'
+                  ? 'Bądź pierwszą osobą, która doda weryfikację tego miejsca:'
+                  : locale === 'uk'
+                    ? 'Будьте першим, хто додасть верифікацію цього місця:'
+                    : 'Be the first to add validation for this place:'}
+              </Text>
+              <GovButton
+                title={locale === 'pl' ? 'Oceń dostępność ze zdjęciem' : 'Rate accessibility with photo'}
+                icon={<Camera size={16} color={colors.accentText} weight="bold" />}
+                variant="primary"
+                onPress={() => setShowAddComment(true)}
+              />
+            </View>
+          </GovCard>
+        ) : null}
 
         {/* Conflicting Data Warning (R7) */}
         {conflicts.length > 0 ? (
@@ -409,14 +411,14 @@ export default function PlaceScreen() {
             {conflicts.map((conf, idx) => (
               <View key={idx} style={[styles.conflictItem, { borderTopColor: colors.conflictingBorder }]}>
                 <Text style={[styles.conflictHeader, { color: colors.conflictingText, fontSize: fontSize(13.5) }]}>
-                  {t(locale, 'criterion')}: {conf.criterion}
+                  {t(locale, 'criterion')}: {getLocalizedCriterionName(conf.criterion, locale)}
                 </Text>
                 {conf.facts.map((f) => (
                   <Text
                     key={f.id}
                     style={[styles.conflictRow, { color: colors.conflictingText, fontSize: fontSize(13) }]}
                   >
-                    {`• ${t(locale, 'source')}: ${f.source.name} → ${t(locale, 'value')}: "${f.value}"`}
+                    {`• ${t(locale, 'source')}: ${f.source.name} → ${t(locale, 'value')}: "${getLocalizedFactValue(f.value, locale, f.criterion)}"`}
                   </Text>
                 ))}
               </View>
@@ -444,7 +446,7 @@ export default function PlaceScreen() {
           </GovCard>
         ) : null}
 
-        {/* 4 Standard Challenge Categories (R4) */}
+        {/* Standard Challenge Categories */}
         <CategorySection
           title={t(locale, 'catEntrance')}
           icon={<Door size={20} color={colors.accent} weight="bold" />}
@@ -463,13 +465,6 @@ export default function PlaceScreen() {
           title={t(locale, 'catToilet')}
           icon={<Toilet size={20} color={colors.accent} weight="bold" />}
           facts={report.factsByCategory.toilet}
-          locale={locale}
-        />
-
-        <CategorySection
-          title={t(locale, 'catSurroundings')}
-          icon={<Tree size={20} color={colors.accent} weight="bold" />}
-          facts={report.factsByCategory.surroundings}
           locale={locale}
         />
 
@@ -729,7 +724,7 @@ export default function PlaceScreen() {
                       {pc.sentiment === 'positive'
                         ? (locale === 'pl' ? 'Dostępne' : 'Accessible')
                         : (locale === 'pl' ? 'Bariera' : 'Barrier')}
-                      {pc.category ? ` · ${pc.category}` : ''}
+                      {pc.category ? ` · ${getLocalizedCategoryName(pc.category, locale)}` : ''}
                     </Text>
                     <Text style={{ fontSize: fontSize(11.5), color: colors.muted }}>
                       {pc.createdAt?.slice(0, 10)}

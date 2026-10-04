@@ -224,13 +224,14 @@ export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: 
                 setSelectedBarrierId(barrier.id);
                 if (onSelectBarrier) onSelectBarrier(barrier);
               }}
+              hitSlop={10}
               style={[
                 styles.barrierMarker,
                 {
                   left: pt.px - 12,
                   top: pt.py - 12,
-                  backgroundColor: isBlocker ? '#D32F2F' : isWarning ? '#F57C00' : '#546E7A',
-                  borderColor: isSelected ? '#FFFFFF' : '#000000',
+                  backgroundColor: isBlocker ? colors.blockerBorder : isWarning ? colors.warningBorder : colors.unknownBorder,
+                  borderColor: isSelected ? colors.focus : '#FFFFFF',
                 },
               ]}
             >
@@ -238,7 +239,7 @@ export function AccessibleMap({ route, locale, onSelectBarrier, userLocation }: 
                 {isBlocker ? (
                   <Prohibit size={14} color="#FFFFFF" weight="bold" />
                 ) : (
-                  <Warning size={14} color="#FFFFFF" weight="bold" />
+                  <Warning size={14} color="#000000" weight="bold" />
                 )}
               </View>
             </Pressable>
@@ -392,9 +393,9 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   zoomButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',

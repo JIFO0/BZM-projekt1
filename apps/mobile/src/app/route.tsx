@@ -7,11 +7,9 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -29,7 +27,6 @@ import {
   Info,
   Lightning,
   ShieldCheck,
-  ShareNetwork,
   NotePencil,
   MapTrifold,
   ListChecks,
@@ -69,7 +66,7 @@ function extractRouteParams(params: Record<string, any>) {
   let toLat = params.toLat ? parseFloat(params.toLat) : undefined;
   let toLon = params.toLon ? parseFloat(params.toLon) : undefined;
   let demoRoute = params.demoRoute !== undefined ? parseInt(params.demoRoute, 10) : undefined;
-  let variant = params.variant as RouteVariantId | undefined;
+  let variant = params.variant as string | undefined;
 
   // Support #u or ?u= encoded payload if provided
   if (params.u) {
@@ -102,7 +99,7 @@ function extractRouteParams(params: Record<string, any>) {
       if (!fromName && getVal('fromName')) fromName = getVal('fromName')!;
       if (!toName && getVal('toName')) toName = getVal('toName')!;
       if (demoRoute === undefined && getVal('demoRoute')) demoRoute = parseInt(getVal('demoRoute')!, 10);
-      if (!variant && getVal('variant')) variant = getVal('variant') as RouteVariantId;
+      if (!variant && getVal('variant')) variant = getVal('variant') ?? undefined;
 
       const uVal = getVal('u');
       if (uVal) {
@@ -376,64 +373,7 @@ export default function RouteScreen() {
     minCoverage: 0.8,
   });
 
-  // Plain-text narrative for Voice / Share (WCAG D5 / WOW)
-  const generateNarrative = () => {
-    let narrative = '';
-    if (locale === 'pl') {
-      narrative = `Raport barier dla trasy o długości ${(report.lengthMetres / 1000).toFixed(1)} km. `;
-      narrative += `Wykryto ${blockers.length} blokad, ${warnings.length} ostrzeżeń oraz ${unknownItems.length} elementów o nieznanym stanie. `;
-      narrative += `Najdłuższy odcinek bez danych wynosi ${report.longestUnknownStretchMetres} metrów. `;
-      if (showNoBarriersSentence) {
-        narrative += 'Nie znaleziono przeszkód w dostępnych danych. ';
-      }
-      narrative += 'Główne punkty na trasie: ';
-      report.findings.forEach((f, idx) => {
-        const localizedCrit = getLocalizedFindingType(f.type, 'pl');
-        const localizedVal = getLocalizedFactValue(f.fact.value, 'pl');
-        narrative += `Punkt ${idx + 1}, po ${f.distanceFromStartMetres} metrach: ${localizedCrit}, ${localizedVal}. `;
-      });
-    } else if (locale === 'uk') {
-      narrative = `Звіт про бар’єри для маршруту довжиною ${(report.lengthMetres / 1000).toFixed(1)} км. `;
-      narrative += `Виявлено ${blockers.length} блокад, ${warnings.length} попереджень та ${unknownItems.length} елементів із невідомим станом. `;
-      narrative += `Найдовша ділянка без даних становить ${report.longestUnknownStretchMetres} метрів. `;
-      if (showNoBarriersSentence) {
-        narrative += 'У наявних даних перешкод не знайдено. ';
-      }
-      narrative += 'Основні точки на маршруті: ';
-      report.findings.forEach((f, idx) => {
-        const localizedCrit = getLocalizedFindingType(f.type, 'uk');
-        const localizedVal = getLocalizedFactValue(f.fact.value, 'uk');
-        narrative += `Точка ${idx + 1}, через ${f.distanceFromStartMetres} метрів: ${localizedCrit}, ${localizedVal}. `;
-      });
-    } else {
-      narrative = `Barrier report for route of distance ${(report.lengthMetres / 1000).toFixed(1)} km. `;
-      narrative += `Detected ${blockers.length} blockers, ${warnings.length} warnings and ${unknownItems.length} items with unknown status. `;
-      narrative += `Longest stretch without data is ${report.longestUnknownStretchMetres} metres. `;
-      if (showNoBarriersSentence) {
-        narrative += 'No barriers found in available data. ';
-      }
-      narrative += 'Key waypoints along route: ';
-      report.findings.forEach((f, idx) => {
-        const localizedCrit = getLocalizedFindingType(f.type, 'en');
-        const localizedVal = getLocalizedFactValue(f.fact.value, 'en');
-        narrative += `Point ${idx + 1}, after ${f.distanceFromStartMetres} metres: ${localizedCrit}, ${localizedVal}. `;
-      });
-    }
-    return narrative;
-  };
 
-
-
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        title: `${t(locale, 'appName')} - ${t(locale, 'routeReportTitle')}`,
-        message: generateNarrative(),
-      });
-    } catch {
-      Alert.alert(t(locale, 'errorTitle'), t(locale, 'routeErrorMsg'));
-    }
-  };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -466,14 +406,14 @@ export default function RouteScreen() {
                   selectRouteVariant('accessible');
                   router.setParams({ variant: 'accessible' });
                 }}
-                style={[
+                style={(state: any) => [
                   styles.variantButton,
                   {
                     backgroundColor:
                       selectedRouteVariant === 'accessible' ? colors.accent : colors.background,
                     borderColor:
-                      selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
-                    borderWidth: selectedRouteVariant === 'accessible' ? 2 : 1,
+                      state?.focused ? colors.focus : selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
+                    borderWidth: state?.focused ? 3 : selectedRouteVariant === 'accessible' ? 2 : 1,
                   },
                 ]}
               >
@@ -516,14 +456,14 @@ export default function RouteScreen() {
                   selectRouteVariant('fastest');
                   router.setParams({ variant: 'fastest' });
                 }}
-                style={[
+                style={(state: any) => [
                   styles.variantButton,
                   {
                     backgroundColor:
                       selectedRouteVariant === 'fastest' ? colors.accent : colors.background,
                     borderColor:
-                      selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
-                    borderWidth: selectedRouteVariant === 'fastest' ? 2 : 1,
+                      state?.focused ? colors.focus : selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
+                    borderWidth: state?.focused ? 3 : selectedRouteVariant === 'fastest' ? 2 : 1,
                   },
                 ]}
               >
@@ -619,19 +559,6 @@ export default function RouteScreen() {
                 ]}
               >
                 {t(locale, 'summaryCardTitle')}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.cityTag,
-                {
-                  backgroundColor: isHighContrast ? colors.background : colors.badgeBg,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Text style={[styles.cityTagText, { color: colors.accent, fontSize: fontSize(11) }]}>
-                {t(locale, 'krakowRouteTag')}
               </Text>
             </View>
           </View>
@@ -743,7 +670,7 @@ export default function RouteScreen() {
             </View>
           </View>
 
-          {/* Longest stretch with no data (R9) */}
+          {/* Total length of stretches with missing data (R9) */}
           <View
             style={[
               styles.highlightBox,
@@ -757,11 +684,11 @@ export default function RouteScreen() {
             <View style={styles.inlineHeaderRow}>
               <Ruler size={17} color={colors.accent} weight="bold" />
               <Text style={[styles.highlightTitle, { color: colors.text, fontSize: fontSize(14) }]}>
-                {t(locale, 'longestUnknownStretch')}:
+                {t(locale, 'totalUnknownStretch')}:
               </Text>
             </View>
             <Text style={[styles.highlightValue, { color: colors.accent, fontSize: fontSize(14.5) }]}>
-              {report.longestUnknownStretchMetres} {t(locale, 'metresContinuousNoData')}
+              {report.totalUnknownStretchMetres ?? report.longestUnknownStretchMetres ?? 0} {t(locale, 'metresNoData')}
             </Text>
           </View>
 
@@ -803,13 +730,6 @@ export default function RouteScreen() {
             </View>
           )}
 
-          {/* Share button */}
-          <GovButton
-            title={t(locale, 'shareSummary')}
-            icon={<ShareNetwork size={18} color={colors.text} weight="bold" />}
-            variant="outline"
-            onPress={handleShare}
-          />
 
           <GovButton
             title={t(locale, 'reportCorrection')}
@@ -833,8 +753,26 @@ export default function RouteScreen() {
               compact
               mode={barrierViewMode}
               onChangeMode={setBarrierViewMode}
-              routeBarriersCount={(report.findings || []).filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning').length}
-              allBarriersCount={allCityBarriers.length > 0 ? allCityBarriers.length : (report.findings || []).length}
+              routeBarriersCount={
+                selectMapFindings({
+                  mode: 'route',
+                  routeFindings: report.findings || [],
+                  reports: reportFindings,
+                  allCityBarriers,
+                  routeCoordinates: activeWalkingRoute?.coordinates,
+                  corridorMetres: city.corridorMeters,
+                }).length
+              }
+              allBarriersCount={
+                selectMapFindings({
+                  mode: 'all',
+                  routeFindings: report.findings || [],
+                  reports: reportFindings,
+                  allCityBarriers,
+                  routeCoordinates: activeWalkingRoute?.coordinates,
+                  corridorMetres: city.corridorMeters,
+                }).length
+              }
               hasActiveRoute={true}
             />
             <MapView
@@ -1013,6 +951,7 @@ const styles = StyleSheet.create({
   variantButton: {
     flex: 1,
     padding: 12,
+    minHeight: 48,
     borderRadius: 8,
     gap: 4,
   },

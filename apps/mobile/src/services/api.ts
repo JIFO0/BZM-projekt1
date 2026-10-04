@@ -18,12 +18,11 @@ import {
 import {
   GraphHopperRoutingProvider,
   MapyGeocodingProvider,
-  MapyRoutingProvider,
   OsmNominatimGeocodingProvider,
   OsmOverpassProvider,
-  OsmRoutingProvider,
 } from '@krakow-bez-barier/sources';
-import { getAllCityFacts } from '@/services/barriers';
+
+import Constants from 'expo-constants';
 
 function getMapyApiKey(): string {
   return process.env.EXPO_PUBLIC_MAPY_API_KEY || '';
@@ -34,16 +33,45 @@ function hasValidMapyKey(): boolean {
   return Boolean(key && !key.includes('replace-with') && key.trim().length > 5);
 }
 
+function getExpoHostIp(): string | null {
+  try {
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      (Constants as any).manifest2?.extra?.expoGo?.debuggerHost ||
+      (Constants as any).manifest?.debuggerHost;
+    if (hostUri && typeof hostUri === 'string') {
+      const ip = hostUri.split(':')[0];
+      if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+        return ip;
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+  return null;
+}
+
 export function resolveBackendApiUrl(): string {
   if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+    const raw = process.env.EXPO_PUBLIC_API_URL;
+    if (typeof window === 'undefined' || !window.location) {
+      const expoIp = getExpoHostIp();
+      if (expoIp && (raw.includes('localhost') || raw.includes('127.0.0.1'))) {
+        return raw.replace('localhost', expoIp).replace('127.0.0.1', expoIp);
+      }
+    }
+    return raw;
   }
   if (typeof window !== 'undefined' && window.location) {
-    const { hostname, origin } = window.location;
+    const { hostname, origin, protocol, port } = window.location;
+    const isLocalScheme = protocol === 'resource:' || protocol === 'file:' || !hostname || hostname === 'rawfile';
+    if (isLocalScheme) {
+      return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+    }
     // When served via Caddy gateway, reverse-proxy handles /api/* on the same origin
     if (hostname === 'accessible.krakow.local' || hostname === 'localhost' || hostname === '127.0.0.1') {
       // If running on port 80/443 (Caddy gateway)
-      if (window.location.port === '' || window.location.port === '80' || window.location.port === '443') {
+      if (port === '' || port === '80' || port === '443') {
         return origin;
       }
       return 'http://localhost:3000';
@@ -53,29 +81,96 @@ export function resolveBackendApiUrl(): string {
     }
     return `http://${hostname}:3000`;
   }
+  const expoIp = getExpoHostIp();
+  if (expoIp) {
+    return `http://${expoIp}:3000`;
+  }
   return 'http://localhost:3000';
 }
 
-function resolveGraphHopperUrl(): string {
+export function resolveGraphHopperUrl(): string {
   if (process.env.EXPO_PUBLIC_GRAPHHOPPER_URL) {
-    return process.env.EXPO_PUBLIC_GRAPHHOPPER_URL;
+    const raw = process.env.EXPO_PUBLIC_GRAPHHOPPER_URL;
+    if (typeof window === 'undefined' || !window.location) {
+      const expoIp = getExpoHostIp();
+      if (expoIp && (raw.includes('localhost') || raw.includes('127.0.0.1'))) {
+        return raw.replace('localhost', expoIp).replace('127.0.0.1', expoIp);
+      }
+    }
+    return raw;
   }
   if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
+    const isLocalScheme = protocol === 'resource:' || protocol === 'file:' || !hostname || hostname === 'rawfile';
+    if (isLocalScheme) {
+      return process.env.EXPO_PUBLIC_GRAPHHOPPER_URL || 'http://localhost:8989';
+    }
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:8989';
     }
-    if (hostname && !hostname.endsWith('.local')) {
-      return `http://${hostname}:8989`;
+    if (hostname.endsWith('.local')) {
+      return `http://hopper.${hostname}`;
     }
+    return `http://${hostname}:8989`;
   }
-  return city.graphhopper?.apiBase || 'http://localhost:8989';
+  const expoIp = getExpoHostIp();
+  if (expoIp) {
+    return `http://${expoIp}:8989`;
+  }
+  return 'http://localhost:8989';
+}
+
+export interface RoutingEngineHealth {
+  online: boolean;
+  url: string;
+  bbox?: [number, number, number, number];
+  isSample?: boolean;
+  message?: string;
+}
+
+export async function checkRoutingEngineHealth(): Promise<RoutingEngineHealth> {
+  const ghUrl = resolveGraphHopperUrl();
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(`${ghUrl}/info`, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) {
+      return {
+        online: false,
+        url: ghUrl,
+        message: `GraphHopper zwrócił status HTTP ${res.status}`,
+      };
+    }
+    const info = (await res.json()) as any;
+    const bbox = info?.bbox as [number, number, number, number] | undefined;
+    const isSample = Boolean(bbox && (bbox[2] - bbox[0] < 0.1 || bbox[3] - bbox[1] < 0.1));
+    return {
+      online: true,
+      url: ghUrl,
+      bbox,
+      isSample,
+      message: isSample
+        ? 'Wczytano ograniczony wycinek mapy (próbka).'
+        : 'Silnik GraphHopper gotowy (pełny obszar mapy).',
+    };
+  } catch (err: any) {
+    return {
+      online: false,
+      url: ghUrl,
+      message: `Brak połączenia z GraphHopper (${ghUrl}): ${err.message || 'timeout'}`,
+    };
+  }
+}
+
+export function getGraphHopperProvider(): GraphHopperRoutingProvider {
+  return new GraphHopperRoutingProvider({
+    apiBase: resolveGraphHopperUrl(),
+  });
 }
 
 // Initialize providers
-const graphhopperRouting = new GraphHopperRoutingProvider({
-  apiBase: resolveGraphHopperUrl(),
-});
 const osmOverpass = new OsmOverpassProvider({
   endpoint: city.overpass.endpoint,
   userAgent: city.overpass.userAgent,
@@ -85,7 +180,6 @@ const osmOverpass = new OsmOverpassProvider({
 const osmNominatim = new OsmNominatimGeocodingProvider({
   userAgent: city.overpass.userAgent,
 });
-const osmRouting = new OsmRoutingProvider();
 
 
 export type RouteVariantId = 'accessible' | 'fastest';
@@ -118,6 +212,17 @@ export interface PlanRouteResult {
   selectedVariant?: RouteVariantId;
 }
 
+function mergeRouteFacts(onGeometry: Fact[], aroundRoute: Fact[]): Fact[] {
+  const seen = new Set(onGeometry.map((fact) => fact.id));
+  const merged = [...onGeometry];
+  for (const fact of aroundRoute) {
+    if (seen.has(fact.id)) continue;
+    seen.add(fact.id);
+    merged.push(fact);
+  }
+  return merged;
+}
+
 export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<PlanRouteResult> {
   const { start, end, profileId, debugState } = params;
 
@@ -131,150 +236,112 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     isSample = true;
     fallbackNotice = 'Tryb symulacji offline: załadowano trasę ze snapshotu.';
   } else {
-    // 1. Try self-hosted GraphHopper first (barrier-light walk and plain fastest walk)
+    // 1. Self-hosted GraphHopper with accessibility models (barrier-light walk and plain fastest walk)
+    const gh = getGraphHopperProvider();
+    let pair;
     try {
-      const pair = await graphhopperRouting.routePair({
+      pair = await gh.routePair({
         start: start.position,
         end: end.position,
         profileId,
         thresholds: params.thresholds,
       });
-
-      const loadFacts = async (coordinates: Array<[number, number]>) => {
-        try {
-          const bundle: AccessibilityBundle = await osmOverpass.fetchAroundGeometry({
-            coordinates,
-            corridorMetres: city.corridorMeters,
-          });
-          return bundle.facts;
-        } catch {
-          return [] as Fact[];
-        }
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      if (/out of bounds/i.test(msg)) {
+        throw new Error(
+          `Wybrany punkt trasy (${start.name} lub ${end.name}) znajduje się poza wczytanym obszarem mapy GraphHopper. Trasa bez barier może być wyznaczona tylko na zmapowanym obszarze.`
+        );
+      }
+      // On mobile / HarmonyOS / offline: fallback to sample snapshot route with barriers
+      console.warn('[planAndAnalyzeRoute] GraphHopper offline or unreachable, using verified demo route snapshot:', err);
+      const sample = DEMO_SNAPSHOT.routes[0]!;
+      isSample = true;
+      fallbackNotice = 'Silnik GraphHopper offline – wczytano przykładową zweryfikowaną trasę z barierami w centrum Krakowa.';
+      pair = {
+        accessible: sample.walkingRoute,
+        fastest: sample.walkingRoute,
+        accessibleFacts: sample.facts || [],
+        fastestFacts: sample.facts || [],
       };
+    }
 
-      const sameLine =
-        pair.accessible.coordinates.length === pair.fastest.coordinates.length &&
-        pair.accessible.lengthMetres === pair.fastest.lengthMetres;
-      const accessibleFacts = await loadFacts(pair.accessible.coordinates);
-      const fastestFacts = sameLine ? accessibleFacts : await loadFacts(pair.fastest.coordinates);
+    const loadFacts = async (coordinates: [number, number][]) => {
+      try {
+        const bundle: AccessibilityBundle = await osmOverpass.fetchAroundGeometry({
+          coordinates,
+          corridorMetres: city.corridorMeters,
+        });
+        return bundle.facts;
+      } catch {
+        return [] as Fact[];
+      }
+    };
 
-      const accessibleReport = analyzeRoute({
-        routeId: `route-accessible-${Date.now()}`,
-        profileId,
-        routeCoordinates: pair.accessible.coordinates,
+    const sameLine =
+      pair.accessible.coordinates.length === pair.fastest.coordinates.length &&
+      pair.accessible.lengthMetres === pair.fastest.lengthMetres;
+    const accessibleOverpass = isSample ? [] : await loadFacts(pair.accessible.coordinates);
+    const fastestOverpass = isSample || sameLine ? accessibleOverpass : await loadFacts(pair.fastest.coordinates);
+    const accessibleFacts = mergeRouteFacts(pair.accessibleFacts, accessibleOverpass);
+    const fastestFacts = mergeRouteFacts(pair.fastestFacts, fastestOverpass);
+
+    const accessibleReport = analyzeRoute({
+      routeId: `route-accessible-${Date.now()}`,
+      profileId,
+      routeCoordinates: pair.accessible.coordinates,
+      facts: accessibleFacts,
+      config: city,
+      thresholds: params.thresholds,
+      isSample: isSample,
+    });
+    const fastestReport = analyzeRoute({
+      routeId: `route-fastest-${Date.now()}`,
+      profileId,
+      routeCoordinates: pair.fastest.coordinates,
+      facts: fastestFacts,
+      config: city,
+      thresholds: params.thresholds,
+      isSample: isSample,
+    });
+
+    const accessibleHasGap = pair.accessible.surfaceSpans?.some((span) => span.tone === 'other');
+    const notice = accessibleFacts.length === 0 && fastestFacts.length === 0
+      ? 'Trasa została wyznaczona po chodnikach. Informacje o krawężnikach i schodach pochodzą z profilu GraphHopper.'
+      : accessibleHasGap
+        ? 'Objazd bez barier wychodzi poza rozsądny dystans, więc trasa bez barier idzie krócej. Pomarańczowe odcinki nie spełniają kryteriów profilu. Najszybsza trasa piesza jest dostępna osobno.'
+        : 'Trasa bez barier omija zmapowane przeszkody (schody, kocie łby, wysokie krawężniki). Najszybsza trasa piesza maluje na pomarańczowo odcinki poza kryteriami.';
+
+    const variants: Record<RouteVariantId, RouteVariant> = {
+      accessible: {
+        id: 'accessible',
+        title: 'Bez barier',
+        description: 'Trasa z najmniejszą liczbą barier po chodnikach i ciągach pieszych',
+        walkingRoute: pair.accessible,
+        report: accessibleReport,
         facts: accessibleFacts,
-        config: city,
-        thresholds: params.thresholds,
-        isSample: false,
-      });
-      const fastestReport = analyzeRoute({
-        routeId: `route-fastest-${Date.now()}`,
-        profileId,
-        routeCoordinates: pair.fastest.coordinates,
+        isSample: isSample,
+      },
+      fastest: {
+        id: 'fastest',
+        title: 'Najszybsza',
+        description: 'Najszybsza trasa piesza. Odcinki poza kryteriami są pomarańczowe.',
+        walkingRoute: pair.fastest,
+        report: fastestReport,
         facts: fastestFacts,
-        config: city,
-        thresholds: params.thresholds,
-        isSample: false,
-      });
+        isSample: isSample,
+      },
+    };
 
-      const accessibleHasGap = pair.accessible.surfaceSpans?.some((span) => span.tone === 'other');
-      const notice = accessibleFacts.length === 0 && fastestFacts.length === 0
-        ? 'Nie udało się pobrać barier z OpenStreetMap. Trasa między wskazanymi punktami została zachowana, ale bez oceny krawężników i nawierzchni.'
-        : accessibleHasGap
-          ? 'Objazd bez barier wychodzi poza rozsądny dystans, więc trasa bez barier idzie krócej. Pomarańczowe odcinki nie spełniają kryteriów profilu. Najszybsza trasa piesza jest dostępna osobno.'
-          : 'Trasa bez barier omija zmapowane przeszkody, o ile objazd mieści się w rozsądnym dystansie. Najszybsza trasa piesza maluje na pomarańczowo odcinki poza kryteriami.';
-
-      const variants: Record<RouteVariantId, RouteVariant> = {
-        accessible: {
-          id: 'accessible',
-          title: 'Bez barier',
-          description: 'Trasa z najmniejszą liczbą barier, bez dzikiego objazdu',
-          walkingRoute: pair.accessible,
-          report: accessibleReport,
-          facts: accessibleFacts,
-          isSample: false,
-        },
-        fastest: {
-          id: 'fastest',
-          title: 'Najszybsza',
-          description: 'Najszybsza trasa piesza. Odcinki poza kryteriami są pomarańczowe.',
-          walkingRoute: pair.fastest,
-          report: fastestReport,
-          facts: fastestFacts,
-          isSample: false,
-        },
-      };
-
-      return {
-        walkingRoute: variants.accessible.walkingRoute,
-        report: variants.accessible.report,
-        facts: variants.accessible.facts,
-        fallbackNotice: notice,
-        isSample: false,
-        variants,
-        selectedVariant: 'accessible',
-      };
-    } catch {
-      // GraphHopper unavailable or point out of sample bounds
-    }
-
-    let routed = false;
-
-    // 2. Fall back to Mapy.com if GraphHopper couldn't route this area
-    if (!routed && hasValidMapyKey() && !debugState.simulateMapyDown) {
-      try {
-        const mapyRouting = new MapyRoutingProvider({ apiKey: getMapyApiKey() });
-        walkingRoute = await mapyRouting.route({
-          start: start.position,
-          end: end.position,
-          profileId,
-        });
-        routed = true;
-      } catch {
-        // Fall back to OSM routing below
-      }
-    }
-
-    // 3. Fall back to OpenStreetMap (OSRM foot router)
-    if (!routed && !debugState.simulateMapyDown) {
-      try {
-        walkingRoute = await osmRouting.route({
-          start: start.position,
-          end: end.position,
-          profileId,
-          thresholds: params.thresholds,
-        });
-        routed = true;
-        fallbackNotice = 'Trasa wyznaczona na podstawie danych OpenStreetMap.';
-      } catch {
-        // Fall back below
-      }
-    }
-
-    // 4. Graceful fallback on API error (R12)
-    if (!routed) {
-      const isCustom =
-        Math.abs(start.position.lat - DEMO_SNAPSHOT.routes[0]!.start.position.lat) > 0.0005 ||
-        Math.abs(start.position.lon - DEMO_SNAPSHOT.routes[0]!.start.position.lon) > 0.0005 ||
-        Math.abs(end.position.lat - DEMO_SNAPSHOT.routes[0]!.end.position.lat) > 0.0005 ||
-        Math.abs(end.position.lon - DEMO_SNAPSHOT.routes[0]!.end.position.lon) > 0.0005;
-
-      if (isCustom) {
-        walkingRoute = await osmRouting.route({
-          start: start.position,
-          end: end.position,
-          profileId,
-        });
-        fallbackNotice = 'Trasa bezpośrednia (połączenie punktów A i B na mapie).';
-      } else {
-        const sampleRoute = DEMO_SNAPSHOT.routes[0]!;
-        walkingRoute = sampleRoute.walkingRoute;
-        isSample = true;
-        fallbackNotice = debugState.simulateMapyDown
-          ? 'Symulacja awarii Mapy.com API (HTTP 429). Załadowano trasę z lokalnego snapshotu demo.'
-          : 'Zewnętrzny routing niedostępny. Załadowano trasę zapasową z pamięci urządzenia.';
-      }
-    }
+    return {
+      walkingRoute: variants.accessible.walkingRoute,
+      report: variants.accessible.report,
+      facts: variants.accessible.facts,
+      fallbackNotice: fallbackNotice || notice,
+      isSample: isSample,
+      variants,
+      selectedVariant: 'accessible',
+    };
   }
 
   // 2. Fetch accessibility data along route geometry
@@ -304,15 +371,6 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     }
   }
 
-  // Merge known curated city barriers (krakow center barriers, etc.) with OSM facts
-  const cityFacts = getAllCityFacts();
-  const existingFactIds = new Set(facts.map((f) => f.id));
-  for (const cf of cityFacts) {
-    if (!existingFactIds.has(cf.id)) {
-      facts.push(cf);
-    }
-  }
-
   // 3. Deterministic route analysis in core
   const report = analyzeRoute({
     routeId: `route-${Date.now()}`,
@@ -333,33 +391,21 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     DEMO_SNAPSHOT.routes[1]!;
 
   if (isSample) {
-    const shortestFacts = [...sampleShortest.facts];
-    const shortestFactIds = new Set(shortestFacts.map((f) => f.id));
-    for (const cf of cityFacts) {
-      if (!shortestFactIds.has(cf.id)) shortestFacts.push(cf);
-    }
-
     const shortestReport = analyzeRoute({
       routeId: `route-shortest-${Date.now()}`,
       profileId,
       routeCoordinates: sampleShortest.walkingRoute.coordinates,
-      facts: shortestFacts,
+      facts: sampleShortest.facts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,
     });
 
-    const accessibleFacts = [...sampleAccessible.facts];
-    const accessibleFactIds = new Set(accessibleFacts.map((f) => f.id));
-    for (const cf of cityFacts) {
-      if (!accessibleFactIds.has(cf.id)) accessibleFacts.push(cf);
-    }
-
     const accessibleReport = analyzeRoute({
       routeId: `route-accessible-${Date.now()}`,
       profileId,
       routeCoordinates: sampleAccessible.walkingRoute.coordinates,
-      facts: accessibleFacts,
+      facts: sampleAccessible.facts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,
@@ -439,22 +485,36 @@ export async function inspectPlace(
   const mustUseFallback = debugState.simulateOverpassDown || debugState.simulateOffline;
 
   if (mustUseFallback || (sampleMatch && sampleMatch.name.includes('KSDK'))) {
-    const placeToUse = sampleMatch ?? DEMO_SNAPSHOT.places[0]!;
-    const isKsdk =
-      placeToUse.name.includes('KSDK') ||
-      placeToUse.facts.some((f) => f.source.licence === 'Informacja Publiczna');
+    if (sampleMatch) {
+      const isKsdk =
+        sampleMatch.name.includes('KSDK') ||
+        sampleMatch.facts.some((f) => f.source.licence === 'Informacja Publiczna');
+      const report = analyzePlace(
+        sampleMatch.name,
+        sampleMatch.position,
+        sampleMatch.facts,
+        city.placeMatchMaxMetres,
+        true,
+      );
+      return {
+        report,
+        fallbackNotice: isKsdk
+          ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Ustawa o zapewnianiu dostępności).'
+          : `Symulacja: Wyświetlono obiekt ze snapshotu demonstracyjnego (${sampleMatch.name}).`,
+        isSample: true,
+      };
+    }
+    // No match in snapshot: return empty facts report for the requested place
     const report = analyzePlace(
-      placeToUse.name,
-      placeToUse.position,
-      placeToUse.facts,
+      placeName,
+      position,
+      [],
       city.placeMatchMaxMetres,
       true,
     );
     return {
       report,
-      fallbackNotice: isKsdk
-        ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Ustawa o zapewnianiu dostępności).'
-        : `Symulacja: Wyświetlono obiekt ze snapshotu demonstracyjnego (${placeToUse.name}).`,
+      fallbackNotice: 'Symulacja offline: brak danych o dostępności w bazie danych.',
       isSample: true,
     };
   }
@@ -484,20 +544,35 @@ export async function inspectPlace(
       isSample: bundle.facts.length === 0,
     };
   } catch {
-    const placeToUse = sampleMatch ?? DEMO_SNAPSHOT.places[0]!;
-    const isKsdk = placeToUse.name.includes('KSDK');
+    if (sampleMatch) {
+      const isKsdk = sampleMatch.name.includes('KSDK');
+      const report = analyzePlace(
+        sampleMatch.name,
+        sampleMatch.position,
+        sampleMatch.facts,
+        city.placeMatchMaxMetres,
+        true,
+      );
+      return {
+        report,
+        fallbackNotice: isKsdk
+          ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Muzeum Krakowa).'
+          : 'Błąd połączenia z OpenStreetMap. Wyświetlono obiekt z lokalnego snapshotu demo.',
+        isSample: true,
+      };
+    }
+
+    // Gracefully return empty facts report for the requested place rather than failing
     const report = analyzePlace(
-      placeToUse.name,
-      placeToUse.position,
-      placeToUse.facts,
+      placeName,
+      position,
+      [],
       city.placeMatchMaxMetres,
       true,
     );
     return {
       report,
-      fallbackNotice: isKsdk
-        ? 'Oficjalna deklaracja dostępności KSDK (BIP Miasta Krakowa / Muzeum Krakowa).'
-        : 'Błąd połączenia z OpenStreetMap. Wyświetlono obiekt z lokalnego snapshotu demo.',
+      fallbackNotice: 'Brak danych o dostępności tego miejsca w miejskiej bazie danych ani w OpenStreetMap.',
       isSample: true,
     };
   }

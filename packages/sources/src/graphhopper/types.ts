@@ -22,6 +22,7 @@ export interface GraphHopperRouteQuery {
   thresholds: BarrierThresholds;
   lang?: 'pl' | 'en';
   mode?: RoutingWeightMode;
+  includeSlope?: boolean;
 }
 
 export interface GraphHopperCustomModelStatement {

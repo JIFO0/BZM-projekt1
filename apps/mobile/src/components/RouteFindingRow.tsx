@@ -38,7 +38,7 @@ export function RouteFindingRow({ finding, index, locale }: RouteFindingRowProps
     dateText = t(locale, 'noVerificationDate');
   }
 
-  const localizedVal = getLocalizedFactValue(fact.value, locale);
+  const localizedVal = getLocalizedFactValue(fact.value, locale, fact.criterion);
   const localizedCrit = getLocalizedFindingType(fact.criterion, locale);
   const localizedType = getLocalizedFindingType(type, locale);
   const localizedSeverity =

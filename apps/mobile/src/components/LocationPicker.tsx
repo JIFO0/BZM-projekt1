@@ -44,6 +44,8 @@ export interface LocationPickerProps {
   badgeColor?: string;
   point: LocationInputPoint;
   onChangePoint: (point: SelectedLocationPoint) => void;
+  onClear?: () => void;
+  onQueryChange?: (text: string) => void;
   placeholder?: string;
   showMyLocation?: boolean;
   onUseMyLocation?: () => void;
@@ -57,6 +59,8 @@ export function LocationPicker({
   badgeColor,
   point,
   onChangePoint,
+  onClear,
+  onQueryChange,
   placeholder,
   showMyLocation = false,
   onUseMyLocation,
@@ -84,6 +88,7 @@ export function LocationPicker({
 
   const handleQueryChange = (text: string) => {
     setQueryText(text);
+    onQueryChange?.(text);
 
     // If text directly contains valid coordinates, show suggestion immediately
     const directCoords = parseCoordinates(text);
@@ -136,10 +141,40 @@ export function LocationPicker({
     setShowDropdown(false);
   };
 
+  const handleInputSubmit = async () => {
+    const directCoords = parseCoordinates(queryText);
+    if (directCoords) {
+      const coordName = `${directCoords.lat.toFixed(5)}, ${directCoords.lon.toFixed(5)}`;
+      setQueryText(coordName);
+      onChangePoint({
+        name: coordName,
+        position: directCoords,
+      });
+      setShowDropdown(false);
+      return;
+    }
+
+    if (suggestions.length > 0 && suggestions[0]) {
+      handleSelectSuggestion(suggestions[0]);
+      return;
+    }
+
+    if (queryText.trim().length >= 2) {
+      try {
+        const results = await suggestPlaces(queryText.trim(), locale);
+        if (results.length > 0 && results[0]) {
+          handleSelectSuggestion(results[0]);
+          return;
+        }
+      } catch {}
+    }
+  };
+
   const handleClear = () => {
     setQueryText('');
     setSuggestions([]);
     setShowDropdown(false);
+    onClear?.();
   };
 
   return (
@@ -185,6 +220,22 @@ export function LocationPicker({
             </Pressable>
           ) : null}
 
+          {onPickOnMap ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(locale, 'pickOnMap')}
+              onPress={onPickOnMap}
+              style={[
+                styles.smallActionBtn,
+                { backgroundColor: colors.background, borderColor: colors.border },
+              ]}
+            >
+              <Crosshair size={12} weight="bold" color={colors.accent} />
+              <Text style={[styles.smallActionText, { color: colors.accent, fontSize: fontSize(11.5) }]}>
+                {t(locale, 'pickOnMap')}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -240,6 +291,8 @@ export function LocationPicker({
           }}
           placeholder={placeholder || t(locale, 'searchPromptOsm')}
           placeholderTextColor={colors.muted}
+          returnKeyType="search"
+          onSubmitEditing={handleInputSubmit}
           style={[
             styles.textInput,
             {
@@ -294,6 +347,7 @@ export function LocationPicker({
               key={item.id}
               accessibilityRole="button"
               accessibilityLabel={`${item.name}, ${item.label}`}
+              onPress={() => handleSelectSuggestion(item)}
               onPressIn={() => {
                 if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
                 handleSelectSuggestion(item);

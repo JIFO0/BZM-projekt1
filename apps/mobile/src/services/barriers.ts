@@ -597,10 +597,10 @@ function findingOnRoute(
 
 /**
  * Map findings for display on the interactive map.
- * - When no route is active: displays all citizen reports (plus all city barriers if mode is 'all').
+ * - When no route is active: displays all citizen reports (plus all city barriers if mode is 'all', or blocker/warning barriers if mode is 'route').
  * - When an active route exists:
- *   - 'route': shows blockers/warnings along the route and citizen reports within the route corridor.
- *   - 'all': shows all city barriers (or full route findings) plus all citizen reports.
+ *   - 'route': shows blockers/warnings along the route corridor and citizen reports within the corridor.
+ *   - 'all': shows all measured sidewalk points along the route corridor and citizen reports within the corridor.
  *   - 'none': hides all findings.
  */
 export function selectMapFindings(input: {
@@ -610,32 +610,37 @@ export function selectMapFindings(input: {
   allCityBarriers?: RouteFinding[];
   routeCoordinates?: [number, number][];
   corridorMetres: number;
+  /** User reports sit on the pavement beside the walked line. */
+  reportCorridorMetres?: number;
 }): RouteFinding[] {
   if (input.mode === 'none') return [];
+  const coordinates = input.routeCoordinates ?? [];
+  const findingsPool =
+    input.routeFindings.length > 0
+      ? input.routeFindings
+      : (input.allCityBarriers ?? []);
 
-  const hasRoute = Boolean(input.routeCoordinates && input.routeCoordinates.length > 0);
-
-  if (!hasRoute) {
-    // Browsing the map: show all city barriers (if mode is 'all') plus all citizen reports
-    const base = input.mode === 'all' && input.allCityBarriers ? input.allCityBarriers : [];
+  if (coordinates.length === 0) {
+    const problems = findingsPool.filter(
+      (finding) => finding.severity === 'blocker' || finding.severity === 'warning',
+    );
+    const described = findingsPool.filter((finding) => finding.severity !== 'unknown');
+    const base = input.mode === 'route' ? problems : described.length > 0 ? described : findingsPool;
     return [...base, ...input.reports];
   }
 
-  // Active route exists:
-  if (input.mode === 'all') {
-    const base =
-      input.allCityBarriers && input.allCityBarriers.length > 0
-        ? input.allCityBarriers
-        : input.routeFindings;
-    return [...base, ...input.reports];
-  }
+  const sidewalkMetres = Math.max(input.corridorMetres, 40);
+  const onSidewalk = (finding: RouteFinding, metres: number) =>
+    findingOnRoute(finding, coordinates, metres);
 
-  // Mode is 'route': show route blockers/warnings + reports on the route corridor
+  const sidewalk = input.routeFindings.filter((finding) => onSidewalk(finding, sidewalkMetres));
   const reportsOnRoute = input.reports.filter((report) =>
-    findingOnRoute(report, input.routeCoordinates!, input.corridorMetres),
+    onSidewalk(report, input.reportCorridorMetres ?? Math.max(sidewalkMetres, 45)),
   );
-  const routeBase = input.routeFindings.filter(
+  const problems = sidewalk.filter(
     (finding) => finding.severity === 'blocker' || finding.severity === 'warning',
   );
-  return [...routeBase, ...reportsOnRoute];
+  const described = sidewalk.filter((finding) => finding.severity !== 'unknown');
+  const base = input.mode === 'route' ? problems : described.length > 0 ? described : sidewalk;
+  return [...base, ...reportsOnRoute];
 }

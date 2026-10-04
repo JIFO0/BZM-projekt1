@@ -26,6 +26,11 @@ import { getCookie, setCookie } from '@/services/storage';
 
 import type { Locale } from '@/i18n/strings';
 import {
+  getHarmonyAccessibility,
+  getHarmonySystemHealth,
+  type HarmonySystemHealth,
+} from '@/services/harmony';
+import {
   getCurrentUserLocation,
   watchUserLocation,
   type UserCoordinates,
@@ -133,6 +138,10 @@ interface SessionValue {
   loginUser: (credentials?: { email?: string; password?: string; name?: string; identifier?: string }) => void;
   logoutUser: () => void;
 
+  // Settings Modal State
+  settingsModalVisible: boolean;
+  setSettingsModalVisible: (val: boolean) => void;
+
   // Backwards compatibility aliases
   krakowCardUser: UserAccount | null;
   krakowCardModalVisible: boolean;
@@ -172,6 +181,8 @@ interface SessionValue {
   setReadingMaskY: (y: number) => void;
   accessibilityModalVisible: boolean;
   setAccessibilityModalVisible: (val: boolean) => void;
+  glossaryModalVisible: boolean;
+  setGlossaryModalVisible: (val: boolean) => void;
   resetAccessibility: () => void;
 
   // Computed Theme Helpers
@@ -180,6 +191,9 @@ interface SessionValue {
   lineHeight: (base: number) => number;
   letterSpacing: number;
   isHighContrast: boolean;
+
+  // HarmonyOS System Health & Platform telemetry
+  systemHealth: HarmonySystemHealth | null;
 }
 
 const SessionContext = createContext<SessionValue | null>(null);
@@ -266,6 +280,10 @@ function loadInitialContrast(): ContrastMode {
     ) {
       return raw as ContrastMode;
     }
+    const a11y = getHarmonyAccessibility();
+    if (a11y?.colorMode === 'dark') {
+      return 'standard-dark';
+    }
   } catch {
     // Ignore
   }
@@ -277,6 +295,12 @@ function loadInitialTextSize(): TextSize {
     const raw = getCookie(COOKIE_TEXT_SIZE);
     if (raw && ['normal', 'medium', 'large', 'xlarge', 'xxlarge'].includes(raw)) {
       return raw as TextSize;
+    }
+    const a11y = getHarmonyAccessibility();
+    if (a11y && a11y.fontSizeScale >= 1.25) {
+      return 'large';
+    } else if (a11y && a11y.fontSizeScale > 1.05) {
+      return 'medium';
     }
   } catch {
     // Ignore
@@ -487,6 +511,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // User Account (Mockup email account - zero server storage)
   const [userModalVisible, setUserModalVisible] = useState<boolean>(false);
+  const [settingsModalVisible, setSettingsModalVisible] = useState<boolean>(false);
   const [userAccount, setUserAccount] = useState<UserAccount | null>(null);
 
   const loginUser = useCallback(
@@ -543,7 +568,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (locationWatcherRef.current) return;
     try {
       const unsub = await watchUserLocation((loc) => {
-        setUserLocation({ lat: loc.lat, lon: loc.lon });
+        setUserLocation((prev) => {
+          if (
+            prev &&
+            Math.abs(prev.lat - loc.lat) < 0.00008 &&
+            Math.abs(prev.lon - loc.lon) < 0.00008
+          ) {
+            return prev;
+          }
+          return { lat: loc.lat, lon: loc.lon };
+        });
       });
       if (unsub) {
         locationWatcherRef.current = unsub;
@@ -592,6 +626,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [readingMask, setReadingMask] = useState<boolean>(false);
   const [readingMaskY, setReadingMaskY] = useState<number>(260);
   const [accessibilityModalVisible, setAccessibilityModalVisible] = useState<boolean>(false);
+  const [glossaryModalVisible, setGlossaryModalVisible] = useState<boolean>(false);
+  const [systemHealth, setSystemHealth] = useState<HarmonySystemHealth | null>(getHarmonySystemHealth);
+
+  useEffect(() => {
+    const updateHealth = () => {
+      const health = getHarmonySystemHealth();
+      if (!health) return;
+      setSystemHealth(health);
+      if (health.isLowPower || !health.isOnline) {
+        setDebugStateInternal((prev) => {
+          if (!prev.simulateOffline) {
+            return { ...prev, simulateOffline: true };
+          }
+          return prev;
+        });
+      }
+    };
+    updateHealth();
+    const interval = setInterval(updateHealth, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const setContrastMode = useCallback((mode: ContrastMode) => {
     setContrastModeState(mode);
@@ -733,6 +788,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUserModalVisible,
       loginUser,
       logoutUser,
+      // Settings Modal
+      settingsModalVisible,
+      setSettingsModalVisible,
       // Backward compatibility aliases
       krakowCardUser: userAccount,
       krakowCardModalVisible: userModalVisible,
@@ -771,14 +829,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setReadingMaskY,
       accessibilityModalVisible,
       setAccessibilityModalVisible,
+      glossaryModalVisible,
+      setGlossaryModalVisible,
       resetAccessibility,
       colors,
       fontSize,
       lineHeight,
       letterSpacing,
       isHighContrast,
+      systemHealth,
     }),
     [
+      systemHealth,
       locale,
       setLocale,
       profileId,
@@ -811,6 +873,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setUserModalVisible,
       loginUser,
       logoutUser,
+      settingsModalVisible,
+      setSettingsModalVisible,
       contrastMode,
       setContrastMode,
       textSize,
@@ -827,6 +891,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       readingMask,
       readingMaskY,
       accessibilityModalVisible,
+      setAccessibilityModalVisible,
+      glossaryModalVisible,
+      setGlossaryModalVisible,
       resetAccessibility,
       colors,
       fontSize,

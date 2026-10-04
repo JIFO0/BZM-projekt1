@@ -57,6 +57,8 @@ const pl = {
   infoCount: 'Udogodnienia / Informacje',
   unknownCount: 'Nierozpoznane odcinki',
   longestUnknownStretch: 'Najdłuższy odcinek bez danych',
+  totalUnknownStretch: 'Całkowita długość odcinków o których brakuje danych',
+  metresNoData: 'metrów bez danych',
   dataCoverage: 'Pokrycie danymi wzdłuż trasy',
   coverageRatio: 'pokrycie',
   noBarriersFound:
@@ -234,6 +236,12 @@ const pl = {
   tabPlace: 'Miejsce',
   tabProfile: 'Profil',
   tabReport: 'Zgłoś',
+  tabGlossary: 'Słowniczek',
+  glossaryBtn: 'Słowniczek pojęć i skrótów (WCAG AAA)',
+  glossaryTitle: 'Słowniczek pojęć i skrótów',
+  glossarySubtitle: 'Wyjaśnienia terminów kartograficznych, standardów dostępności cyfrowej i technologii',
+  glossarySearchPlaceholder: 'Szukaj skrótu lub pojęcia...',
+  glossaryEmpty: 'Brak pasujących haseł w słowniczku.',
   myLocationShort: 'Moja lokalizacja',
   myLocationCenter: 'Moja lokalizacja (Centrum)',
   myLocationCenterKrakow: 'Moja lokalizacja (Centrum Krakowa)',
@@ -251,7 +259,7 @@ const pl = {
   routeEndpointsRequired: 'Wskaż początek i cel trasy.',
   btnCenterKrakow: 'Wycentruj na centrum Krakowa',
   btnChangeProfile: 'Zmień profil poruszania się',
-  btnClearRoute: 'Wyczyść aktywną trasę',
+  btnClearRoute: 'Wyczyść trasę',
   btnShowRouteSummary: 'Pokaż podsumowanie aktywnej trasy',
   gpsFetching: 'Pobieranie Twojej lokalizacji GPS...',
   gpsCenteredSuccess: 'Wycentrowano mapę na Twojej lokalizacji.',
@@ -350,7 +358,7 @@ const pl = {
   chooseEndPoint: 'Wybierz punkt docelowy',
   pointA: 'Punkt A (Start)',
   pointB: 'Punkt B (Cel)',
-  swapPoints: 'Zamień punkt startowy i docelowy',
+  swapPoints: 'Zamień punkty',
   enterCoordinates: 'Wprowadź współrzędne',
   hideCoordinates: 'Ukryj wprowadzanie współrzędnych',
   latitude: 'Szerokość (Lat)',
@@ -442,8 +450,8 @@ const pl = {
   barrierModeRoute: 'Bariery',
   barrierModeAll: 'Wszystkie',
   barrierModeNone: 'Bez barier',
-  barrierModeRouteHint: 'Pokaż tylko bariery i ostrzeżenia na zaplanowanej trasie',
-  barrierModeAllHint: 'Pokaż wszystkie punkty na trasie, także te, które spełniają kryteria',
+  barrierModeRouteHint: 'Pokaż tylko bariery i ostrzeżenia na chodniku tej trasy',
+  barrierModeAllHint: 'Pokaż wszystkie punkty tego chodnika, także te, które spełniają kryteria',
   barrierModeNoneHint: 'Ukryj znaczniki barier na mapie',
   noActiveRouteForBarriers: 'Brak aktywnej trasy. Zaplanuj trasę, aby zobaczyć jej bariery.',
   routeVariantHeading: 'Wybór wariantu trasy:',
@@ -453,12 +461,29 @@ const pl = {
     'Ominięcie wszystkich barier wymaga zbyt dużego objazdu. Pomarańczowe odcinki nie spełniają kryteriów profilu.',
   routeVariantFastestWarning:
     'Najszybsza trasa piesza. Pomarańczowe odcinki nie spełniają kryteriów profilu.',
+  routePillAccessible: 'Bez barier',
+  routePillShortest: 'Najkrótsza',
+  routePillToggle: 'Przełącz między najkrótszą trasą a najkrótszą bez barier',
   mapClickPopupTitle: 'Wybrany punkt na mapie',
   pointOnMap: 'Punkt na mapie',
   mapClickActionSearchPlace: 'Wyszukaj miejsce',
   mapClickActionSetStart: 'Start (A)',
   mapClickActionSetEnd: 'Cel (B)',
   resolvingAddress: 'Ustalanie adresu...',
+  settings: 'Ustawienia',
+  settingsTitle: 'Ustawienia aplikacji',
+  settingsSubtitle: 'Personalizacja, widok barier i profil',
+  settingsBarrierSection: 'Widok barier na mapie',
+  settingsBarrierDesc: 'Wybierz, które punkty i przeszkody mają być widoczne na mapie.',
+  settingsBarrierAllTitle: 'Wszystkie punkty',
+  settingsBarrierAllHint: 'Pokazuje wszystkie punkty i właściwości chodnika, także te zgodne z profilem.',
+  settingsBarrierRouteTitle: 'Tylko bariery na trasie',
+  settingsBarrierRouteHint: 'Pokazuje tylko zidentyfikowane bariery, stopnie i ostrzeżenia utrudniające przejście.',
+  settingsBarrierNoneTitle: 'Brak barier (czysta mapa)',
+  settingsBarrierNoneHint: 'Ukrywa znaczniki barier, pozostawiając sam zarys wyznaczonej trasy.',
+  settingsLanguageSection: 'Język interfejsu',
+  settingsAccountSection: 'Konto użytkownika i Karta Krakowska',
+  settingsA11yShortcut: 'Otwórz Centrum Ułatwień Dostępności (WCAG)',
 };
 
 const en: typeof pl = {
@@ -517,6 +542,8 @@ const en: typeof pl = {
   infoCount: 'Facilities / Info',
   unknownCount: 'Unknown stretches',
   longestUnknownStretch: 'Longest stretch without data',
+  totalUnknownStretch: 'Total length of stretches with missing data',
+  metresNoData: 'metres without data',
   dataCoverage: 'Data coverage along route',
   coverageRatio: 'coverage',
   noBarriersFound:
@@ -692,6 +719,12 @@ const en: typeof pl = {
   tabPlace: 'Place',
   tabProfile: 'Profile',
   tabReport: 'Report',
+  tabGlossary: 'Glossary',
+  glossaryBtn: 'Glossary of terms and abbreviations (WCAG AAA)',
+  glossaryTitle: 'Glossary of Terms & Abbreviations',
+  glossarySubtitle: 'Definitions of cartographic terminology, accessibility standards, and technologies',
+  glossarySearchPlaceholder: 'Search abbreviation or term...',
+  glossaryEmpty: 'No matching entries found in glossary.',
   myLocationShort: 'My location',
   myLocationCenter: 'My location (City Centre)',
   myLocationCenterKrakow: 'My location (Kraków Centre)',
@@ -709,7 +742,7 @@ const en: typeof pl = {
   routeEndpointsRequired: 'Set a start and a destination.',
   btnCenterKrakow: 'Center on Kraków centre',
   btnChangeProfile: 'Change mobility profile',
-  btnClearRoute: 'Clear active route',
+  btnClearRoute: 'Clear route',
   btnShowRouteSummary: 'Show active route summary',
   gpsFetching: 'Fetching your GPS location...',
   gpsCenteredSuccess: 'Map centered on your location.',
@@ -808,7 +841,7 @@ const en: typeof pl = {
   chooseEndPoint: 'Choose destination',
   pointA: 'Point A (Start)',
   pointB: 'Point B (Destination)',
-  swapPoints: 'Swap origin and destination',
+  swapPoints: 'Swap points',
   enterCoordinates: 'Enter coordinates',
   hideCoordinates: 'Hide coordinates input',
   latitude: 'Latitude (Lat)',
@@ -900,8 +933,8 @@ const en: typeof pl = {
   barrierModeRoute: 'Barriers',
   barrierModeAll: 'All',
   barrierModeNone: 'No barriers',
-  barrierModeRouteHint: 'Show only barriers and warnings on the planned route',
-  barrierModeAllHint: 'Show every point on the route, including ones that meet the profile',
+  barrierModeRouteHint: 'Show only barriers and warnings on this route’s sidewalk',
+  barrierModeAllHint: 'Show every point on this sidewalk, including ones that meet the profile',
   barrierModeNoneHint: 'Hide barrier markers on map',
   noActiveRouteForBarriers: 'No active route. Plan a route to see its barriers.',
   routeVariantHeading: 'Route option:',
@@ -911,12 +944,29 @@ const en: typeof pl = {
     'Avoiding every barrier would be an unreasonable detour. Orange stretches do not meet the profile.',
   routeVariantFastestWarning:
     'Fastest walking route. Orange stretches do not meet the profile.',
+  routePillAccessible: 'Fewer barriers',
+  routePillShortest: 'Shortest',
+  routePillToggle: 'Switch between the shortest walk and the shortest walk without barriers',
   mapClickPopupTitle: 'Selected point on map',
   pointOnMap: 'Point on map',
   mapClickActionSearchPlace: 'Search place',
   mapClickActionSetStart: 'Start (A)',
   mapClickActionSetEnd: 'Destination (B)',
   resolvingAddress: 'Resolving address...',
+  settings: 'Settings',
+  settingsTitle: 'Application settings',
+  settingsSubtitle: 'Personalization, barrier view and profile',
+  settingsBarrierSection: 'Barrier view on map',
+  settingsBarrierDesc: 'Select which markers and obstacles should be visible on the map.',
+  settingsBarrierAllTitle: 'All points',
+  settingsBarrierAllHint: 'Shows every sidewalk point, including those meeting accessibility profile.',
+  settingsBarrierRouteTitle: 'Barriers on route only',
+  settingsBarrierRouteHint: 'Shows only identified barriers, steps and warnings hindering travel.',
+  settingsBarrierNoneTitle: 'No barriers (clean map)',
+  settingsBarrierNoneHint: 'Hides obstacle markers, displaying only the calculated route line.',
+  settingsLanguageSection: 'Interface language',
+  settingsAccountSection: 'User account & Krakow Card',
+  settingsA11yShortcut: 'Open Accessibility Center (WCAG)',
 };
 
 const uk: typeof pl = {
@@ -976,6 +1026,8 @@ const uk: typeof pl = {
   infoCount: 'Зручності / Інформація',
   unknownCount: 'Невідомі ділянки',
   longestUnknownStretch: 'Найдовша ділянка без даних',
+  totalUnknownStretch: 'Загальна довжина ділянок, про які бракує даних',
+  metresNoData: 'метрів без даних',
   dataCoverage: 'Покриття даними вздовж маршруту',
   coverageRatio: 'покриття',
   noBarriersFound:
@@ -1155,6 +1207,12 @@ const uk: typeof pl = {
   tabPlace: 'Місце',
   tabProfile: 'Профіль',
   tabReport: 'Повідомити',
+  tabGlossary: 'Словничок',
+  glossaryBtn: 'Словничок термінів і скорочень (WCAG AAA)',
+  glossaryTitle: 'Словничок термінів і скорочень',
+  glossarySubtitle: 'Пояснення картографічних термінів, стандартів доступності та технологій',
+  glossarySearchPlaceholder: 'Шукати скорочення або термін...',
+  glossaryEmpty: 'Не знайдено відповідних термінів у словничку.',
   myLocationShort: 'Моє розташування',
   myLocationCenter: 'Моє розташування (Центр)',
   myLocationCenterKrakow: 'Моє розташування (Центр Кракова)',
@@ -1172,7 +1230,7 @@ const uk: typeof pl = {
   routeEndpointsRequired: 'Вкажіть початок і ціль маршруту.',
   btnCenterKrakow: 'Відцентрувати на центр Кракова',
   btnChangeProfile: 'Змінити профіль пересування',
-  btnClearRoute: 'Очистити активний маршрут',
+  btnClearRoute: 'Очистити маршрут',
   btnShowRouteSummary: 'Показати підсумок активного маршруту',
   gpsFetching: 'Отримання вашої геопозиції GPS...',
   gpsCenteredSuccess: 'Карту відцентровано за вашою локацією.',
@@ -1271,7 +1329,7 @@ const uk: typeof pl = {
   chooseEndPoint: 'Виберіть пункт призначення',
   pointA: 'Точка A (Старт)',
   pointB: 'Точка B (Ціль)',
-  swapPoints: 'Поміняти місцями старт і фініш',
+  swapPoints: 'Поміняти місцями',
   enterCoordinates: 'Ввести координати',
   hideCoordinates: 'Сховати введення координат',
   latitude: 'Широта (Lat)',
@@ -1374,12 +1432,29 @@ const uk: typeof pl = {
     'Обхід усіх бар’єрів був би надто довгим. Помаранчеві відрізки не відповідають профілю.',
   routeVariantFastestWarning:
     'Найшвидший піший маршрут. Помаранчеві відрізки не відповідають профілю.',
+  routePillAccessible: 'Без бар’єрів',
+  routePillShortest: 'Найкоротший',
+  routePillToggle: 'Перемкнути між найкоротшим маршрутом і найкоротшим без бар’єрів',
   mapClickPopupTitle: 'Вибрана точка на карті',
   pointOnMap: 'Точка на карті',
   mapClickActionSearchPlace: 'Пошук місця',
   mapClickActionSetStart: 'Старт (A)',
   mapClickActionSetEnd: 'Ціль (B)',
   resolvingAddress: 'Визначення адреси...',
+  settings: 'Налаштування',
+  settingsTitle: 'Налаштування додатку',
+  settingsSubtitle: 'Персоналізація, відображення бар’єрів та акаунт',
+  settingsBarrierSection: 'Відображення бар’єрів на карті',
+  settingsBarrierDesc: 'Оберіть, які маркери та перешкоди показувати на карті.',
+  settingsBarrierAllTitle: 'Всі точки',
+  settingsBarrierAllHint: 'Показує всі точки тротуару, включно з тими, що відповідають профілю.',
+  settingsBarrierRouteTitle: 'Лише бар’єри на маршруті',
+  settingsBarrierRouteHint: 'Показує лише виявлені бар’єри, сходи та попередження.',
+  settingsBarrierNoneTitle: 'Без бар\'єрів (чиста карта)',
+  settingsBarrierNoneHint: 'Приховує маркери перешкод, залишаючи лише лінію маршруту.',
+  settingsLanguageSection: 'Мова інтерфейсу',
+  settingsAccountSection: 'Акаунт користувача та Картка Краківська',
+  settingsA11yShortcut: 'Відкрити Центр Доступності (WCAG)',
 };
 
 const dictionaries: Record<Locale, typeof pl> = { pl, en, uk };
@@ -1550,11 +1625,126 @@ export function getLocalizedBarrierMessage(
   return barrier.message;
 }
 
-export function getLocalizedFactValue(val: string, locale: Locale): string {
+export function getLocalizedCriterionName(criterion: string, locale: Locale): string {
+  if (!criterion) return '';
+  const c = criterion.toLowerCase().trim();
+
+  if (c === 'elevator' || c === 'highway:elevator' || c.includes('elevator') || c.includes('winda')) {
+    return locale === 'pl' ? 'Winda' : locale === 'uk' ? 'Ліфт' : 'Elevator';
+  }
+  if (c === 'toilets:wheelchair' || c === 'toilet' || c.includes('toaleta') || c.includes('toilet')) {
+    return locale === 'pl' ? 'Toaleta dla osób z niepełnosprawnościami' : locale === 'uk' ? 'Інклюзивна вбиральня' : 'Accessible toilet';
+  }
+  if (c === 'entrance:wheelchair' || c === 'entrance' || c.includes('entrance') || c.includes('wejście')) {
+    return locale === 'pl' ? 'Dostępność wejścia' : locale === 'uk' ? 'Доступність входу' : 'Accessible entrance';
+  }
+  if (c === 'wheelchair') {
+    return locale === 'pl' ? 'Dostępność dla wózków' : locale === 'uk' ? 'Доступність для крісел колісних' : 'Wheelchair accessibility';
+  }
+  if (c === 'surface:surroundings' || c === 'surroundings') {
+    return locale === 'pl' ? 'Nawierzchnia otoczenia' : locale === 'uk' ? 'Покриття території' : 'Surroundings surface';
+  }
+  if (c === 'surface' || c.includes('nawierzchni')) {
+    return locale === 'pl' ? 'Nawierzchnia' : locale === 'uk' ? 'Покриття' : 'Surface';
+  }
+  if (c === 'tactile_paving' || c.includes('tactile')) {
+    return locale === 'pl' ? 'Oznaczenia dotykowe (pasy fakturowe)' : locale === 'uk' ? 'Тактильна плитка' : 'Tactile paving';
+  }
+  if (c === 'hearing_loop' || c.includes('loop')) {
+    return locale === 'pl' ? 'Pętla indukcyjna dla niedosłyszących' : locale === 'uk' ? 'Індукційна петля' : 'Hearing loop';
+  }
+  if (c === 'ramp' || c.includes('rampa')) {
+    return locale === 'pl' ? 'Rampa / pochylnia' : locale === 'uk' ? 'Пандус' : 'Ramp';
+  }
+  if (c === 'steps' || c.includes('schody')) {
+    return locale === 'pl' ? 'Schody' : locale === 'uk' ? 'Сходи' : 'Steps';
+  }
+  if (c === 'kerb' || c.includes('krawężnik')) {
+    return locale === 'pl' ? 'Krawężnik' : locale === 'uk' ? 'Бордюр' : 'Kerb';
+  }
+  if (c === 'incline' || c.includes('nachylenie')) {
+    return locale === 'pl' ? 'Nachylenie' : locale === 'uk' ? 'Нахил' : 'Incline';
+  }
+  if (c === 'crossing' || c.includes('przejście')) {
+    return locale === 'pl' ? 'Przejście dla pieszych' : locale === 'uk' ? 'Пішохідний перехід' : 'Crossing';
+  }
+  if (c === 'width' || c.includes('szerokoś')) {
+    return locale === 'pl' ? 'Szerokość przejścia' : locale === 'uk' ? 'Ширина проходу' : 'Passage width';
+  }
+  if (c.includes('door')) {
+    return locale === 'pl' ? 'Drzwi wejściowe' : locale === 'uk' ? 'Вхідні двері' : 'Entrance door';
+  }
+  if (c.includes('parking')) {
+    return locale === 'pl' ? 'Miejsce parkingowe PRM' : locale === 'uk' ? 'Місця для паркування' : 'Accessible parking';
+  }
+
+  const formatted = criterion
+    .replace(/^[^:]+:/, '')
+    .replace(/_/g, ' ')
+    .trim();
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+export function getLocalizedCategoryName(category: string, locale: Locale): string {
+  if (!category) return '';
+  const c = category.toLowerCase().trim();
+  if (c === 'entrance') return locale === 'pl' ? 'Wejście' : locale === 'uk' ? 'Вхід' : 'Entrance';
+  if (c === 'inside') return locale === 'pl' ? 'Wnętrze' : locale === 'uk' ? 'Інтер’єр' : 'Inside';
+  if (c === 'toilet') return locale === 'pl' ? 'Toaleta PRM' : locale === 'uk' ? 'Інклюзивна вбиральня' : 'Accessible Toilet';
+  if (c === 'surroundings') return locale === 'pl' ? 'Otoczenie' : locale === 'uk' ? 'Територія' : 'Surroundings';
+  if (c === 'general') return locale === 'pl' ? 'Ogólne' : locale === 'uk' ? 'Загальне' : 'General';
+  return category;
+}
+
+export function getLocalizedFactValue(val: string, locale: Locale, criterion?: string): string {
   if (!val) return '';
 
+  const cmUnit = locale === 'uk' ? 'см' : 'cm';
+
+  // Convert kerb / millimetre measurements to centimetres (e.g. "140 mm" -> "14 cm", "20 mm" -> "2 cm", "50 mm" -> "5 cm")
+  let cleaned = val.replace(/(\d+(?:\.\d+)?)\s*mm\b/gi, (_match, p1) => {
+    const num = parseFloat(p1);
+    if (!Number.isFinite(num)) return _match;
+    const inCm = Math.round((num / 10) * 10) / 10;
+    return `${inCm} ${cmUnit}`;
+  });
+
+  const isKerb =
+    (criterion && (criterion.toLowerCase() === 'kerb' || criterion.toLowerCase().includes('krawężnik') || criterion.toLowerCase().startsWith('kerb:'))) ||
+    cleaned.toLowerCase().includes('krawężnik') ||
+    cleaned.toLowerCase().includes('kerb');
+
+  if (isKerb) {
+    // If value is a bare decimal metre (OSM kerb:height default unit is metres, e.g. "0.03" or "0.14" or "0.03 m")
+    const metreMatch = cleaned.match(/^([0-1]\.\d{1,2})\s*m?$/i);
+    if (metreMatch) {
+      const metres = parseFloat(metreMatch[1]!);
+      if (Number.isFinite(metres)) {
+        const inCm = Math.round(metres * 100 * 10) / 10;
+        cleaned = `${inCm} ${cmUnit}`;
+      }
+    }
+
+    const lowKerb = cleaned.toLowerCase().trim();
+    if (lowKerb === 'raised' || lowKerb === 'kerb=raised') {
+      return locale === 'pl' ? 'Podniesiony' : locale === 'uk' ? 'Підвищений' : 'Raised';
+    }
+    if (lowKerb === 'lowered' || lowKerb === 'kerb=lowered') {
+      return locale === 'pl' ? 'Obniżony' : locale === 'uk' ? 'Понижений' : 'Lowered';
+    }
+    if (lowKerb === 'flush' || lowKerb === 'kerb=flush') {
+      return locale === 'pl' ? `Wtopiony (0 ${cmUnit})` : locale === 'uk' ? `Врівень (0 ${cmUnit})` : `Flush (0 ${cmUnit})`;
+    }
+    if (lowKerb === 'rolled' || lowKerb === 'kerb=rolled') {
+      return locale === 'pl' ? 'Zaokrąglony' : locale === 'uk' ? 'Закруглений' : 'Rolled';
+    }
+    if (lowKerb === 'brak pomiaru') {
+      return locale === 'pl' ? 'Brak pomiaru' : locale === 'uk' ? 'Без заміру' : 'No measurement';
+    }
+  }
+
   // Clean up any ugly raw technical tag annotations like (wheelchair=limited), wheelchair=no, etc.
-  let cleaned = val.replace(/\s*\(?wheelchair=(limited|no|yes)\)?/gi, (_match, p1) => {
+  cleaned = cleaned.replace(/\s*\(?wheelchair=(limited|no|yes)\)?/gi, (_match, p1) => {
     const v = p1.toLowerCase();
     if (v === 'limited') return locale === 'pl' ? ' (ograniczona dostępność)' : locale === 'uk' ? ' (часткова доступність)' : ' (limited accessibility)';
     if (v === 'no') return locale === 'pl' ? ' (brak dostępności)' : locale === 'uk' ? ' (недоступно)' : ' (not accessible)';
@@ -1572,6 +1762,34 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
   if (lower === 'yes' || lower === 'wheelchair=yes' || lower === '(wheelchair=yes)') {
     return locale === 'pl' ? 'Dostępne' : locale === 'uk' ? 'Доступно' : 'Accessible';
   }
+  if (lower === 'designated') {
+    return locale === 'pl' ? 'Dedykowane dla osób z niepełnosprawnościami' : locale === 'uk' ? 'Спеціально облаштоване' : 'Designated accessible';
+  }
+  if (lower === 'winda obecna') {
+    return locale === 'pl' ? 'Dostępna winda' : locale === 'uk' ? 'Ліфт наявний' : 'Elevator available';
+  }
+  if (lower.includes('traffic_signals=yes') && lower.includes('tactile_paving=yes')) {
+    return locale === 'pl'
+      ? 'Sygnalizacja dźwiękowa i pasy dotykowe'
+      : locale === 'uk'
+        ? 'Звуковий світлофор та тактильна плитка'
+        : 'Traffic signals & tactile paving';
+  }
+
+  // Replace common API prefixes like "yes (", "no (", "limited ("
+  cleaned = cleaned.replace(/^yes\s*\((.*)\)$/i, (_match, p1) => {
+    return locale === 'pl' ? `Dostępne (${p1})` : locale === 'uk' ? `Доступно (${p1})` : `Accessible (${p1})`;
+  });
+  cleaned = cleaned.replace(/^no\s*\((.*)\)$/i, (_match, p1) => {
+    return locale === 'pl' ? `Niedostępne (${p1})` : locale === 'uk' ? `Недоступно (${p1})` : `Not accessible (${p1})`;
+  });
+  cleaned = cleaned.replace(/^limited\s*\((.*)\)$/i, (_match, p1) => {
+    return locale === 'pl' ? `Częściowo dostępne (${p1})` : locale === 'uk' ? `Частково доступно (${p1})` : `Partially accessible (${p1})`;
+  });
+
+  // Strip raw tag expressions like ramp=no, ramp=yes
+  cleaned = cleaned.replace(/ramp=no/gi, locale === 'pl' ? 'brak rampy' : locale === 'uk' ? 'без пандуса' : 'no ramp');
+  cleaned = cleaned.replace(/ramp=yes/gi, locale === 'pl' ? 'rampa obecna' : locale === 'uk' ? 'є пандус' : 'ramp present');
 
   // Strip any orphan raw tag key=value strings if present
   cleaned = cleaned.replace(/\s*\([a-z_]+=[a-z_]+\)/gi, '').trim();
@@ -1641,6 +1859,13 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
   }
 
   if (locale === 'uk') {
+    result = result.replace(/Wysokość krawężnika:/gi, 'Висота бордюру:');
+    result = result.replace(/limit profilu:/gi, 'ліміт профілю:');
+    result = result.replace(/szacunek/gi, 'оцінка');
+    result = result.replace(/porównywany z limitem profilu/gi, 'порівняно з лімітом профілю');
+    result = result.replace(/bez pomiaru OSM/gi, 'без виміру OSM');
+    result = result.replace(/Krawężnik podniesiony/gi, 'Підвищений бордюр');
+    result = result.replace(/Krawężnik obniżony/gi, 'Понижений бордюр');
     result = result.replace(/traffic_signals=yes/gi, 'світлофор');
     result = result.replace(/tactile_paving=yes/gi, 'тактильна плитка');
     result = result.replace(/sygnalizacja/gi, 'світлофор');
@@ -1656,6 +1881,13 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
   }
 
   // English
+  result = result.replace(/Wysokość krawężnika:/gi, 'Kerb height:');
+  result = result.replace(/limit profilu:/gi, 'profile limit:');
+  result = result.replace(/szacunek/gi, 'estimated');
+  result = result.replace(/porównywany z limitem profilu/gi, 'compared to profile limit');
+  result = result.replace(/bez pomiaru OSM/gi, 'without OSM measurement');
+  result = result.replace(/Krawężnik podniesiony/gi, 'Raised kerb');
+  result = result.replace(/Krawężnik obniżony/gi, 'Lowered kerb');
   result = result.replace(/traffic_signals=yes/gi, 'traffic signals');
   result = result.replace(/tactile_paving=yes/gi, 'tactile paving');
   result = result.replace(/sygnalizacja/gi, 'traffic signals');

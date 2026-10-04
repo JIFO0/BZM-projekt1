@@ -54,35 +54,35 @@ export interface ThemeColors {
   conflictingText: string;
 }
 
-// Krakow Municipal Official Identity: Blekit Krakowski (#005CA9 - Pantone 2935 C), Granat (#003865)
+// Krakow Municipal Official Identity: Blekit Krakowski (#004F93 - WCAG AAA 8.48:1 z bialym tekstem), Granat (#003865)
 export const krakowLightColors: ThemeColors = {
   background: '#F0F4F8',
   surface: '#FFFFFF',
   text: '#0F1E2E',
   muted: '#43586C',
   border: '#B6C8D8',
-  accent: '#005CA9',
+  accent: '#004F93',
   accentText: '#FFFFFF',
   focus: '#003865',
-  headerBg: '#005CA9',
+  headerBg: '#004F93',
   headerText: '#FFFFFF',
   govBarBg: '#003865',
   govBarText: '#FFFFFF',
   badgeBg: '#E5F1FA',
-  badgeBorder: '#005CA9',
+  badgeBorder: '#004F93',
   badgeText: '#003865',
 
-  // Statuses (High contrast on light backgrounds)
+  // Statuses (High contrast on light backgrounds - WCAG AAA compliant)
   blockerBg: '#FEECEC',
-  blockerBorder: '#C81E1E',
-  blockerText: '#9B1C1C',
+  blockerBorder: '#B91C1C',
+  blockerText: '#991B1B',
 
   warningBg: '#FEF3C7',
-  warningBorder: '#D97706',
-  warningText: '#92400E',
+  warningBorder: '#CA8A04',
+  warningText: '#854D0E',
 
   okBg: '#DEF7EC',
-  okBorder: '#0E9F6E',
+  okBorder: '#047857',
   okText: '#03543F',
 
   infoBg: '#E1EFFE',

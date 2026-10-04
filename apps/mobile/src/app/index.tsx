@@ -20,6 +20,7 @@ import {
   NavigationArrow,
   PathIcon as Path,
   Prohibit,
+  Question,
   ShieldCheck,
   SlidersHorizontal,
   ThumbsDown,
@@ -30,7 +31,7 @@ import {
   X,
 } from 'phosphor-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -47,7 +48,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BarrierViewControl } from '@/components/BarrierViewControl';
 import { DebugModal } from '@/components/DebugModal';
 import { DemoBanner } from '@/components/DemoBanner';
 import { GovButton } from '@/components/GovButton';
@@ -55,6 +55,7 @@ import { GovCard } from '@/components/GovCard';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { LocationPicker } from '@/components/LocationPicker';
 import { MapLocationPopup } from '@/components/MapLocationPopup';
+import { BarrierViewControl } from '@/components/BarrierViewControl';
 import { MapView } from '@/components/MapView';
 import { t } from '@/i18n/strings';
 import {
@@ -71,6 +72,8 @@ import {
   uploadPhotoToServer,
   fetchPlaceServerComments,
   addPlaceServerComment,
+  checkRoutingEngineHealth,
+  type RoutingEngineHealth,
 } from '@/services/api';
 import { city } from '@/config/city';
 import {
@@ -241,6 +244,8 @@ export default function MapHomeScreen() {
     setBarrierViewMode,
     localReports,
     addLocalReport,
+    glossaryModalVisible,
+    setGlossaryModalVisible,
   } = useSession();
 
   const routeBarriers = useMemo(() => {
@@ -257,28 +262,30 @@ export default function MapHomeScreen() {
     lon: 19.9373,
   });
 
-  // Handle pending destination set from place screen or external sources
-  useEffect(() => {
-    if (pendingDestination) {
-      setToQuery(pendingDestination.name);
-      setToPos(pendingDestination.position);
-      setActiveTab('route');
-      setPopupExpanded(true);
-      setMapCenter({ lat: pendingDestination.position.lat, lon: pendingDestination.position.lon });
-      setStatusMessage(`Ustawiono cel trasy: ${pendingDestination.name}`);
-      setPendingDestination(null);
-      setTimeout(() => setStatusMessage(null), 3000);
-    }
-  }, [pendingDestination, setPendingDestination]);
 
-  // Proactively request / fetch location on mount
+
+  // Routing Engine (GraphHopper) health & coverage status
+  const [engineStatus, setEngineStatus] = useState<RoutingEngineHealth | null>(null);
+
   useEffect(() => {
-    fetchUserLocation().then((loc) => {
-      if (loc) {
-        setMapCenter({ lat: loc.lat, lon: loc.lon });
+    let active = true;
+    checkRoutingEngineHealth().then((status) => {
+      if (active) {
+        setEngineStatus(status);
+        if (!status.online) {
+          setStatusMessage(
+            locale === 'pl'
+              ? '⚠️ Silnik tras bez barier jest offline. Uruchom usługę w backendzie.'
+              : '⚠️ Barrier-free routing engine is offline. Start backend service.'
+          );
+          setTimeout(() => setStatusMessage(null), 6000);
+        }
       }
     });
-  }, [fetchUserLocation]);
+    return () => {
+      active = false;
+    };
+  }, [locale]);
 
   // Popup menu / sheet state (Google/Apple Maps style)
   const [popupExpanded, setPopupExpanded] = useState(false);
@@ -289,6 +296,25 @@ export default function MapHomeScreen() {
   const [fromPos, setFromPos] = useState<LonLat | null>(null);
   const [toQuery, setToQuery] = useState('');
   const [toPos, setToPos] = useState<LonLat | null>(null);
+
+  const fromPosRef = useRef<LonLat | null>(null);
+  const fromQueryRef = useRef<string>('');
+  const toPosRef = useRef<LonLat | null>(null);
+  const toQueryRef = useRef<string>('');
+
+  useEffect(() => {
+    fromPosRef.current = fromPos;
+  }, [fromPos]);
+  useEffect(() => {
+    fromQueryRef.current = fromQuery;
+  }, [fromQuery]);
+  useEffect(() => {
+    toPosRef.current = toPos;
+  }, [toPos]);
+  useEffect(() => {
+    toQueryRef.current = toQuery;
+  }, [toQuery]);
+
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
 
@@ -322,6 +348,7 @@ export default function MapHomeScreen() {
   const [placeCommentCategory, setPlaceCommentCategory] = useState<'entrance' | 'inside' | 'toilet' | 'surroundings' | 'general'>('entrance');
   const [placeCommentPhoto, setPlaceCommentPhoto] = useState<string | null>(null);
   const [placeCommentSubmitting, setPlaceCommentSubmitting] = useState(false);
+  const [inspectedPlace, setInspectedPlace] = useState<{ name?: string; lat: number; lon: number } | null>(null);
 
   const pickPhotoAsync = async (source: 'camera' | 'library'): Promise<string | null> => {
     try {
@@ -404,7 +431,7 @@ export default function MapHomeScreen() {
   // Interactive map picking target
   const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | 'report' | null>(null);
 
-  const displayedFindings = useMemo(() => {
+  const mapPins = useMemo(() => {
     const reports = citizenReportsAsFindings([
       ...serverHazards.map((hazard) => ({
         id: hazard.id,
@@ -421,15 +448,22 @@ export default function MapHomeScreen() {
         status: report.status,
       })),
     ]);
-    return selectMapFindings({
-      mode: barrierViewMode,
-      routeFindings: routeBarriers,
+    const cityBarriers = getAllCityBarriers(activeThresholds);
+    const effectiveFindings = routeBarriers.length > 0 ? routeBarriers : cityBarriers;
+    const shared = {
+      routeFindings: effectiveFindings,
       reports,
       allCityBarriers,
       routeCoordinates: activeWalkingRoute?.coordinates,
       corridorMetres: city.corridorMeters,
-    });
-  }, [barrierViewMode, routeBarriers, serverHazards, localReports, allCityBarriers, activeWalkingRoute?.coordinates]);
+    };
+    return {
+      displayed: selectMapFindings({ ...shared, mode: barrierViewMode }),
+      problems: selectMapFindings({ ...shared, mode: 'route' }),
+      evaluated: selectMapFindings({ ...shared, mode: 'all' }),
+    };
+  }, [barrierViewMode, routeBarriers, serverHazards, localReports, allCityBarriers, activeWalkingRoute?.coordinates, activeThresholds]);
+  const displayedFindings = mapPins.displayed;
 
   // Clicked map location popup state
   const [clickedLocation, setClickedLocation] = useState<{
@@ -497,17 +531,184 @@ export default function MapHomeScreen() {
     }
   };
 
+  // 2. Plan & Analyze Route
+  const handleAnalyzeRoute = async (
+    overrideStart?: { name: string; position?: LonLat | null } | unknown,
+    overrideEnd?: { name: string; position?: LonLat | null },
+  ) => {
+    const isStartObject =
+      overrideStart != null &&
+      typeof overrideStart === 'object' &&
+      'name' in overrideStart &&
+      typeof (overrideStart as any).name === 'string';
+
+    const isEndObject =
+      overrideEnd != null &&
+      typeof overrideEnd === 'object' &&
+      'name' in overrideEnd &&
+      typeof (overrideEnd as any).name === 'string';
+
+    const startObj = isStartObject
+      ? (overrideStart as { name: string; position?: LonLat | null })
+      : null;
+    const endObj = isEndObject ? overrideEnd : null;
+
+    let resolvedStart =
+      startObj?.position !== undefined
+        ? startObj.position
+        : (fromPosRef.current ?? fromPos);
+    let resolvedEnd =
+      endObj?.position !== undefined
+        ? endObj.position
+        : (toPosRef.current ?? toPos);
+
+    let startName =
+      (startObj ? startObj.name : (fromQueryRef.current || fromQuery)) || '';
+    let endName =
+      (endObj ? endObj.name : (toQueryRef.current || toQuery)) || '';
+
+    if (!startName.trim() && resolvedStart) {
+      startName = `${resolvedStart.lat.toFixed(5)}, ${resolvedStart.lon.toFixed(5)}`;
+    }
+    if (!endName.trim() && resolvedEnd) {
+      endName = `${resolvedEnd.lat.toFixed(5)}, ${resolvedEnd.lon.toFixed(5)}`;
+    }
+
+    if (!startName.trim() || !endName.trim()) {
+      Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
+      return;
+    }
+    setLoadingRoute(true);
+    setStatusMessage(null);
+    try {
+      if (!resolvedStart && startName.trim()) {
+        const hits = await suggestPlaces(startName, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedStart = hits[0].position;
+        }
+      }
+
+      if (!resolvedEnd && endName.trim()) {
+        const hits = await suggestPlaces(endName, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedEnd = hits[0].position;
+        }
+      }
+
+      if (!resolvedStart || !resolvedEnd) {
+        Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
+        return;
+      }
+
+      setFromQuery(startName);
+      setFromPos(resolvedStart);
+      fromQueryRef.current = startName;
+      fromPosRef.current = resolvedStart;
+      setToQuery(endName);
+      setToPos(resolvedEnd);
+      toQueryRef.current = endName;
+      toPosRef.current = resolvedEnd;
+
+      const result = await planAndAnalyzeRoute({
+        start: { name: startName, position: resolvedStart },
+        end: { name: endName, position: resolvedEnd },
+        profileId,
+        thresholds: activeThresholds,
+        debugState,
+      });
+
+      triggerGentleHaptic('route');
+
+      setActiveWalkingRoute(result.walkingRoute);
+      setActiveRouteReport(result.report);
+      setActiveRouteFacts(result.facts);
+      setActiveRouteIsSample(result.isSample);
+      setRouteVariants(result.variants ?? null);
+      if (result.selectedVariant) {
+        selectRouteVariant(result.selectedVariant);
+      }
+      setBarrierViewMode('route');
+      setPopupExpanded(true);
+      setActiveTab('route');
+
+      router.setParams({
+        fromName: startName,
+        fromLat: String(resolvedStart.lat),
+        fromLon: String(resolvedStart.lon),
+        toName: endName,
+        toLat: String(resolvedEnd.lat),
+        toLon: String(resolvedEnd.lon),
+        profile: profileId,
+        variant: result.selectedVariant || selectedRouteVariant,
+      });
+
+      // Center map on route start
+      if (result.walkingRoute.coordinates.length > 0) {
+        setMapCenter({
+          lat: result.walkingRoute.coordinates[0]![1],
+          lon: result.walkingRoute.coordinates[0]![0],
+        });
+      }
+    } catch (err: any) {
+      // CLEAR existing route completely so no misleading route is shown
+      setActiveWalkingRoute(null);
+      setActiveRouteReport(null);
+      setActiveRouteFacts([]);
+      setRouteVariants(null);
+      const errMsg = err?.message || t(locale, 'routeErrorMsg');
+      setStatusMessage(`⚠️ ${errMsg}`);
+      Alert.alert(t(locale, 'routeErrorTitle'), errMsg);
+    } finally {
+      setLoadingRoute(false);
+    }
+  };
+
+  // Clear Active Route only (keeping points A and B)
+  const clearActiveRoute = useCallback(() => {
+    setActiveWalkingRoute(null);
+    setActiveRouteReport(null);
+    setActiveRouteFacts([]);
+    setRouteVariants(null);
+    router.setParams({
+      variant: undefined,
+    });
+  }, [setActiveWalkingRoute, setActiveRouteReport, setActiveRouteFacts, setRouteVariants]);
+
+  // Handle pending destination set from place screen or external sources
+  useEffect(() => {
+    if (pendingDestination) {
+      const destName = pendingDestination.name;
+      const destPos = pendingDestination.position;
+      setToQuery(destName);
+      setToPos(destPos);
+      toQueryRef.current = destName;
+      toPosRef.current = destPos;
+      setActiveTab('route');
+      setPopupExpanded(true);
+      setMapCenter({ lat: destPos.lat, lon: destPos.lon });
+      setStatusMessage(`Ustawiono cel trasy: ${destName}`);
+      setPendingDestination(null);
+      setTimeout(() => setStatusMessage(null), 3000);
+      clearActiveRoute();
+    }
+  }, [pendingDestination, setPendingDestination, clearActiveRoute]);
+
   const handleUseMyLocation = async () => {
     setStatusMessage(t(locale, 'gpsFetching'));
     const result = await fetchUserLocation();
     const loc = result || userLocation;
     if (loc) {
       triggerGentleHaptic('location');
-      setFromQuery(result?.address || t(locale, 'myLocationShort'));
-      setFromPos({ lon: loc.lon, lat: loc.lat });
+      const startName = result?.address || t(locale, 'myLocationShort');
+      const startPoint = { lon: loc.lon, lat: loc.lat };
+      setFromQuery(startName);
+      setFromPos(startPoint);
+      fromQueryRef.current = startName;
+      fromPosRef.current = startPoint;
       setMapCenter({ lat: loc.lat, lon: loc.lon });
       setStatusMessage(t(locale, 'gpsStartPointSet'));
       setTimeout(() => setStatusMessage(null), 2500);
+      clearActiveRoute();
     } else {
       Alert.alert(
         t(locale, 'gpsUnavailableTitle'),
@@ -516,9 +717,14 @@ export default function MapHomeScreen() {
           {
             text: t(locale, 'btnCenterKrakowAction'),
             onPress: () => {
-              setFromQuery(t(locale, 'rynekGlowny'));
-              setFromPos({ lon: 19.9373, lat: 50.0619 });
+              const startName = t(locale, 'rynekGlowny');
+              const startPoint = { lon: 19.9373, lat: 50.0619 };
+              setFromQuery(startName);
+              setFromPos(startPoint);
+              fromQueryRef.current = startName;
+              fromPosRef.current = startPoint;
               setMapCenter({ lat: 50.0619, lon: 19.9373 });
+              clearActiveRoute();
             },
           },
           { text: t(locale, 'cancel'), style: 'cancel' },
@@ -530,12 +736,21 @@ export default function MapHomeScreen() {
 
   // Swap Points (A ⇄ B)
   const handleSwapPoints = () => {
-    const prevFromQuery = fromQuery;
-    const prevFromPos = fromPos;
-    setFromQuery(toQuery);
-    setFromPos(toPos);
-    setToQuery(prevFromQuery);
-    setToPos(prevFromPos);
+    const prevFromQuery = fromQueryRef.current || fromQuery;
+    const prevFromPos = fromPosRef.current || fromPos;
+    const newFromQuery = toQueryRef.current || toQuery;
+    const newFromPos = toPosRef.current || toPos;
+    const newToQuery = prevFromQuery;
+    const newToPos = prevFromPos;
+    setFromQuery(newFromQuery);
+    setFromPos(newFromPos);
+    fromQueryRef.current = newFromQuery;
+    fromPosRef.current = newFromPos;
+    setToQuery(newToQuery);
+    setToPos(newToPos);
+    toQueryRef.current = newToQuery;
+    toPosRef.current = newToPos;
+    clearActiveRoute();
   };
 
   // Interactive Map Click Handler
@@ -544,36 +759,77 @@ export default function MapHomeScreen() {
 
     if (pickingTarget) {
       setClickedLocation(null);
-      try {
-        const rev = await reverseGeocodeLocation(coords.lat, coords.lon, locale);
-        if (rev?.name) name = rev.name;
-      } catch { }
+      const coordName = `${coords.lat.toFixed(5)}, ${coords.lon.toFixed(5)}`;
 
       if (pickingTarget === 'start') {
         setFromPos(coords);
-        setFromQuery(name);
+        setFromQuery(coordName);
+        fromPosRef.current = coords;
+        fromQueryRef.current = coordName;
         setPickingTarget(null);
-        setStatusMessage(`${t(locale, 'pointA')}: ${name}`);
+        clearActiveRoute();
+        setStatusMessage(`${t(locale, 'pointA')}: ${coordName}`);
         setTimeout(() => setStatusMessage(null), 3000);
+        reverseGeocodeLocation(coords.lat, coords.lon, locale)
+          .then((rev) => {
+            if (rev?.name) {
+              setFromQuery(rev.name);
+              fromQueryRef.current = rev.name;
+              setStatusMessage(`${t(locale, 'pointA')}: ${rev.name}`);
+              setTimeout(() => setStatusMessage(null), 3000);
+            }
+          })
+          .catch(() => {});
       } else if (pickingTarget === 'end') {
         setToPos(coords);
-        setToQuery(name);
+        setToQuery(coordName);
+        toPosRef.current = coords;
+        toQueryRef.current = coordName;
         setPickingTarget(null);
-        setStatusMessage(`${t(locale, 'pointB')}: ${name}`);
+        clearActiveRoute();
+        setStatusMessage(`${t(locale, 'pointB')}: ${coordName}`);
         setTimeout(() => setStatusMessage(null), 3000);
+        reverseGeocodeLocation(coords.lat, coords.lon, locale)
+          .then((rev) => {
+            if (rev?.name) {
+              setToQuery(rev.name);
+              toQueryRef.current = rev.name;
+              setStatusMessage(`${t(locale, 'pointB')}: ${rev.name}`);
+              setTimeout(() => setStatusMessage(null), 3000);
+            }
+          })
+          .catch(() => {});
       } else if (pickingTarget === 'place') {
         setPlacePos(coords);
-        setPlaceQuery(name);
+        setPlaceQuery(coordName);
         setPickingTarget(null);
-        setStatusMessage(`${t(locale, 'placeLabel')}: ${name}`);
+        setStatusMessage(`${t(locale, 'placeLabel')}: ${coordName}`);
         setTimeout(() => setStatusMessage(null), 3000);
+        reverseGeocodeLocation(coords.lat, coords.lon, locale)
+          .then((rev) => {
+            if (rev?.name) {
+              setPlaceQuery(rev.name);
+              setStatusMessage(`${t(locale, 'placeLabel')}: ${rev.name}`);
+              setTimeout(() => setStatusMessage(null), 3000);
+            }
+          })
+          .catch(() => {});
       } else if (pickingTarget === 'report') {
         setReportPos(coords);
-        setReportQuery(name);
+        setReportQuery(coordName);
         setPickingTarget(null);
         setReportPopupOpen(true);
-        setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${name}`);
+        setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${coordName}`);
         setTimeout(() => setStatusMessage(null), 3000);
+        reverseGeocodeLocation(coords.lat, coords.lon, locale)
+          .then((rev) => {
+            if (rev?.name) {
+              setReportQuery(rev.name);
+              setStatusMessage(`${t(locale, 'reportLocationLabel')}: ${rev.name}`);
+              setTimeout(() => setStatusMessage(null), 3000);
+            }
+          })
+          .catch(() => {});
       }
       return;
     }
@@ -612,86 +868,6 @@ export default function MapHomeScreen() {
     });
   };
 
-  // 2. Plan & Analyze Route
-  const handleAnalyzeRoute = async () => {
-    if (!fromQuery.trim() || !toQuery.trim()) {
-      Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
-      return;
-    }
-    setLoadingRoute(true);
-    setStatusMessage(null);
-    try {
-      let resolvedStart = fromPos;
-      let resolvedEnd = toPos;
-
-      if (!resolvedStart && fromQuery.trim()) {
-        const hits = await suggestPlaces(fromQuery, locale);
-        if (hits.length > 0 && hits[0]?.position) {
-          resolvedStart = hits[0].position;
-          setFromPos(resolvedStart);
-        }
-      }
-
-      if (!resolvedEnd && toQuery.trim()) {
-        const hits = await suggestPlaces(toQuery, locale);
-        if (hits.length > 0 && hits[0]?.position) {
-          resolvedEnd = hits[0].position;
-          setToPos(resolvedEnd);
-        }
-      }
-
-      if (!resolvedStart || !resolvedEnd) {
-        Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
-        return;
-      }
-
-      const result = await planAndAnalyzeRoute({
-        start: { name: fromQuery, position: resolvedStart },
-        end: { name: toQuery, position: resolvedEnd },
-        profileId,
-        thresholds: activeThresholds,
-        debugState,
-      });
-
-      triggerGentleHaptic('route');
-
-      setActiveWalkingRoute(result.walkingRoute);
-      setActiveRouteReport(result.report);
-      setActiveRouteFacts(result.facts);
-      setActiveRouteIsSample(result.isSample);
-      setRouteVariants(result.variants ?? null);
-      if (result.selectedVariant) {
-        selectRouteVariant(result.selectedVariant);
-      }
-      setBarrierViewMode('route');
-      setPopupExpanded(true);
-      setActiveTab('route');
-
-      router.setParams({
-        fromName: fromQuery,
-        fromLat: String(resolvedStart.lat),
-        fromLon: String(resolvedStart.lon),
-        toName: toQuery,
-        toLat: String(resolvedEnd.lat),
-        toLon: String(resolvedEnd.lon),
-        profile: profileId,
-        variant: result.selectedVariant || selectedRouteVariant,
-      });
-
-      // Center map on route start
-      if (result.walkingRoute.coordinates.length > 0) {
-        setMapCenter({
-          lat: result.walkingRoute.coordinates[0]![1],
-          lon: result.walkingRoute.coordinates[0]![0],
-        });
-      }
-    } catch (err: any) {
-      Alert.alert(t(locale, 'routeErrorTitle'), err.message || t(locale, 'routeErrorMsg'));
-    } finally {
-      setLoadingRoute(false);
-    }
-  };
-
   // 3. Inspect Place (supports optional direct query/position overrides and screen navigation)
   const handleInspectPlace = async (
     targetQuery?: string,
@@ -702,6 +878,7 @@ export default function MapHomeScreen() {
     const pos = targetPos ?? placePos;
     setLoadingPlace(true);
     setStatusMessage(null);
+    setInspectedPlace({ name: q, lat: pos.lat, lon: pos.lon });
     try {
       const result = await inspectPlace(q, pos, debugState);
       setActivePlaceReport(result.report);
@@ -719,8 +896,33 @@ export default function MapHomeScreen() {
         setPopupExpanded(true);
         setActiveTab('place');
       }
-    } catch (err: any) {
-      Alert.alert(t(locale, 'placeErrorTitle'), err.message || t(locale, 'placeErrorMsg'));
+    } catch {
+      // Fallback report ensures the place always opens and displays the "Brak informacji" card
+      const fallbackReport = {
+        placeName: q,
+        position: pos,
+        matchConfidence: 0,
+        isConfidentMatch: false,
+        factsByCategory: { entrance: [], inside: [], toilet: [], surroundings: [] },
+        allFacts: [],
+        summaryMessage: locale === 'pl' ? 'Brak informacji w bazie danych' : 'No information in database',
+        isSample: false,
+      };
+      setActivePlaceReport(fallbackReport as any);
+      setMapCenter({ lat: pos.lat, lon: pos.lon });
+      if (navigateToScreen) {
+        router.push({
+          pathname: '/place',
+          params: {
+            placeName: q,
+            placeLat: String(pos.lat),
+            placeLon: String(pos.lon),
+          },
+        });
+      } else {
+        setPopupExpanded(true);
+        setActiveTab('place');
+      }
     } finally {
       setLoadingPlace(false);
     }
@@ -840,6 +1042,7 @@ export default function MapHomeScreen() {
     if (!placeData) return;
     setPlaceQuery(placeData.name);
     setPlacePos(placeData.position);
+    setInspectedPlace({ name: placeData.name, lat: placeData.position.lat, lon: placeData.position.lon });
     setActiveTab('place');
     setPopupExpanded(true);
     setLoadingPlace(true);
@@ -857,6 +1060,7 @@ export default function MapHomeScreen() {
   const handleSelectPresetPlace = async (p: (typeof DEFAULT_PRESET_PLACES)[number]) => {
     setPlaceQuery(p.name);
     setPlacePos(p.position);
+    setInspectedPlace({ name: p.name, lat: p.position.lat, lon: p.position.lon });
     setLoadingPlace(true);
     setStatusMessage(`Pobieranie danych dla: ${p.name}`);
     try {
@@ -875,9 +1079,12 @@ export default function MapHomeScreen() {
   const handleSetPlaceAsDestination = (p: (typeof DEFAULT_PRESET_PLACES)[number]) => {
     setToQuery(p.name);
     setToPos(p.position);
+    toQueryRef.current = p.name;
+    toPosRef.current = p.position;
     setActiveTab('route');
     setStatusMessage(`Ustawiono cel trasy: ${p.name}`);
     setTimeout(() => setStatusMessage(null), 3000);
+    clearActiveRoute();
   };
 
   // Clear Active Route
@@ -888,7 +1095,12 @@ export default function MapHomeScreen() {
     setRouteVariants(null);
     setFromQuery('');
     setFromPos(null);
+    fromQueryRef.current = '';
+    fromPosRef.current = null;
+    setToQuery('');
     setToPos(null);
+    toQueryRef.current = '';
+    toPosRef.current = null;
     router.setParams({
       fromName: undefined,
       fromLat: undefined,
@@ -1063,39 +1275,51 @@ export default function MapHomeScreen() {
           center={mapCenter}
           userLocation={userLocation}
           clickedLocation={clickedLocation}
+          inspectedPlace={inspectedPlace}
           startLocation={
-            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+            fromPos && fromPos.lat != null && fromPos.lon != null
               ? {
                 name: fromQuery || 'Start',
-                lat: activeWalkingRoute.coordinates[0]![1],
-                lon: activeWalkingRoute.coordinates[0]![0],
+                lat: fromPos.lat,
+                lon: fromPos.lon,
               }
-              : fromPos && fromPos.lat != null && fromPos.lon != null && fromQuery.trim().length > 0
+              : activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
                 ? {
-                  name: fromQuery,
-                  lat: fromPos.lat,
-                  lon: fromPos.lon,
+                  name: fromQuery || 'Start',
+                  lat: activeWalkingRoute.coordinates[0]![1],
+                  lon: activeWalkingRoute.coordinates[0]![0],
                 }
                 : undefined
           }
           endLocation={
-            activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
+            toPos && toPos.lat != null && toPos.lon != null
               ? {
                 name: toQuery || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'),
-                lat: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1],
-                lon: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0],
+                lat: toPos.lat,
+                lon: toPos.lon,
               }
-              : toPos && toPos.lat != null && toPos.lon != null && toQuery.trim().length > 0
+              : activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
                 ? {
-                  name: toQuery,
-                  lat: toPos.lat,
-                  lon: toPos.lon,
+                  name: toQuery || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'),
+                  lat: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1],
+                  lon: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0],
                 }
                 : undefined
           }
           onMapClick={handleMapClick}
           isPickingMode={pickingTarget !== null}
         />
+
+        <View style={styles.floatingBarrierControl}>
+          <BarrierViewControl
+            compact
+            mode={barrierViewMode}
+            onChangeMode={setBarrierViewMode}
+            hasActiveRoute={Boolean(activeWalkingRoute)}
+            routeBarriersCount={mapPins.problems.length}
+            allBarriersCount={mapPins.evaluated.length}
+          />
+        </View>
 
         {/* Floating Map Action Buttons (Apple / Google Maps style) */}
         <View style={styles.floatingControlsRight}>
@@ -1158,17 +1382,32 @@ export default function MapHomeScreen() {
               }
             />
           </Pressable>
+
+          {/* Słowniczek pojęć i skrótów WCAG AAA (Kryteria 3.1.3 i 3.1.4) */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(locale, 'glossaryBtn')}
+            onPress={() => setGlossaryModalVisible(true)}
+            style={[
+              styles.floatingBtn,
+              {
+                backgroundColor: glossaryModalVisible ? colors.accent : colors.surface,
+                borderColor: glossaryModalVisible ? colors.focus : colors.border,
+                borderWidth: isHighContrast ? 2.5 : 1.5,
+              },
+            ]}
+          >
+            <Question
+              size={22}
+              weight="bold"
+              color={glossaryModalVisible ? colors.accentText : colors.text}
+            />
+          </Pressable>
         </View>
 
         {/* Active Route Floating Pill (if route is active) */}
         {activeWalkingRoute && activeRouteReport ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(locale, 'btnShowRouteSummary')}
-            onPress={() => {
-              setActiveTab('route');
-              setPopupExpanded(true);
-            }}
+          <View
             style={[
               styles.floatingRoutePill,
               {
@@ -1178,37 +1417,42 @@ export default function MapHomeScreen() {
               },
             ]}
           >
-            <Path size={18} weight="bold" color={colors.accent} />
-            <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
-              {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min •{' '}
-              {formatBlockerCount(activeRouteReport.findings.filter((f) => f.severity === 'blocker').length, locale)}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        {/* Floating Barrier View Mode Selector (Bez barier | Na trasie | Wszystkie) */}
-        {activeWalkingRoute ? (
-          <View
-            style={[
-              styles.floatingBarrierControlWrapper,
-              { top: activeRouteReport ? 62 : 14 },
-            ]}
-          >
-            <BarrierViewControl
-              mode={barrierViewMode}
-              onChangeMode={(newMode) => {
-                if (newMode === 'route' && !activeWalkingRoute) {
-                  setStatusMessage(t(locale, 'noActiveRouteForBarriers'));
-                  setTimeout(() => setStatusMessage(null), 3500);
-                }
-                setBarrierViewMode(newMode);
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(locale, 'btnShowRouteSummary')}
+              onPress={() => {
+                setActiveTab('route');
+                setPopupExpanded(true);
               }}
-              routeBarriersCount={
-                routeBarriers.filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning').length
-              }
-              allBarriersCount={allCityBarriers.length > 0 ? allCityBarriers.length : routeBarriers.length}
-              hasActiveRoute={Boolean(activeWalkingRoute)}
-            />
+              style={styles.routePillMain}
+            >
+              <Path size={18} weight="bold" color={colors.accent} />
+              <Text style={[styles.routePillText, { color: colors.text, fontSize: fontSize(13) }]}>
+                {(activeRouteReport.lengthMetres / 1000).toFixed(1)} km • {Math.round((activeWalkingRoute.durationSeconds || 120) / 60)} min
+                {routeVariants
+                  ? ` • ${t(locale, selectedRouteVariant === 'fastest' ? 'routePillShortest' : 'routePillAccessible')}`
+                  : ''}
+              </Text>
+            </Pressable>
+            {routeVariants ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(locale, 'routePillToggle')}
+                onPress={() =>
+                  selectRouteVariant(selectedRouteVariant === 'accessible' ? 'fastest' : 'accessible')
+                }
+                hitSlop={8}
+                style={(state: any) => [
+                  styles.routePillArrow,
+                  {
+                    borderColor: state?.focused ? colors.focus : colors.border,
+                    borderWidth: state?.focused ? 2.5 : 1.5,
+                  },
+                ]}
+              >
+                <ArrowsDownUp size={18} weight="bold" color={colors.accent} />
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
@@ -1232,6 +1476,7 @@ export default function MapHomeScreen() {
                 const targetName = clickedLocation.name;
                 setPlacePos(targetPos);
                 setPlaceQuery(targetName);
+                setInspectedPlace({ name: targetName, lat: targetPos.lat, lon: targetPos.lon });
                 setClickedLocation(null);
                 setPopupExpanded(true);
                 setActiveTab('place');
@@ -1242,18 +1487,24 @@ export default function MapHomeScreen() {
                 const targetName = clickedLocation.name;
                 setFromPos(targetPos);
                 setFromQuery(targetName);
+                fromPosRef.current = targetPos;
+                fromQueryRef.current = targetName;
                 setStatusMessage(`${t(locale, 'pointA')}: ${targetName}`);
                 setClickedLocation(null);
                 setTimeout(() => setStatusMessage(null), 3000);
+                clearActiveRoute();
               }}
               onSetEnd={() => {
                 const targetPos = { lat: clickedLocation.lat, lon: clickedLocation.lon };
                 const targetName = clickedLocation.name;
                 setToPos(targetPos);
                 setToQuery(targetName);
+                toPosRef.current = targetPos;
+                toQueryRef.current = targetName;
                 setStatusMessage(`${t(locale, 'pointB')}: ${targetName}`);
                 setClickedLocation(null);
                 setTimeout(() => setStatusMessage(null), 3000);
+                clearActiveRoute();
               }}
               onClose={() => setClickedLocation(null)}
             />
@@ -1327,42 +1578,6 @@ export default function MapHomeScreen() {
                 {t(locale, 'searchPlaceholderUnified')}
               </Text>
             </Pressable>
-
-            {/* Quick Action Destination Chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickChipsScroll}>
-              <Pressable
-                onPress={() => loadDemoRoute(1)}
-                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
-              >
-                <Path size={14} weight="bold" color={colors.accent} />
-                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  Dworzec → Sukiennice
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => loadDemoPlace(0)}
-                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
-              >
-                <Buildings size={14} weight="bold" color={colors.accent} />
-                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  Sukiennice
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  setActiveTab('profile');
-                  setPopupExpanded(true);
-                }}
-                style={[styles.quickChip, { backgroundColor: colors.background, borderColor: colors.border }]}
-              >
-                <SlidersHorizontal size={14} weight="bold" color={colors.accent} />
-                <Text style={[styles.quickChipText, { color: colors.text, fontSize: fontSize(12.5) }]}>
-                  {t(locale, 'surfacesChip')} ({blockedList.length})
-                </Text>
-              </Pressable>
-            </ScrollView>
           </View>
         ) : (
           /* Expanded Full Popup View with Tabs */
@@ -1474,32 +1689,104 @@ export default function MapHomeScreen() {
               {/* TAB 1: TRASA (ROUTE PLANNING & ANALYSIS) */}
               {activeTab === 'route' ? (
                 <View style={styles.formSection}>
+                  {/* Engine status warning if offline */}
+                  {engineStatus && !engineStatus.online ? (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        padding: 12,
+                        borderRadius: 8,
+                        marginBottom: 12,
+                        backgroundColor: colors.warningBg,
+                        borderColor: colors.warningBorder,
+                        borderWidth: 1,
+                      }}
+                    >
+                      <Warning size={22} color={colors.warningText} weight="bold" />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: colors.warningText }}>
+                          {locale === 'pl'
+                            ? 'Silnik tras bez barier jest niedostępny'
+                            : 'Barrier-free routing engine unavailable'}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: colors.warningText, marginTop: 2 }}>
+                          {locale === 'pl'
+                            ? 'Aplikacja nie wyznacza tras zastępczych po jezdniach. Uruchom usługę GraphHopper.'
+                            : 'App will not fall back to road routes. Ensure GraphHopper is running.'}
+                        </Text>
+                        <Pressable
+                          onPress={() => {
+                            checkRoutingEngineHealth().then(setEngineStatus);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel="Sprawdź ponownie połączenie z silnikiem"
+                          style={{ marginTop: 6 }}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: 'bold', color: colors.accent, textDecorationLine: 'underline' }}>
+                            {locale === 'pl' ? 'Sprawdź ponownie połączenie' : 'Retry connection'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : null}
+
                   {/* Point A (Start) */}
                   <LocationPicker
                     label={t(locale, 'from')}
                     badge="A"
-                    badgeColor="#22C55E"
+                    badgeColor={colors.okBorder}
                     point={{ name: fromQuery, position: fromPos }}
                     onChangePoint={(p) => {
                       setFromQuery(p.name);
                       setFromPos(p.position ?? null);
+                      fromQueryRef.current = p.name;
+                      fromPosRef.current = p.position ?? null;
+                      clearActiveRoute();
                       if (p.position) {
                         setMapCenter({ lat: p.position.lat, lon: p.position.lon });
+                      }
+                    }}
+                    onClear={() => {
+                      setFromQuery('');
+                      setFromPos(null);
+                      fromQueryRef.current = '';
+                      fromPosRef.current = null;
+                      clearActiveRoute();
+                    }}
+                    onQueryChange={(text) => {
+                      setFromQuery(text);
+                      fromQueryRef.current = text;
+                      if (activeWalkingRoute) {
+                        clearActiveRoute();
                       }
                     }}
                     placeholder={t(locale, 'fromPlaceholder')}
                     showMyLocation
                     onUseMyLocation={handleUseMyLocation}
+                    onPickOnMap={() => {
+                      setPickingTarget('start');
+                      setPopupExpanded(false);
+                      setStatusMessage(locale === 'pl' ? 'Wskaż punkt początkowy (A) na mapie' : 'Tap on map to set start point (A)');
+                    }}
+                    isPickingOnMap={pickingTarget === 'start'}
                   />
 
-                  {/* Swap Points Button (Icon centered between destinations) and Red Clear Route Button */}
-                  <View style={styles.swapBtnRow}>
+                  {/* Swap Points Button and Clear Route Button */}
+                  <View
+                    style={[
+                      styles.swapBtnRow,
+                      !(activeWalkingRoute || fromQuery || toQuery) && styles.swapBtnRowCentered,
+                    ]}
+                  >
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={t(locale, 'swapPoints')}
                       onPress={handleSwapPoints}
+                      hitSlop={6}
                       style={[
-                        styles.swapIconBtn,
+                        styles.swapBtn,
+                        Boolean(activeWalkingRoute || fromQuery || toQuery) && styles.swapBtnFlex,
                         {
                           backgroundColor: colors.background,
                           borderColor: colors.border,
@@ -1507,7 +1794,10 @@ export default function MapHomeScreen() {
                         },
                       ]}
                     >
-                      <ArrowsDownUp size={18} weight="bold" color={colors.accent} />
+                      <ArrowsDownUp size={15} weight="bold" color={colors.accent} />
+                      <Text style={[styles.swapBtnText, { color: colors.accent, fontSize: fontSize(12) }]}>
+                        {t(locale, 'swapPoints')}
+                      </Text>
                     </Pressable>
 
                     {activeWalkingRoute || fromQuery || toQuery ? (
@@ -1515,6 +1805,7 @@ export default function MapHomeScreen() {
                         accessibilityRole="button"
                         accessibilityLabel={t(locale, 'btnClearRoute')}
                         onPress={handleClearRoute}
+                        hitSlop={6}
                         style={[
                           styles.clearRouteBtn,
                           {
@@ -1536,16 +1827,39 @@ export default function MapHomeScreen() {
                   <LocationPicker
                     label={t(locale, 'to')}
                     badge="B"
-                    badgeColor="#D32F2F"
+                    badgeColor={colors.blockerBorder}
                     point={{ name: toQuery, position: toPos }}
                     onChangePoint={(p) => {
                       setToQuery(p.name);
                       setToPos(p.position ?? null);
+                      toQueryRef.current = p.name;
+                      toPosRef.current = p.position ?? null;
+                      clearActiveRoute();
                       if (p.position) {
                         setMapCenter({ lat: p.position.lat, lon: p.position.lon });
                       }
                     }}
+                    onClear={() => {
+                      setToQuery('');
+                      setToPos(null);
+                      toQueryRef.current = '';
+                      toPosRef.current = null;
+                      clearActiveRoute();
+                    }}
+                    onQueryChange={(text) => {
+                      setToQuery(text);
+                      toQueryRef.current = text;
+                      if (activeWalkingRoute) {
+                        clearActiveRoute();
+                      }
+                    }}
                     placeholder={t(locale, 'toPlaceholder')}
+                    onPickOnMap={() => {
+                      setPickingTarget('end');
+                      setPopupExpanded(false);
+                      setStatusMessage(locale === 'pl' ? 'Wskaż cel trasy (B) na mapie' : 'Tap on map to set destination (B)');
+                    }}
+                    isPickingOnMap={pickingTarget === 'end'}
                   />
 
                   {/* Plan Route Action */}
@@ -1554,7 +1868,9 @@ export default function MapHomeScreen() {
                     icon={<NavigationArrow size={16} weight="bold" color={colors.accentText} />}
                     variant="primary"
                     loading={loadingRoute}
-                    onPress={handleAnalyzeRoute}
+                    onPress={() => {
+                      handleAnalyzeRoute();
+                    }}
                   />
 
                   {/* Active Route Result Card (if present) */}
@@ -1571,14 +1887,14 @@ export default function MapHomeScreen() {
                               accessibilityRole="button"
                               accessibilityState={{ selected: selectedRouteVariant === 'accessible' }}
                               onPress={() => selectRouteVariant('accessible')}
-                              style={[
+                              style={(state: any) => [
                                 styles.variantButton,
                                 {
                                   backgroundColor:
                                     selectedRouteVariant === 'accessible' ? colors.accent : colors.background,
                                   borderColor:
-                                    selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
-                                  borderWidth: selectedRouteVariant === 'accessible' ? 2 : 1,
+                                    state?.focused ? colors.focus : selectedRouteVariant === 'accessible' ? colors.accent : colors.border,
+                                  borderWidth: state?.focused ? 3 : selectedRouteVariant === 'accessible' ? 2 : 1,
                                 },
                               ]}
                             >
@@ -1618,14 +1934,14 @@ export default function MapHomeScreen() {
                               accessibilityRole="button"
                               accessibilityState={{ selected: selectedRouteVariant === 'fastest' }}
                               onPress={() => selectRouteVariant('fastest')}
-                              style={[
+                              style={(state: any) => [
                                 styles.variantButton,
                                 {
                                   backgroundColor:
                                     selectedRouteVariant === 'fastest' ? colors.accent : colors.background,
                                   borderColor:
-                                    selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
-                                  borderWidth: selectedRouteVariant === 'fastest' ? 2 : 1,
+                                    state?.focused ? colors.focus : selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
+                                  borderWidth: state?.focused ? 3 : selectedRouteVariant === 'fastest' ? 2 : 1,
                                 },
                               ]}
                             >
@@ -1809,15 +2125,47 @@ export default function MapHomeScreen() {
 
                   {/* Active Inspected Place Card */}
                   {activePlaceReport ? (
-                    <GovCard variant="accent">
+                    <GovCard variant={activePlaceReport.allFacts.length === 0 ? 'warning' : 'accent'}>
                       <View style={styles.cardHeaderRow}>
                         <Text style={[styles.resultTitle, { color: colors.text, fontSize: fontSize(16), flex: 1 }]}>
                           {activePlaceReport.placeName}
                         </Text>
                       </View>
-                      <Text style={[styles.resultSub, { color: colors.muted, fontSize: fontSize(13) }]}>
-                        {activePlaceReport.summaryMessage}
-                      </Text>
+                      {activePlaceReport.allFacts.length === 0 ? (
+                        <View style={{ marginVertical: 6, gap: 4 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Question size={18} color={colors.warningText} weight="bold" />
+                            <Text style={{ fontWeight: '800', color: colors.warningText, fontSize: fontSize(14) }}>
+                              {locale === 'pl'
+                                ? 'Brak informacji w bazie danych'
+                                : locale === 'uk'
+                                  ? 'Немає інформації в базі даних'
+                                  : 'No information in database'}
+                            </Text>
+                          </View>
+                          <Text style={[styles.resultSub, { color: colors.text, fontSize: fontSize(12.5), lineHeight: 18 }]}>
+                            {locale === 'pl'
+                              ? 'Dla tej lokalizacji brak jest zgromadzonych danych o dostępności architektonicznej w miejskiej bazie danych ani w OpenStreetMap. Zgodnie ze standardem miejskim brak danych jest zawsze prezentowany jako brak informacji, nigdy jako brak barier.'
+                              : locale === 'uk'
+                                ? 'Для цієї локації відсутні дані про доступність у міській базі даних та OSM.'
+                                : 'No architectural accessibility data found for this location in municipal DB or OSM. Lack of data is always presented as lack of information, never as absence of barriers.'}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Text style={[styles.resultSub, { color: colors.muted, fontSize: fontSize(13) }]}>
+                          {activePlaceReport.isConfidentMatch
+                            ? (locale === 'pl'
+                                ? 'Miejski obiekt zweryfikowany pod kątem dostępności'
+                                : locale === 'uk'
+                                  ? 'Об’єкт перевірено на доступність'
+                                  : 'Municipal place verified for accessibility')
+                            : (locale === 'pl'
+                                ? 'Brak szczegółowych danych o dostępności'
+                                : locale === 'uk'
+                                  ? 'Немає детальних даних про dostępність'
+                                  : 'No detailed accessibility data')}
+                        </Text>
+                      )}
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                         <GovButton
                           title="Opis"
@@ -1840,11 +2188,16 @@ export default function MapHomeScreen() {
                           icon={<NavigationArrow size={14} weight="bold" color={colors.accentText} />}
                           variant="primary"
                           onPress={() => {
-                            setToQuery(activePlaceReport.placeName);
-                            setToPos(placePos);
+                            const destName = activePlaceReport.placeName;
+                            const destPos = placePos;
+                            setToQuery(destName);
+                            setToPos(destPos);
+                            toQueryRef.current = destName;
+                            toPosRef.current = destPos;
                             setActiveTab('route');
-                            setStatusMessage(`Ustawiono cel trasy: ${activePlaceReport.placeName}`);
+                            setStatusMessage(`Ustawiono cel trasy: ${destName}`);
                             setTimeout(() => setStatusMessage(null), 3000);
+                            clearActiveRoute();
                           }}
                           style={{ flex: 1 }}
                         />
@@ -1852,8 +2205,8 @@ export default function MapHomeScreen() {
 
                       {/* Place Accessibility Community Validations with Photos */}
                       <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={{ fontWeight: '700', fontSize: fontSize(13.5), color: colors.text }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ fontWeight: '700', fontSize: fontSize(13.5), color: colors.text, flex: 1 }}>
                             Walidacje dostępności miejsca ({placeComments.length})
                           </Text>
                           <Pressable
@@ -1862,15 +2215,16 @@ export default function MapHomeScreen() {
                             style={{
                               flexDirection: 'row',
                               alignItems: 'center',
-                              gap: 4,
-                              paddingVertical: 4,
-                              paddingHorizontal: 8,
-                              borderRadius: 6,
+                              gap: 6,
+                              paddingVertical: 8,
+                              paddingHorizontal: 12,
+                              minHeight: 38,
+                              borderRadius: 8,
                               backgroundColor: showPlaceValidationForm ? colors.border : colors.accent,
                             }}
                           >
-                            <Camera size={13} weight="bold" color="#FFF" />
-                            <Text style={{ fontSize: fontSize(11.5), color: '#FFF', fontWeight: '700' }}>
+                            <Camera size={16} weight="bold" color={showPlaceValidationForm ? colors.text : colors.accentText} />
+                            <Text style={{ fontSize: fontSize(13), color: showPlaceValidationForm ? colors.text : colors.accentText, fontWeight: '700' }}>
                               {showPlaceValidationForm ? 'Anuluj' : 'Dodaj zdjęcie'}
                             </Text>
                           </Pressable>
@@ -2545,6 +2899,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+  floatingBarrierControl: {
+    position: 'absolute',
+    top: 64,
+    left: 14,
+    right: 70,
+    zIndex: 20,
+  },
   floatingControlsRight: {
     position: 'absolute',
     right: 14,
@@ -2572,8 +2933,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 4,
+    minHeight: 48,
+    borderRadius: 24,
     gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -2598,6 +2960,23 @@ const styles = StyleSheet.create({
   routePillText: {
     flex: 1,
     fontWeight: '700',
+  },
+  routePillMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+  },
+  routePillArrow: {
+    width: 44,
+    height: 44,
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusToast: {
     position: 'absolute',
@@ -2898,6 +3277,7 @@ const styles = StyleSheet.create({
   variantButton: {
     flex: 1,
     padding: 10,
+    minHeight: 48,
     borderRadius: 8,
     gap: 3,
   },
@@ -2999,29 +3379,45 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   swapBtnRow: {
-    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginVertical: 4,
     minHeight: 38,
+    gap: 8,
+    flexWrap: 'wrap',
   },
-  swapIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
+  swapBtnRowCentered: {
     justifyContent: 'center',
   },
-  clearRouteBtn: {
-    position: 'absolute',
-    right: 0,
+  swapBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+    minHeight: 36,
+  },
+  swapBtnFlex: {
+    flex: 1,
+    minWidth: 120,
+  },
+  swapBtnText: {
+    fontWeight: '700',
+  },
+  clearRouteBtn: {
+    flex: 1,
+    minWidth: 120,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    minHeight: 36,
   },
   clearRouteBtnText: {
     fontWeight: '700',

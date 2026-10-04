@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
+import { getHarmonyNativeLocation } from '@/services/harmony';
 
 export interface UserCoordinates {
   lat: number;
@@ -100,6 +101,17 @@ export async function getCurrentUserLocation(): Promise<UserLocationResult | nul
   const granted = await checkOrRequestLocationPermission();
   if (!granted) {
     return null;
+  }
+
+  // 0. Native OpenHarmony LocationKit check
+  const harmonyLoc = getHarmonyNativeLocation();
+  if (harmonyLoc) {
+    const address = await tryReverseGeocode(harmonyLoc.lat, harmonyLoc.lon);
+    return {
+      lat: harmonyLoc.lat,
+      lon: harmonyLoc.lon,
+      address,
+    };
   }
 
   // 1. Web navigator.geolocation direct fallback for reliability

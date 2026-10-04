@@ -1,5 +1,5 @@
 import type { CityConfig } from './city-config';
-import { coverageStat, longestUnknownStretchMetres, type CoverageStat } from './coverage';
+import { coverageStat, longestUnknownStretchMetres, totalUnknownStretchMetres, type CoverageStat } from './coverage';
 import { findNearestPointOnRoute, haversineDistanceMetres, polylineLengthMetres } from './geometry';
 import {
   evaluateIncline,
@@ -286,6 +286,7 @@ export function analyzeRoute(input: RouteAnalysisInput): RouteReport {
   }
 
   const longestUnknown = longestUnknownStretchMetres(segmentCoverage);
+  const totalUnknown = totalUnknownStretchMetres(segmentCoverage);
 
   // Compute specific coverage metrics
   const coverageStats: CoverageStat[] = [];
@@ -323,6 +324,7 @@ export function analyzeRoute(input: RouteAnalysisInput): RouteReport {
     findings,
     coverage: coverageStats,
     longestUnknownStretchMetres: longestUnknown,
+    totalUnknownStretchMetres: totalUnknown,
     generatedAt: new Date().toISOString(),
     sourceNames: Array.from(sourceNameSet),
     isSample,

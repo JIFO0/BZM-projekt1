@@ -1,6 +1,6 @@
 import { DEMO_SNAPSHOT, type LonLat } from '@krakow-bez-barier/core';
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -64,6 +64,24 @@ export default function SearchScreen() {
   const [toQuery, setToQuery] = useState('');
   const [toPos, setToPos] = useState<LonLat | null>(null);
 
+  const fromPosRef = useRef<LonLat | null>(null);
+  const fromQueryRef = useRef<string>('');
+  const toPosRef = useRef<LonLat | null>(null);
+  const toQueryRef = useRef<string>('');
+
+  useEffect(() => {
+    fromPosRef.current = fromPos;
+  }, [fromPos]);
+  useEffect(() => {
+    fromQueryRef.current = fromQuery;
+  }, [fromQuery]);
+  useEffect(() => {
+    toPosRef.current = toPos;
+  }, [toPos]);
+  useEffect(() => {
+    toQueryRef.current = toQuery;
+  }, [toQuery]);
+
   const [placeQuery, setPlaceQuery] = useState('Sukiennice');
   const [placePos, setPlacePos] = useState<LonLat>({ lon: 19.9373, lat: 50.0619 });
 
@@ -71,54 +89,35 @@ export default function SearchScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [debugVisible, setDebugVisible] = useState(false);
 
-  const handleSwapPoints = () => {
-    const prevFromQuery = fromQuery;
-    const prevFromPos = fromPos;
-    setFromQuery(toQuery);
-    setFromPos(toPos);
-    setToQuery(prevFromQuery);
-    setToPos(prevFromPos);
-  };
+  const handleAnalyzeRoute = async (
+    overrideStart?: { name: string; position?: LonLat | null },
+    overrideEnd?: { name: string; position?: LonLat | null },
+  ) => {
+    const startName = overrideStart ? overrideStart.name : (fromQueryRef.current || fromQuery);
+    const endName = overrideEnd ? overrideEnd.name : (toQueryRef.current || toQuery);
+    let resolvedStart = overrideStart?.position !== undefined ? overrideStart.position : fromPosRef.current;
+    let resolvedEnd = overrideEnd?.position !== undefined ? overrideEnd.position : toPosRef.current;
 
-  const handleUseMyLocation = async () => {
-    const result = await fetchUserLocation();
-    const loc = result || userLocation;
-    if (loc) {
-      triggerGentleHaptic('location');
-      setFromQuery(result?.address || t(locale, 'myLocationShort'));
-      setFromPos({ lon: loc.lon, lat: loc.lat });
-    } else {
-      Alert.alert(
-        t(locale, 'gpsUnavailableTitle'),
-        t(locale, 'gpsUnavailableDesc'),
-      );
-    }
-  };
-
-  const handleAnalyzeRoute = async () => {
-    if (!fromQuery.trim() || !toQuery.trim()) {
-      setErrorMsg(t(locale, 'routeEndpointsRequired'));
+    if (!startName?.trim() || !endName?.trim()) {
+      if (!overrideStart && !overrideEnd) {
+        setErrorMsg(t(locale, 'routeEndpointsRequired'));
+      }
       return;
     }
     setLoading(true);
     setErrorMsg(null);
     try {
-      let resolvedStart = fromPos;
-      let resolvedEnd = toPos;
-
-      if (!resolvedStart && fromQuery.trim()) {
-        const hits = await suggestPlaces(fromQuery, locale);
+      if (!resolvedStart && startName.trim()) {
+        const hits = await suggestPlaces(startName, locale);
         if (hits.length > 0 && hits[0]?.position) {
           resolvedStart = hits[0].position;
-          setFromPos(resolvedStart);
         }
       }
 
-      if (!resolvedEnd && toQuery.trim()) {
-        const hits = await suggestPlaces(toQuery, locale);
+      if (!resolvedEnd && endName.trim()) {
+        const hits = await suggestPlaces(endName, locale);
         if (hits.length > 0 && hits[0]?.position) {
           resolvedEnd = hits[0].position;
-          setToPos(resolvedEnd);
         }
       }
 
@@ -127,9 +126,18 @@ export default function SearchScreen() {
         return;
       }
 
+      setFromQuery(startName);
+      setFromPos(resolvedStart);
+      fromQueryRef.current = startName;
+      fromPosRef.current = resolvedStart;
+      setToQuery(endName);
+      setToPos(resolvedEnd);
+      toQueryRef.current = endName;
+      toPosRef.current = resolvedEnd;
+
       const result = await planAndAnalyzeRoute({
-        start: { name: fromQuery, position: resolvedStart },
-        end: { name: toQuery, position: resolvedEnd },
+        start: { name: startName, position: resolvedStart },
+        end: { name: endName, position: resolvedEnd },
         profileId,
         thresholds: activeThresholds,
         debugState,
@@ -150,10 +158,10 @@ export default function SearchScreen() {
       router.push({
         pathname: '/route',
         params: {
-          fromName: fromQuery,
+          fromName: startName,
           fromLat: String(resolvedStart.lat),
           fromLon: String(resolvedStart.lon),
-          toName: toQuery,
+          toName: endName,
           toLat: String(resolvedEnd.lat),
           toLon: String(resolvedEnd.lon),
           profile: profileId,
@@ -175,6 +183,71 @@ export default function SearchScreen() {
     }
   };
 
+  const checkAndAutoPlanRoute = (
+    newStart?: { name: string; position?: LonLat | null },
+    newEnd?: { name: string; position?: LonLat | null },
+  ) => {
+    const curFromPos = newStart?.position !== undefined ? newStart.position : fromPosRef.current;
+    const curFromQuery = newStart ? newStart.name : fromQueryRef.current;
+    const curToPos = newEnd?.position !== undefined ? newEnd.position : toPosRef.current;
+    const curToQuery = newEnd ? newEnd.name : toQueryRef.current;
+
+    const effectiveStart = curFromPos
+      ? { name: curFromQuery?.trim() || t(locale, 'pointA'), position: curFromPos }
+      : (curFromQuery?.trim() ? { name: curFromQuery.trim() } : null);
+
+    const effectiveEnd = curToPos
+      ? { name: curToQuery?.trim() || t(locale, 'pointB'), position: curToPos }
+      : (curToQuery?.trim() ? { name: curToQuery.trim() } : null);
+
+    if (effectiveStart?.name?.trim() && effectiveEnd?.name?.trim()) {
+      handleAnalyzeRoute(effectiveStart, effectiveEnd);
+    }
+  };
+
+  const handleSwapPoints = () => {
+    const prevFromQuery = fromQueryRef.current || fromQuery;
+    const prevFromPos = fromPosRef.current || fromPos;
+    const newFromQuery = toQueryRef.current || toQuery;
+    const newFromPos = toPosRef.current || toPos;
+    const newToQuery = prevFromQuery;
+    const newToPos = prevFromPos;
+    setFromQuery(newFromQuery);
+    setFromPos(newFromPos);
+    fromQueryRef.current = newFromQuery;
+    fromPosRef.current = newFromPos;
+    setToQuery(newToQuery);
+    setToPos(newToPos);
+    toQueryRef.current = newToQuery;
+    toPosRef.current = newToPos;
+    if (newFromQuery.trim() && newToQuery.trim()) {
+      checkAndAutoPlanRoute(
+        { name: newFromQuery, position: newFromPos },
+        { name: newToQuery, position: newToPos },
+      );
+    }
+  };
+
+  const handleUseMyLocation = async () => {
+    const result = await fetchUserLocation();
+    const loc = result || userLocation;
+    if (loc) {
+      triggerGentleHaptic('location');
+      const startName = result?.address || t(locale, 'myLocationShort');
+      const startPoint = { lon: loc.lon, lat: loc.lat };
+      setFromQuery(startName);
+      setFromPos(startPoint);
+      fromQueryRef.current = startName;
+      fromPosRef.current = startPoint;
+      checkAndAutoPlanRoute({ name: startName, position: startPoint }, undefined);
+    } else {
+      Alert.alert(
+        t(locale, 'gpsUnavailableTitle'),
+        t(locale, 'gpsUnavailableDesc'),
+      );
+    }
+  };
+
   const handleInspectPlace = async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -189,15 +262,27 @@ export default function SearchScreen() {
           placeLon: String(placePos.lon),
         },
       } as any);
-    } catch (err: any) {
-      setErrorMsg(
-        err.message ||
-          (locale === 'pl'
-            ? 'Wystąpił błąd podczas sprawdzania miejsca.'
-            : locale === 'uk'
-              ? 'Сталася помилка під час перевірки місця.'
-              : 'An error occurred while checking place.')
-      );
+    } catch {
+      // Fallback report ensures the place always opens and displays the "Brak informacji" card
+      const fallbackReport = {
+        placeName: placeQuery,
+        position: placePos,
+        matchConfidence: 0,
+        isConfidentMatch: false,
+        factsByCategory: { entrance: [], inside: [], toilet: [], surroundings: [] },
+        allFacts: [],
+        summaryMessage: locale === 'pl' ? 'Brak informacji w bazie danych' : 'No information in database',
+        isSample: false,
+      };
+      setActivePlaceReport(fallbackReport as any);
+      router.push({
+        pathname: '/place',
+        params: {
+          placeName: placeQuery,
+          placeLat: String(placePos.lat),
+          placeLon: String(placePos.lon),
+        },
+      } as any);
     } finally {
       setLoading(false);
     }
@@ -341,11 +426,23 @@ export default function SearchScreen() {
               <LocationPicker
                 label={t(locale, 'from')}
                 badge="A"
-                badgeColor="#22C55E"
+                badgeColor={colors.okBorder}
                 point={{ name: fromQuery, position: fromPos }}
                 onChangePoint={(p) => {
                   setFromQuery(p.name);
                   setFromPos(p.position ?? null);
+                  fromQueryRef.current = p.name;
+                  fromPosRef.current = p.position ?? null;
+                  checkAndAutoPlanRoute(
+                    p.position ? { name: p.name, position: p.position } : (p.name.trim() ? { name: p.name } : undefined),
+                    undefined,
+                  );
+                }}
+                onClear={() => {
+                  setFromQuery('');
+                  setFromPos(null);
+                  fromQueryRef.current = '';
+                  fromPosRef.current = null;
                 }}
                 placeholder={t(locale, 'fromPlaceholder')}
                 showMyLocation
@@ -378,11 +475,23 @@ export default function SearchScreen() {
               <LocationPicker
                 label={t(locale, 'to')}
                 badge="B"
-                badgeColor="#D32F2F"
+                badgeColor={colors.blockerBorder}
                 point={{ name: toQuery, position: toPos }}
                 onChangePoint={(p) => {
                   setToQuery(p.name);
                   setToPos(p.position ?? null);
+                  toQueryRef.current = p.name;
+                  toPosRef.current = p.position ?? null;
+                  checkAndAutoPlanRoute(
+                    undefined,
+                    p.position ? { name: p.name, position: p.position } : (p.name.trim() ? { name: p.name } : undefined),
+                  );
+                }}
+                onClear={() => {
+                  setToQuery('');
+                  setToPos(null);
+                  toQueryRef.current = '';
+                  toPosRef.current = null;
                 }}
                 placeholder={t(locale, 'toPlaceholder')}
               />
