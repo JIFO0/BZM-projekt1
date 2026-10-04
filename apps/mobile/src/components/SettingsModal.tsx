@@ -8,14 +8,11 @@ import {
   View,
 } from 'react-native';
 import {
-  Check,
   CheckCircle,
   Envelope,
   Gear,
   LockKey,
-  PathIcon as Path,
   PersonArmsSpread,
-  Prohibit,
   ShieldCheck,
   SignIn,
   SignOut,
@@ -23,7 +20,6 @@ import {
   User,
   UserCheck,
   UserCircle,
-  Warning,
   X,
 } from 'phosphor-react-native';
 import { useState } from 'react';
@@ -31,7 +27,7 @@ import { useState } from 'react';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { t, type Locale } from '@/i18n/strings';
-import { useSession, type BarrierViewMode } from '@/state/session';
+import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
 export function SettingsModal() {
@@ -42,8 +38,6 @@ export function SettingsModal() {
     isHighContrast,
     fontSize,
     increasedSpacing,
-    barrierViewMode,
-    setBarrierViewMode,
     userAccount,
     loginUser,
     logoutUser,
@@ -89,50 +83,6 @@ export function SettingsModal() {
   };
 
   const minTouch = increasedSpacing ? spacing.touchExpanded : spacing.touch;
-
-  const barrierOptions: {
-    id: BarrierViewMode;
-    title: string;
-    hint: string;
-    icon: (selected: boolean) => React.ReactNode;
-  }[] = [
-    {
-      id: 'all',
-      title: t(locale, 'settingsBarrierAllTitle'),
-      hint: t(locale, 'settingsBarrierAllHint'),
-      icon: (selected) => (
-        <Path
-          size={20}
-          weight="bold"
-          color={selected ? (isHighContrast ? colors.accentText : '#FFFFFF') : colors.accent}
-        />
-      ),
-    },
-    {
-      id: 'route',
-      title: t(locale, 'settingsBarrierRouteTitle'),
-      hint: t(locale, 'settingsBarrierRouteHint'),
-      icon: (selected) => (
-        <Warning
-          size={20}
-          weight="bold"
-          color={selected ? (isHighContrast ? colors.accentText : '#FFFFFF') : colors.warningBorder}
-        />
-      ),
-    },
-    {
-      id: 'none',
-      title: t(locale, 'settingsBarrierNoneTitle'),
-      hint: t(locale, 'settingsBarrierNoneHint'),
-      icon: (selected) => (
-        <Prohibit
-          size={20}
-          weight="bold"
-          color={selected ? (isHighContrast ? colors.accentText : '#FFFFFF') : colors.muted}
-        />
-      ),
-    },
-  ];
 
   const languages: { code: Locale; label: string; flag: string }[] = [
     { code: 'pl', label: 'Polski', flag: '🇵🇱' },
@@ -231,115 +181,7 @@ export function SettingsModal() {
             ]}
             showsVerticalScrollIndicator={false}
           >
-            {/* 1. SEKCJA: WIDOK BARIER NA MAPIE */}
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <Text
-                  accessibilityRole="header"
-                  style={[styles.sectionTitle, { color: colors.text, fontSize: fontSize(15) }]}
-                >
-                  {t(locale, 'settingsBarrierSection')}
-                </Text>
-              </View>
-              <Text style={[styles.sectionDesc, { color: colors.muted, fontSize: fontSize(12) }]}>
-                {t(locale, 'settingsBarrierDesc')}
-              </Text>
-
-              <View
-                accessibilityRole="radiogroup"
-                accessibilityLabel={t(locale, 'settingsBarrierSection')}
-                style={styles.barrierOptionsList}
-              >
-                {barrierOptions.map((opt) => {
-                  const isSelected = barrierViewMode === opt.id;
-                  return (
-                    <Pressable
-                      key={opt.id}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: isSelected }}
-                      accessibilityLabel={`${opt.title}. ${opt.hint}`}
-                      onPress={() => setBarrierViewMode(opt.id)}
-                      style={[
-                        styles.barrierOptionCard,
-                        {
-                          minHeight: minTouch,
-                          borderColor: isSelected
-                            ? (isHighContrast ? colors.focus : colors.accent)
-                            : colors.border,
-                          borderWidth: isSelected ? (isHighContrast ? 3 : 2) : 1,
-                          backgroundColor: isSelected
-                            ? (isHighContrast ? colors.accent : colors.badgeBg)
-                            : (isHighContrast ? colors.background : colors.surface),
-                        },
-                      ]}
-                    >
-                      <View style={styles.barrierOptionLeft}>
-                        <View
-                          style={[
-                            styles.barrierIconBox,
-                            {
-                              backgroundColor: isSelected
-                                ? (isHighContrast ? colors.background : colors.accent)
-                                : (isHighContrast ? colors.surface : 'rgba(0,0,0,0.04)'),
-                            },
-                          ]}
-                        >
-                          {opt.icon(isSelected)}
-                        </View>
-                        <View style={styles.barrierTextCol}>
-                          <Text
-                            style={[
-                              styles.barrierOptionTitle,
-                              {
-                                color: isSelected
-                                  ? (isHighContrast ? colors.accentText : colors.text)
-                                  : colors.text,
-                                fontSize: fontSize(13.5),
-                                fontWeight: isSelected ? '800' : '600',
-                              },
-                            ]}
-                          >
-                            {opt.title}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.barrierOptionHint,
-                              {
-                                color: isSelected
-                                  ? (isHighContrast ? colors.accentText : colors.muted)
-                                  : colors.muted,
-                                fontSize: fontSize(11.5),
-                              },
-                            ]}
-                          >
-                            {opt.hint}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {isSelected ? (
-                        <View
-                          style={[
-                            styles.checkBadge,
-                            {
-                              backgroundColor: isHighContrast ? colors.background : colors.accent,
-                            },
-                          ]}
-                        >
-                          <Check
-                            size={14}
-                            weight="bold"
-                            color={isHighContrast ? colors.accent : '#FFFFFF'}
-                          />
-                        </View>
-                      ) : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* 2. SEKCJA: WYBÓR JĘZYKA */}
+            {/* 1. SEKCJA: WYBÓR JĘZYKA */}
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeaderRow}>
                 <Translate size={18} weight="bold" color={colors.accent} />
@@ -701,51 +543,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: '800',
     letterSpacing: -0.2,
-  },
-  sectionDesc: {
-    marginBottom: 10,
-    lineHeight: 16,
-  },
-  barrierOptionsList: {
-    gap: 8,
-  },
-  barrierOptionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 10,
-  },
-  barrierOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  barrierIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  barrierTextCol: {
-    flex: 1,
-  },
-  barrierOptionTitle: {
-    marginBottom: 2,
-  },
-  barrierOptionHint: {
-    lineHeight: 15,
-  },
-  checkBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   languageRow: {
     flexDirection: 'row',

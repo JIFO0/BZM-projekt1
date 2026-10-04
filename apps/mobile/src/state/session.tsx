@@ -181,6 +181,8 @@ interface SessionValue {
   setReadingMaskY: (y: number) => void;
   accessibilityModalVisible: boolean;
   setAccessibilityModalVisible: (val: boolean) => void;
+  glossaryModalVisible: boolean;
+  setGlossaryModalVisible: (val: boolean) => void;
   resetAccessibility: () => void;
 
   // Computed Theme Helpers
@@ -624,6 +626,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [readingMask, setReadingMask] = useState<boolean>(false);
   const [readingMaskY, setReadingMaskY] = useState<number>(260);
   const [accessibilityModalVisible, setAccessibilityModalVisible] = useState<boolean>(false);
+  const [glossaryModalVisible, setGlossaryModalVisible] = useState<boolean>(false);
   const [systemHealth, setSystemHealth] = useState<HarmonySystemHealth | null>(getHarmonySystemHealth);
 
   useEffect(() => {
@@ -826,6 +829,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setReadingMaskY,
       accessibilityModalVisible,
       setAccessibilityModalVisible,
+      glossaryModalVisible,
+      setGlossaryModalVisible,
       resetAccessibility,
       colors,
       fontSize,
@@ -886,6 +891,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       readingMask,
       readingMaskY,
       accessibilityModalVisible,
+      setAccessibilityModalVisible,
+      glossaryModalVisible,
+      setGlossaryModalVisible,
       resetAccessibility,
       colors,
       fontSize,

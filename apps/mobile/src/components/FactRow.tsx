@@ -6,7 +6,7 @@ import { CaretDown, CaretUp } from 'phosphor-react-native';
 import { t, type Locale, getLocalizedCriterionName, getLocalizedFactValue } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
-import { CredibilityNote, credibilityLabel, sourceWithCredit } from './CredibilityNote';
+import { CredibilityNote, credibilityLabel, sourceWithCredit, sourceA11yDescription } from './CredibilityNote';
 import { StatusBadge } from './StatusBadge';
 
 interface FactRowProps {
@@ -76,7 +76,11 @@ export function FactRow({ fact, locale }: FactRowProps) {
       <CredibilityNote assessment={credibility} locale={locale} />
 
       <View style={[styles.footerRow, { borderTopColor: colors.border }]}>
-        <Text style={[styles.sourceText, { color: colors.muted, fontSize: fontSize(12.5) }]}>
+        <Text
+          accessibilityRole="text"
+          accessibilityLabel={`Źródło danych: ${sourceA11yDescription(fact.source.name, fact.source.licence)}, data: ${dateText}`}
+          style={[styles.sourceText, { color: colors.muted, fontSize: fontSize(12.5) }]}
+        >
           {sourceLine} • {dateText}
         </Text>
         <Pressable

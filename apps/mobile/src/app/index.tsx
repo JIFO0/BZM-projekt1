@@ -239,6 +239,8 @@ export default function MapHomeScreen() {
     barrierViewMode,
     setBarrierViewMode,
     localReports,
+    glossaryModalVisible,
+    setGlossaryModalVisible,
   } = useSession();
 
   const routeBarriers = useMemo(() => {
@@ -1349,6 +1351,27 @@ export default function MapHomeScreen() {
               }
             />
           </Pressable>
+
+          {/* Słowniczek pojęć i skrótów WCAG AAA (Kryteria 3.1.3 i 3.1.4) */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(locale, 'glossaryBtn')}
+            onPress={() => setGlossaryModalVisible(true)}
+            style={[
+              styles.floatingBtn,
+              {
+                backgroundColor: glossaryModalVisible ? colors.accent : colors.surface,
+                borderColor: glossaryModalVisible ? colors.focus : colors.border,
+                borderWidth: isHighContrast ? 2.5 : 1.5,
+              },
+            ]}
+          >
+            <Question
+              size={22}
+              weight="bold"
+              color={glossaryModalVisible ? colors.accentText : colors.text}
+            />
+          </Pressable>
         </View>
 
         {/* Active Route Floating Pill (if route is active) */}
@@ -2151,8 +2174,8 @@ export default function MapHomeScreen() {
 
                       {/* Place Accessibility Community Validations with Photos */}
                       <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={{ fontWeight: '700', fontSize: fontSize(13.5), color: colors.text }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ fontWeight: '700', fontSize: fontSize(13.5), color: colors.text, flex: 1 }}>
                             Walidacje dostępności miejsca ({placeComments.length})
                           </Text>
                           <Pressable
@@ -2161,15 +2184,16 @@ export default function MapHomeScreen() {
                             style={{
                               flexDirection: 'row',
                               alignItems: 'center',
-                              gap: 4,
-                              paddingVertical: 4,
-                              paddingHorizontal: 8,
-                              borderRadius: 6,
+                              gap: 6,
+                              paddingVertical: 8,
+                              paddingHorizontal: 12,
+                              minHeight: 38,
+                              borderRadius: 8,
                               backgroundColor: showPlaceValidationForm ? colors.border : colors.accent,
                             }}
                           >
-                            <Camera size={13} weight="bold" color="#FFF" />
-                            <Text style={{ fontSize: fontSize(11.5), color: '#FFF', fontWeight: '700' }}>
+                            <Camera size={16} weight="bold" color={showPlaceValidationForm ? colors.text : colors.accentText} />
+                            <Text style={{ fontSize: fontSize(13), color: showPlaceValidationForm ? colors.text : colors.accentText, fontWeight: '700' }}>
                               {showPlaceValidationForm ? 'Anuluj' : 'Dodaj zdjęcie'}
                             </Text>
                           </Pressable>

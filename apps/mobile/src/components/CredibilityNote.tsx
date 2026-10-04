@@ -61,6 +61,28 @@ export function sourceWithCredit(name: string, licence?: string): string {
   return `${name} · ${credit}`;
 }
 
+export function sourceA11yDescription(name: string, licence?: string): string {
+  let desc = name;
+  if (/osm|openstreetmap/i.test(name)) {
+    desc = 'OpenStreetMap, otwarta baza danych kartograficznych';
+  } else if (/bdot10k/i.test(name)) {
+    desc = 'Baza Danych Obiektów Topograficznych (BDOT10k) Głównego Urzędu Geodezji i Kartografii';
+  } else if (/msip/i.test(name)) {
+    desc = 'Miejski System Informacji Przestrzennej Urzędu Miasta Krakowa';
+  } else if (/mapy/i.test(name)) {
+    desc = 'Serwis kartograficzny i nawigacyjny Mapy.com';
+  }
+
+  if (licence) {
+    if (/odbl/i.test(licence)) {
+      desc += ', na licencji Open Database License (ODbL)';
+    } else {
+      desc += `, licencja: ${licence}`;
+    }
+  }
+  return desc;
+}
+
 const styles = StyleSheet.create({
   line: {
     fontWeight: '700',

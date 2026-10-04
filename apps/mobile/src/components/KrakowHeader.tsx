@@ -146,7 +146,7 @@ export function KrakowHeader({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t(locale, 'settingsTitle')}
-        accessibilityHint="Otwiera panel ustawień aplikacji, wyboru języka, widoku barier i konta"
+        accessibilityHint="Otwiera panel ustawień aplikacji, wyboru języka i konta"
         onPress={() => setSettingsModalVisible(true)}
         style={[
           styles.secondaryBtn,
