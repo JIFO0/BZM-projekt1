@@ -1110,7 +1110,7 @@ export async function createServerHazard(data: {
 export async function verifyServerHazard(
   hazardId: string,
   data: {
-    action: 'still_here' | 'fixed';
+    action: 'still_here' | 'fixed' | 'unset';
     email?: string;
     photoUrl?: string;
     comment?: string;

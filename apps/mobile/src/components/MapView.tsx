@@ -28,6 +28,7 @@ export interface MapViewProps {
   inspectedPlace?: { name?: string; lat: number; lon: number } | null;
   userLocation?: { lat: number; lon: number } | null;
   onMapClick?: (coords: { lat: number; lon: number }) => void;
+  onReportClick?: (report: any) => void;
   isPickingMode?: boolean;
 }
 
@@ -44,6 +45,7 @@ export function MapView({
   inspectedPlace,
   userLocation,
   onMapClick,
+  onReportClick,
   isPickingMode = false,
 }: MapViewProps) {
   const { colors, isHighContrast, locale, textSize, fontSize } = useSession();
@@ -201,19 +203,27 @@ export function MapView({
       const isReport = f.type === 'report';
 
       const valueText = cleanVal || localizedVal || f.fact.value;
+      const refId = f.fact.subject.ref?.startsWith('report/') ? f.fact.subject.ref.slice(7) : f.id;
       return {
         index: i + 1,
+        id: f.id,
+        reportId: (f as any).reportId || refId,
         type: f.type,
         lat: f.fact.subject.lat,
         lon: f.fact.subject.lon,
-        title: isReport ? typeLabel : `${typeLabel}: ${valueText}`,
+        title: isReport ? (cleanVal || localizedVal || f.fact.value || typeLabel) : `${typeLabel}: ${valueText}`,
         short: isReport ? typeLabel : valueText,
         value: valueText,
         severity: f.severity,
         color,
+        category: (f as any).category,
+        photoUrl: (f as any).photoUrl,
+        stillHereCount: (f as any).stillHereCount ?? 0,
+        fixedCount: (f as any).fixedCount ?? 0,
+        createdAt: f.fact.retrievedAt,
       };
     });
-  }, [findings, colors, locale]);
+  }, [findings, colors, locale, isHighContrast]);
 
   const initialMarkersRef = useRef(markersData);
   const pendingMarkers = useRef(markersData);
@@ -902,7 +912,26 @@ export function MapView({
           '</div>';
 
         var marker = L.marker([lat, lon], { icon: icon }).addTo(markersLayer);
-        marker.bindPopup(popupHtml);
+        if (m.type === 'report') {
+          marker.on('click', function(e) {
+            if (e && e.originalEvent && typeof e.originalEvent.stopPropagation === 'function') {
+              e.originalEvent.stopPropagation();
+            }
+            var msg = JSON.stringify({
+              type: 'REPORT_CLICK',
+              reportId: m.reportId,
+              report: m,
+            });
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage(msg, '*');
+            }
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(msg);
+            }
+          });
+        } else {
+          marker.bindPopup(popupHtml);
+        }
       });
     }
 
@@ -1139,6 +1168,8 @@ export function MapView({
         if (data.type === 'MAP_READY') {
           isMapLoaded.current = true;
           flushPendingUpdates();
+        } else if (data.type === 'REPORT_CLICK' && onReportClick) {
+          onReportClick(data.report);
         } else if (data.type === 'MAP_CLICK' && onMapClick) {
           onMapClick({ lat: data.lat, lon: data.lon });
         } else if (data.type === 'MAP_MOVE_END') {
@@ -1148,7 +1179,7 @@ export function MapView({
     };
     window.addEventListener('message', handleWindowMessage);
     return () => window.removeEventListener('message', handleWindowMessage);
-  }, [onMapClick, flushPendingUpdates]);
+  }, [onMapClick, onReportClick, flushPendingUpdates]);
 
   return (
     <View
@@ -1183,7 +1214,9 @@ export function MapView({
             try {
               const data = JSON.parse(event.nativeEvent.data);
               if (!data) return;
-              if (data.type === 'MAP_CLICK' && onMapClick) {
+              if (data.type === 'REPORT_CLICK' && onReportClick) {
+                onReportClick(data.report);
+              } else if (data.type === 'MAP_CLICK' && onMapClick) {
                 onMapClick({ lat: data.lat, lon: data.lon });
               } else if (data.type === 'MAP_MOVE_END') {
                 currentPositionRef.current = { lat: data.lat, lon: data.lon, zoom: data.zoom };
