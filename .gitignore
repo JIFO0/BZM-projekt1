@@ -50,6 +50,14 @@ app-example
 /ios
 /android
 
+# HarmonyOS / DevEco
+/oh_modules/
+/entry/oh_modules/
+/.hvigor/
+/entry/build/
+/local.properties
+/oh-package-lock.json5
+
 # GraphHopper cache and osm files
 backend/data/graph-cache/
 backend/data/*.osm.pbf

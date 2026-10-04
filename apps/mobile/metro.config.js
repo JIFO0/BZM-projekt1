@@ -31,6 +31,11 @@ const excludedDirs = [
   path.resolve(workspaceRoot, 'tasks'),
   path.resolve(workspaceRoot, 'scripts'),
   path.resolve(workspaceRoot, 'schemas'),
+  path.resolve(workspaceRoot, 'entry'),
+  path.resolve(workspaceRoot, 'AppScope'),
+  path.resolve(workspaceRoot, 'hvigor'),
+  path.resolve(workspaceRoot, 'oh_modules'),
+  path.resolve(workspaceRoot, '.hvigor'),
 ];
 
 const exclusionPatterns = excludedDirs.map(
