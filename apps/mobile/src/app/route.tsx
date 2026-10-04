@@ -51,6 +51,7 @@ import {
   t,
 } from '@/i18n/strings';
 import { fetchServerHazards, planAndAnalyzeRoute, type RouteVariantId, type ServerRouteHazard } from '@/services/api';
+import { triggerGentleHaptic } from '@/services/haptics';
 import { city } from '@/config/city';
 import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
 import { useSession } from '@/state/session';
@@ -171,13 +172,14 @@ export default function RouteScreen() {
         debugState,
       })
         .then((result) => {
+          triggerGentleHaptic('route');
           setActiveWalkingRoute(result.walkingRoute);
           setActiveRouteReport(result.report);
           setActiveRouteFacts(result.facts);
           setActiveRouteIsSample(result.isSample);
           setRouteVariants(result.variants ?? null);
-          const raw = routeParams.variant || result.selectedVariant || 'accessible';
-          const v = raw === 'shortest' ? 'fastest' : raw;
+          const raw = (routeParams.variant || result.selectedVariant || 'accessible') as string;
+          const v = (raw === 'shortest' ? 'fastest' : raw) as RouteVariantId;
           selectRouteVariant(v);
         })
         .catch((err) => {
@@ -215,13 +217,14 @@ export default function RouteScreen() {
         debugState,
       })
         .then((result) => {
+          triggerGentleHaptic('route');
           setActiveWalkingRoute(result.walkingRoute);
           setActiveRouteReport(result.report);
           setActiveRouteFacts(result.facts);
           setActiveRouteIsSample(result.isSample);
           setRouteVariants(result.variants ?? null);
-          const raw = routeParams.variant || result.selectedVariant || 'accessible';
-          const v = raw === 'shortest' ? 'fastest' : raw;
+          const raw = (routeParams.variant || result.selectedVariant || 'accessible') as string;
+          const v = (raw === 'shortest' ? 'fastest' : raw) as RouteVariantId;
           selectRouteVariant(v);
         })
         .catch((err) => {

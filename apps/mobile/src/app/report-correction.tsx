@@ -38,6 +38,7 @@ import { KrakowHeader } from '@/components/KrakowHeader';
 import { t } from '@/i18n/strings';
 import { pickPhotoAsync } from '@/services/photo';
 import { uploadPhotoToServer, createServerHazard } from '@/services/api';
+import { triggerGentleHaptic } from '@/services/haptics';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -109,6 +110,8 @@ export default function ReportCorrectionScreen() {
       addLocalReport(description.trim(), {
         photoUrl: serverPhotoUrl,
       });
+
+      triggerGentleHaptic('report');
 
       setDescription('');
       setPhotoUri(null);
