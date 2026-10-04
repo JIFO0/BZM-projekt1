@@ -114,11 +114,11 @@ export function MapLocationPopup({
 
       {/* 3 Action Buttons */}
       <View style={styles.actionsRow}>
-        {/* 1. Search in Place Inspector */}
+        {/* 1. Set as Start Location (A) */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${t(locale, 'mapClickActionSearchPlace')}: ${location.name}`}
-          onPress={onSearchPlace}
+          accessibilityLabel={`${t(locale, 'mapClickActionSetStart')}: ${location.name}`}
+          onPress={onSetStart}
           style={[
             styles.actionButton,
             {
@@ -127,7 +127,7 @@ export function MapLocationPopup({
             },
           ]}
         >
-          <MagnifyingGlass size={15} weight="bold" color={colors.surface} />
+          <NavigationArrow size={15} weight="bold" color={colors.surface} />
           <Text
             numberOfLines={1}
             style={[
@@ -135,36 +135,11 @@ export function MapLocationPopup({
               { color: colors.surface, fontSize: fontSize(12) },
             ]}
           >
-            {t(locale, 'mapClickActionSearchPlace')}
-          </Text>
-        </Pressable>
-
-        {/* 2. Set as Start Location (A) */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${t(locale, 'mapClickActionSetStart')}: ${location.name}`}
-          onPress={onSetStart}
-          style={[
-            styles.actionButton,
-            {
-              backgroundColor: colors.surface,
-              borderColor: isHighContrast ? colors.accent : colors.border,
-            },
-          ]}
-        >
-          <NavigationArrow size={15} weight="bold" color={colors.accent} />
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.actionButtonText,
-              { color: colors.text, fontSize: fontSize(12) },
-            ]}
-          >
             {t(locale, 'mapClickActionSetStart')}
           </Text>
         </Pressable>
 
-        {/* 3. Set as Destination Location (B) */}
+        {/* 2. Set as Destination Location (B) */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${t(locale, 'mapClickActionSetEnd')}: ${location.name}`}
@@ -186,6 +161,31 @@ export function MapLocationPopup({
             ]}
           >
             {t(locale, 'mapClickActionSetEnd')}
+          </Text>
+        </Pressable>
+
+        {/* 3. Search in Place Inspector / Check Accessibility */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t(locale, 'mapClickActionSearchPlace')}: ${location.name}`}
+          onPress={onSearchPlace}
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor: colors.surface,
+              borderColor: isHighContrast ? colors.accent : colors.border,
+            },
+          ]}
+        >
+          <MagnifyingGlass size={15} weight="bold" color={colors.accent} />
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.actionButtonText,
+              { color: colors.text, fontSize: fontSize(12) },
+            ]}
+          >
+            {t(locale, 'mapClickActionSearchPlace')}
           </Text>
         </Pressable>
       </View>

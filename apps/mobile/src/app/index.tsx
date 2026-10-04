@@ -248,19 +248,7 @@ export default function MapHomeScreen() {
     lon: 19.9373,
   });
 
-  // Handle pending destination set from place screen or external sources
-  useEffect(() => {
-    if (pendingDestination) {
-      setToQuery(pendingDestination.name);
-      setToPos(pendingDestination.position);
-      setActiveTab('route');
-      setPopupExpanded(true);
-      setMapCenter({ lat: pendingDestination.position.lat, lon: pendingDestination.position.lon });
-      setStatusMessage(`Ustawiono cel trasy: ${pendingDestination.name}`);
-      setPendingDestination(null);
-      setTimeout(() => setStatusMessage(null), 3000);
-    }
-  }, [pendingDestination, setPendingDestination]);
+
 
   // Proactively request / fetch location on mount
   useEffect(() => {
@@ -474,17 +462,139 @@ export default function MapHomeScreen() {
     }
   };
 
+  // 2. Plan & Analyze Route
+  const handleAnalyzeRoute = async (
+    overrideStart?: { name: string; position?: LonLat | null },
+    overrideEnd?: { name: string; position?: LonLat | null },
+  ) => {
+    const startName = overrideStart ? overrideStart.name : fromQuery;
+    const endName = overrideEnd ? overrideEnd.name : toQuery;
+    let resolvedStart = overrideStart?.position !== undefined ? overrideStart.position : fromPos;
+    let resolvedEnd = overrideEnd?.position !== undefined ? overrideEnd.position : toPos;
+
+    if (!startName?.trim() || !endName?.trim()) {
+      if (!overrideStart && !overrideEnd) {
+        Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
+      }
+      return;
+    }
+    setLoadingRoute(true);
+    setStatusMessage(null);
+    try {
+      if (!resolvedStart && startName.trim()) {
+        const hits = await suggestPlaces(startName, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedStart = hits[0].position;
+        }
+      }
+
+      if (!resolvedEnd && endName.trim()) {
+        const hits = await suggestPlaces(endName, locale);
+        if (hits.length > 0 && hits[0]?.position) {
+          resolvedEnd = hits[0].position;
+        }
+      }
+
+      if (!resolvedStart || !resolvedEnd) {
+        Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
+        return;
+      }
+
+      setFromQuery(startName);
+      setFromPos(resolvedStart);
+      setToQuery(endName);
+      setToPos(resolvedEnd);
+
+      const result = await planAndAnalyzeRoute({
+        start: { name: startName, position: resolvedStart },
+        end: { name: endName, position: resolvedEnd },
+        profileId,
+        thresholds: activeThresholds,
+        debugState,
+      });
+
+      triggerGentleHaptic('route');
+
+      setActiveWalkingRoute(result.walkingRoute);
+      setActiveRouteReport(result.report);
+      setActiveRouteFacts(result.facts);
+      setActiveRouteIsSample(result.isSample);
+      setRouteVariants(result.variants ?? null);
+      if (result.selectedVariant) {
+        selectRouteVariant(result.selectedVariant);
+      }
+      setBarrierViewMode('route');
+      setPopupExpanded(true);
+      setActiveTab('route');
+
+      router.setParams({
+        fromName: startName,
+        fromLat: String(resolvedStart.lat),
+        fromLon: String(resolvedStart.lon),
+        toName: endName,
+        toLat: String(resolvedEnd.lat),
+        toLon: String(resolvedEnd.lon),
+        profile: profileId,
+        variant: result.selectedVariant || selectedRouteVariant,
+      });
+
+      // Center map on route start
+      if (result.walkingRoute.coordinates.length > 0) {
+        setMapCenter({
+          lat: result.walkingRoute.coordinates[0]![1],
+          lon: result.walkingRoute.coordinates[0]![0],
+        });
+      }
+    } catch (err: any) {
+      Alert.alert(t(locale, 'routeErrorTitle'), err.message || t(locale, 'routeErrorMsg'));
+    } finally {
+      setLoadingRoute(false);
+    }
+  };
+
+  const checkAndAutoPlanRoute = (
+    newStart?: { name: string; position?: LonLat | null },
+    newEnd?: { name: string; position?: LonLat | null },
+  ) => {
+    const effectiveStart = newStart || (fromPos ? { name: fromQuery, position: fromPos } : (fromQuery.trim() ? { name: fromQuery } : null));
+    const effectiveEnd = newEnd || (toPos ? { name: toQuery, position: toPos } : (toQuery.trim() ? { name: toQuery } : null));
+
+    if (effectiveStart?.name?.trim() && effectiveEnd?.name?.trim()) {
+      handleAnalyzeRoute(effectiveStart, effectiveEnd);
+    }
+  };
+
+  // Handle pending destination set from place screen or external sources
+  useEffect(() => {
+    if (pendingDestination) {
+      const destName = pendingDestination.name;
+      const destPos = pendingDestination.position;
+      setToQuery(destName);
+      setToPos(destPos);
+      setActiveTab('route');
+      setPopupExpanded(true);
+      setMapCenter({ lat: destPos.lat, lon: destPos.lon });
+      setStatusMessage(`Ustawiono cel trasy: ${destName}`);
+      setPendingDestination(null);
+      setTimeout(() => setStatusMessage(null), 3000);
+      checkAndAutoPlanRoute(undefined, { name: destName, position: destPos });
+    }
+  }, [pendingDestination, setPendingDestination, fromPos, fromQuery]);
+
   const handleUseMyLocation = async () => {
     setStatusMessage(t(locale, 'gpsFetching'));
     const result = await fetchUserLocation();
     const loc = result || userLocation;
     if (loc) {
       triggerGentleHaptic('location');
-      setFromQuery(result?.address || t(locale, 'myLocationShort'));
-      setFromPos({ lon: loc.lon, lat: loc.lat });
+      const startName = result?.address || t(locale, 'myLocationShort');
+      const startPoint = { lon: loc.lon, lat: loc.lat };
+      setFromQuery(startName);
+      setFromPos(startPoint);
       setMapCenter({ lat: loc.lat, lon: loc.lon });
       setStatusMessage(t(locale, 'gpsStartPointSet'));
       setTimeout(() => setStatusMessage(null), 2500);
+      checkAndAutoPlanRoute({ name: startName, position: startPoint }, undefined);
     } else {
       Alert.alert(
         t(locale, 'gpsUnavailableTitle'),
@@ -493,9 +603,12 @@ export default function MapHomeScreen() {
           {
             text: t(locale, 'btnCenterKrakowAction'),
             onPress: () => {
-              setFromQuery(t(locale, 'rynekGlowny'));
-              setFromPos({ lon: 19.9373, lat: 50.0619 });
+              const startName = t(locale, 'rynekGlowny');
+              const startPoint = { lon: 19.9373, lat: 50.0619 };
+              setFromQuery(startName);
+              setFromPos(startPoint);
               setMapCenter({ lat: 50.0619, lon: 19.9373 });
+              checkAndAutoPlanRoute({ name: startName, position: startPoint }, undefined);
             },
           },
           { text: t(locale, 'cancel'), style: 'cancel' },
@@ -509,10 +622,20 @@ export default function MapHomeScreen() {
   const handleSwapPoints = () => {
     const prevFromQuery = fromQuery;
     const prevFromPos = fromPos;
-    setFromQuery(toQuery);
-    setFromPos(toPos);
-    setToQuery(prevFromQuery);
-    setToPos(prevFromPos);
+    const newFromQuery = toQuery;
+    const newFromPos = toPos;
+    const newToQuery = prevFromQuery;
+    const newToPos = prevFromPos;
+    setFromQuery(newFromQuery);
+    setFromPos(newFromPos);
+    setToQuery(newToQuery);
+    setToPos(newToPos);
+    if (newFromQuery.trim() && newToQuery.trim()) {
+      checkAndAutoPlanRoute(
+        { name: newFromQuery, position: newFromPos },
+        { name: newToQuery, position: newToPos },
+      );
+    }
   };
 
   // Interactive Map Click Handler
@@ -532,12 +655,14 @@ export default function MapHomeScreen() {
         setPickingTarget(null);
         setStatusMessage(`${t(locale, 'pointA')}: ${name}`);
         setTimeout(() => setStatusMessage(null), 3000);
+        checkAndAutoPlanRoute({ name, position: coords }, undefined);
       } else if (pickingTarget === 'end') {
         setToPos(coords);
         setToQuery(name);
         setPickingTarget(null);
         setStatusMessage(`${t(locale, 'pointB')}: ${name}`);
         setTimeout(() => setStatusMessage(null), 3000);
+        checkAndAutoPlanRoute(undefined, { name, position: coords });
       } else if (pickingTarget === 'place') {
         setPlacePos(coords);
         setPlaceQuery(name);
@@ -587,86 +712,6 @@ export default function MapHomeScreen() {
       name,
       isLoading: false,
     });
-  };
-
-  // 2. Plan & Analyze Route
-  const handleAnalyzeRoute = async () => {
-    if (!fromQuery.trim() || !toQuery.trim()) {
-      Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
-      return;
-    }
-    setLoadingRoute(true);
-    setStatusMessage(null);
-    try {
-      let resolvedStart = fromPos;
-      let resolvedEnd = toPos;
-
-      if (!resolvedStart && fromQuery.trim()) {
-        const hits = await suggestPlaces(fromQuery, locale);
-        if (hits.length > 0 && hits[0]?.position) {
-          resolvedStart = hits[0].position;
-          setFromPos(resolvedStart);
-        }
-      }
-
-      if (!resolvedEnd && toQuery.trim()) {
-        const hits = await suggestPlaces(toQuery, locale);
-        if (hits.length > 0 && hits[0]?.position) {
-          resolvedEnd = hits[0].position;
-          setToPos(resolvedEnd);
-        }
-      }
-
-      if (!resolvedStart || !resolvedEnd) {
-        Alert.alert(t(locale, 'warningTitle'), t(locale, 'routeEndpointsRequired'));
-        return;
-      }
-
-      const result = await planAndAnalyzeRoute({
-        start: { name: fromQuery, position: resolvedStart },
-        end: { name: toQuery, position: resolvedEnd },
-        profileId,
-        thresholds: activeThresholds,
-        debugState,
-      });
-
-      triggerGentleHaptic('route');
-
-      setActiveWalkingRoute(result.walkingRoute);
-      setActiveRouteReport(result.report);
-      setActiveRouteFacts(result.facts);
-      setActiveRouteIsSample(result.isSample);
-      setRouteVariants(result.variants ?? null);
-      if (result.selectedVariant) {
-        selectRouteVariant(result.selectedVariant);
-      }
-      setBarrierViewMode('route');
-      setPopupExpanded(true);
-      setActiveTab('route');
-
-      router.setParams({
-        fromName: fromQuery,
-        fromLat: String(resolvedStart.lat),
-        fromLon: String(resolvedStart.lon),
-        toName: toQuery,
-        toLat: String(resolvedEnd.lat),
-        toLon: String(resolvedEnd.lon),
-        profile: profileId,
-        variant: result.selectedVariant || selectedRouteVariant,
-      });
-
-      // Center map on route start
-      if (result.walkingRoute.coordinates.length > 0) {
-        setMapCenter({
-          lat: result.walkingRoute.coordinates[0]![1],
-          lon: result.walkingRoute.coordinates[0]![0],
-        });
-      }
-    } catch (err: any) {
-      Alert.alert(t(locale, 'routeErrorTitle'), err.message || t(locale, 'routeErrorMsg'));
-    } finally {
-      setLoadingRoute(false);
-    }
   };
 
   // 3. Inspect Place (supports optional direct query/position overrides and screen navigation)
@@ -855,6 +900,7 @@ export default function MapHomeScreen() {
     setActiveTab('route');
     setStatusMessage(`Ustawiono cel trasy: ${p.name}`);
     setTimeout(() => setStatusMessage(null), 3000);
+    checkAndAutoPlanRoute(undefined, { name: p.name, position: p.position });
   };
 
   // Clear Active Route
@@ -1215,6 +1261,7 @@ export default function MapHomeScreen() {
                 setStatusMessage(`${t(locale, 'pointA')}: ${targetName}`);
                 setClickedLocation(null);
                 setTimeout(() => setStatusMessage(null), 3000);
+                checkAndAutoPlanRoute({ name: targetName, position: targetPos }, undefined);
               }}
               onSetEnd={() => {
                 const targetPos = { lat: clickedLocation.lat, lon: clickedLocation.lon };
@@ -1224,6 +1271,7 @@ export default function MapHomeScreen() {
                 setStatusMessage(`${t(locale, 'pointB')}: ${targetName}`);
                 setClickedLocation(null);
                 setTimeout(() => setStatusMessage(null), 3000);
+                checkAndAutoPlanRoute(undefined, { name: targetName, position: targetPos });
               }}
               onClose={() => setClickedLocation(null)}
             />
@@ -1456,10 +1504,20 @@ export default function MapHomeScreen() {
                       if (p.position) {
                         setMapCenter({ lat: p.position.lat, lon: p.position.lon });
                       }
+                      checkAndAutoPlanRoute(
+                        p.position ? { name: p.name, position: p.position } : (p.name.trim() ? { name: p.name } : undefined),
+                        undefined,
+                      );
                     }}
                     placeholder={t(locale, 'fromPlaceholder')}
                     showMyLocation
                     onUseMyLocation={handleUseMyLocation}
+                    onPickOnMap={() => {
+                      setPickingTarget('start');
+                      setPopupExpanded(false);
+                      setStatusMessage(locale === 'pl' ? 'Wskaż punkt początkowy (A) na mapie' : 'Tap on map to set start point (A)');
+                    }}
+                    isPickingOnMap={pickingTarget === 'start'}
                   />
 
                   {/* Swap Points Button (Icon centered between destinations) and Red Clear Route Button */}
@@ -1514,8 +1572,18 @@ export default function MapHomeScreen() {
                       if (p.position) {
                         setMapCenter({ lat: p.position.lat, lon: p.position.lon });
                       }
+                      checkAndAutoPlanRoute(
+                        undefined,
+                        p.position ? { name: p.name, position: p.position } : (p.name.trim() ? { name: p.name } : undefined),
+                      );
                     }}
                     placeholder={t(locale, 'toPlaceholder')}
+                    onPickOnMap={() => {
+                      setPickingTarget('end');
+                      setPopupExpanded(false);
+                      setStatusMessage(locale === 'pl' ? 'Wskaż cel trasy (B) na mapie' : 'Tap on map to set destination (B)');
+                    }}
+                    isPickingOnMap={pickingTarget === 'end'}
                   />
 
                   {/* Plan Route Action */}
@@ -1820,11 +1888,14 @@ export default function MapHomeScreen() {
                           icon={<NavigationArrow size={14} weight="bold" color={colors.accentText} />}
                           variant="primary"
                           onPress={() => {
-                            setToQuery(activePlaceReport.placeName);
-                            setToPos(placePos);
+                            const destName = activePlaceReport.placeName;
+                            const destPos = placePos;
+                            setToQuery(destName);
+                            setToPos(destPos);
                             setActiveTab('route');
-                            setStatusMessage(`Ustawiono cel trasy: ${activePlaceReport.placeName}`);
+                            setStatusMessage(`Ustawiono cel trasy: ${destName}`);
                             setTimeout(() => setStatusMessage(null), 3000);
+                            checkAndAutoPlanRoute(undefined, { name: destName, position: destPos });
                           }}
                           style={{ flex: 1 }}
                         />
