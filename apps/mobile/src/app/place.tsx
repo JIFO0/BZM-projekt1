@@ -42,7 +42,7 @@ import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
 import { KrakowHeader } from '@/components/KrakowHeader';
-import { t } from '@/i18n/strings';
+import { t, getLocalizedCriterionName, getLocalizedFactValue, getLocalizedCategoryName } from '@/i18n/strings';
 import {
   inspectPlace,
   fetchPlaceServerComments,
@@ -299,8 +299,6 @@ export default function PlaceScreen() {
       <Stack.Screen options={{ headerShown: false, title: report.placeName }} />
       <KrakowHeader showBack backTitle={locale === 'pl' ? 'Wróć do mapy' : 'Back to map'} />
 
-      <DemoBanner isSample={report.isSample} />
-
       <ScrollView
         contentContainerStyle={[
           styles.content,
@@ -310,7 +308,7 @@ export default function PlaceScreen() {
           },
         ]}
       >
-        {/* Place Header & Match Confidence */}
+        {/* Place Header */}
         <GovCard variant="accent">
           <View style={styles.cardTopRow}>
             <Text style={[styles.krakowPlaceTag, { color: colors.accent, fontSize: fontSize(12) }]}>
@@ -330,55 +328,6 @@ export default function PlaceScreen() {
           >
             {report.placeName}
           </Text>
-          <Text
-            style={[
-              styles.summaryMsg,
-              {
-                color: colors.muted,
-                fontSize: fontSize(14.5),
-                lineHeight: fontSize(22),
-              },
-            ]}
-          >
-            {report.summaryMessage}
-          </Text>
-
-          <View style={styles.confidenceRow}>
-            <Text style={[styles.confLabel, { color: colors.text, fontSize: fontSize(14) }]}>
-              {t(locale, 'matchConfidence')}:
-            </Text>
-            <View
-              style={[
-                styles.confBadge,
-                {
-                  backgroundColor: report.isConfidentMatch ? colors.okBg : colors.unknownBg,
-                  borderColor: report.isConfidentMatch ? colors.okBorder : colors.unknownBorder,
-                  borderWidth: isHighContrast ? 2 : 1.5,
-                },
-              ]}
-            >
-              <View style={styles.inlineBadgeRow}>
-                {report.isConfidentMatch ? (
-                  <CheckCircle size={15} color={colors.okText} weight="bold" />
-                ) : (
-                  <Question size={15} color={colors.unknownText} weight="bold" />
-                )}
-                <Text
-                  style={[
-                    styles.confBadgeText,
-                    {
-                      color: report.isConfidentMatch ? colors.okText : colors.unknownText,
-                      fontSize: fontSize(13),
-                    },
-                  ]}
-                >
-                  {report.isConfidentMatch
-                    ? `${Math.round(report.matchConfidence * 100)}% (${t(locale, 'confidentMatch')})`
-                    : t(locale, 'noPlaceData')}
-                </Text>
-              </View>
-            </View>
-          </View>
 
           <GovButton
             title="Wyznacz trasę do tego miejsca"
@@ -409,14 +358,14 @@ export default function PlaceScreen() {
             {conflicts.map((conf, idx) => (
               <View key={idx} style={[styles.conflictItem, { borderTopColor: colors.conflictingBorder }]}>
                 <Text style={[styles.conflictHeader, { color: colors.conflictingText, fontSize: fontSize(13.5) }]}>
-                  {t(locale, 'criterion')}: {conf.criterion}
+                  {t(locale, 'criterion')}: {getLocalizedCriterionName(conf.criterion, locale)}
                 </Text>
                 {conf.facts.map((f) => (
                   <Text
                     key={f.id}
                     style={[styles.conflictRow, { color: colors.conflictingText, fontSize: fontSize(13) }]}
                   >
-                    {`• ${t(locale, 'source')}: ${f.source.name} → ${t(locale, 'value')}: "${f.value}"`}
+                    {`• ${t(locale, 'source')}: ${f.source.name} → ${t(locale, 'value')}: "${getLocalizedFactValue(f.value, locale)}"`}
                   </Text>
                 ))}
               </View>
@@ -444,7 +393,7 @@ export default function PlaceScreen() {
           </GovCard>
         ) : null}
 
-        {/* 4 Standard Challenge Categories (R4) */}
+        {/* Standard Challenge Categories */}
         <CategorySection
           title={t(locale, 'catEntrance')}
           icon={<Door size={20} color={colors.accent} weight="bold" />}
@@ -463,13 +412,6 @@ export default function PlaceScreen() {
           title={t(locale, 'catToilet')}
           icon={<Toilet size={20} color={colors.accent} weight="bold" />}
           facts={report.factsByCategory.toilet}
-          locale={locale}
-        />
-
-        <CategorySection
-          title={t(locale, 'catSurroundings')}
-          icon={<Tree size={20} color={colors.accent} weight="bold" />}
-          facts={report.factsByCategory.surroundings}
           locale={locale}
         />
 
@@ -729,7 +671,7 @@ export default function PlaceScreen() {
                       {pc.sentiment === 'positive'
                         ? (locale === 'pl' ? 'Dostępne' : 'Accessible')
                         : (locale === 'pl' ? 'Bariera' : 'Barrier')}
-                      {pc.category ? ` · ${pc.category}` : ''}
+                      {pc.category ? ` · ${getLocalizedCategoryName(pc.category, locale)}` : ''}
                     </Text>
                     <Text style={{ fontSize: fontSize(11.5), color: colors.muted }}>
                       {pc.createdAt?.slice(0, 10)}

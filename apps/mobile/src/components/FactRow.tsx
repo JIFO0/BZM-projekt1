@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CaretDown, CaretUp } from 'phosphor-react-native';
 
-import { t, type Locale } from '@/i18n/strings';
+import { t, type Locale, getLocalizedCriterionName, getLocalizedFactValue } from '@/i18n/strings';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 import { CredibilityNote, credibilityLabel, sourceWithCredit } from './CredibilityNote';
@@ -17,6 +17,9 @@ interface FactRowProps {
 export function FactRow({ fact, locale }: FactRowProps) {
   const { colors, fontSize, isHighContrast, highlightLinks } = useSession();
   const [expanded, setExpanded] = useState(false);
+
+  const criterionDisplay = getLocalizedCriterionName(fact.criterion, locale);
+  const valueDisplay = getLocalizedFactValue(fact.value, locale);
 
   const dl = dateLabel(fact);
   let dateText = '';
@@ -41,10 +44,10 @@ export function FactRow({ fact, locale }: FactRowProps) {
 
   const a11yLabel =
     locale === 'pl'
-      ? `${fact.criterion}: ${fact.value}. Status: ${fact.status}. Źródło: ${sourceLine}, ${dateText}. ${indexLabel}`
+      ? `${criterionDisplay}: ${valueDisplay}. Status: ${fact.status}. Źródło: ${sourceLine}, ${dateText}. ${indexLabel}`
       : locale === 'uk'
-        ? `${fact.criterion}: ${fact.value}. Статус: ${fact.status}. Джерело: ${sourceLine}, ${dateText}. ${indexLabel}`
-        : `${fact.criterion}: ${fact.value}. Status: ${fact.status}. Source: ${sourceLine}, ${dateText}. ${indexLabel}`;
+        ? `${criterionDisplay}: ${valueDisplay}. Статус: ${fact.status}. Джерело: ${sourceLine}, ${dateText}. ${indexLabel}`
+        : `${criterionDisplay}: ${valueDisplay}. Status: ${fact.status}. Source: ${sourceLine}, ${dateText}. ${indexLabel}`;
 
   return (
     <View
@@ -61,13 +64,13 @@ export function FactRow({ fact, locale }: FactRowProps) {
     >
       <View style={styles.topRow}>
         <Text style={[styles.criterionText, { color: colors.accent, fontSize: fontSize(13.5) }]}>
-          {fact.criterion}
+          {criterionDisplay}
         </Text>
         <StatusBadge status={fact.status} locale={locale} />
       </View>
 
       <Text style={[styles.valueText, { color: colors.text, fontSize: fontSize(16) }]}>
-        {fact.value}
+        {valueDisplay}
       </Text>
 
       <CredibilityNote assessment={credibility} locale={locale} />
@@ -128,11 +131,6 @@ export function FactRow({ fact, locale }: FactRowProps) {
               • {t(locale, 'noCheckDateLabel')}
             </Text>
           )}
-          {fact.matchConfidence !== undefined ? (
-            <Text style={[styles.detailItem, { color: colors.text, fontSize: fontSize(13) }]}>
-              • {t(locale, 'placeMatchConfidenceLabel')}: {Math.round(fact.matchConfidence * 100)}%
-            </Text>
-          ) : null}
         </View>
       ) : null}
     </View>

@@ -1765,7 +1765,17 @@ export default function MapHomeScreen() {
                         </Text>
                       </View>
                       <Text style={[styles.resultSub, { color: colors.muted, fontSize: fontSize(13) }]}>
-                        {activePlaceReport.summaryMessage}
+                        {activePlaceReport.isConfidentMatch
+                          ? (locale === 'pl'
+                              ? 'Miejski obiekt zweryfikowany pod kątem dostępności'
+                              : locale === 'uk'
+                                ? 'Об’єкт перевірено на доступність'
+                                : 'Municipal place verified for accessibility')
+                          : (locale === 'pl'
+                              ? 'Brak szczegółowych danych o dostępności'
+                              : locale === 'uk'
+                                ? 'Немає детальних даних про dostępність'
+                                : 'No detailed accessibility data')}
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                         <GovButton

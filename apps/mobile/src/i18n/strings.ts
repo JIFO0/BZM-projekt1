@@ -1529,6 +1529,77 @@ export function getLocalizedBarrierMessage(
   return barrier.message;
 }
 
+export function getLocalizedCriterionName(criterion: string, locale: Locale): string {
+  if (!criterion) return '';
+  const c = criterion.toLowerCase().trim();
+
+  if (c === 'elevator' || c === 'highway:elevator' || c.includes('elevator') || c.includes('winda')) {
+    return locale === 'pl' ? 'Winda' : locale === 'uk' ? 'Ліфт' : 'Elevator';
+  }
+  if (c === 'toilets:wheelchair' || c === 'toilet' || c.includes('toaleta') || c.includes('toilet')) {
+    return locale === 'pl' ? 'Toaleta dla osób z niepełnosprawnościami' : locale === 'uk' ? 'Інклюзивна вбиральня' : 'Accessible toilet';
+  }
+  if (c === 'entrance:wheelchair' || c === 'entrance' || c.includes('entrance') || c.includes('wejście')) {
+    return locale === 'pl' ? 'Dostępność wejścia' : locale === 'uk' ? 'Доступність входу' : 'Accessible entrance';
+  }
+  if (c === 'wheelchair') {
+    return locale === 'pl' ? 'Dostępność dla wózków' : locale === 'uk' ? 'Доступність для крісел колісних' : 'Wheelchair accessibility';
+  }
+  if (c === 'surface:surroundings' || c === 'surroundings') {
+    return locale === 'pl' ? 'Nawierzchnia otoczenia' : locale === 'uk' ? 'Покриття території' : 'Surroundings surface';
+  }
+  if (c === 'surface' || c.includes('nawierzchni')) {
+    return locale === 'pl' ? 'Nawierzchnia' : locale === 'uk' ? 'Покриття' : 'Surface';
+  }
+  if (c === 'tactile_paving' || c.includes('tactile')) {
+    return locale === 'pl' ? 'Oznaczenia dotykowe (pasy fakturowe)' : locale === 'uk' ? 'Тактильна плитка' : 'Tactile paving';
+  }
+  if (c === 'hearing_loop' || c.includes('loop')) {
+    return locale === 'pl' ? 'Pętla indukcyjna dla niedosłyszących' : locale === 'uk' ? 'Індукційна петля' : 'Hearing loop';
+  }
+  if (c === 'ramp' || c.includes('rampa')) {
+    return locale === 'pl' ? 'Rampa / pochylnia' : locale === 'uk' ? 'Пандус' : 'Ramp';
+  }
+  if (c === 'steps' || c.includes('schody')) {
+    return locale === 'pl' ? 'Schody' : locale === 'uk' ? 'Сходи' : 'Steps';
+  }
+  if (c === 'kerb' || c.includes('krawężnik')) {
+    return locale === 'pl' ? 'Krawężnik' : locale === 'uk' ? 'Бордюр' : 'Kerb';
+  }
+  if (c === 'incline' || c.includes('nachylenie')) {
+    return locale === 'pl' ? 'Nachylenie' : locale === 'uk' ? 'Нахил' : 'Incline';
+  }
+  if (c === 'crossing' || c.includes('przejście')) {
+    return locale === 'pl' ? 'Przejście dla pieszych' : locale === 'uk' ? 'Пішохідний перехід' : 'Crossing';
+  }
+  if (c === 'width' || c.includes('szerokoś')) {
+    return locale === 'pl' ? 'Szerokość przejścia' : locale === 'uk' ? 'Ширина проходу' : 'Passage width';
+  }
+  if (c.includes('door')) {
+    return locale === 'pl' ? 'Drzwi wejściowe' : locale === 'uk' ? 'Вхідні двері' : 'Entrance door';
+  }
+  if (c.includes('parking')) {
+    return locale === 'pl' ? 'Miejsce parkingowe PRM' : locale === 'uk' ? 'Місця для паркування' : 'Accessible parking';
+  }
+
+  const formatted = criterion
+    .replace(/^[^:]+:/, '')
+    .replace(/_/g, ' ')
+    .trim();
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+export function getLocalizedCategoryName(category: string, locale: Locale): string {
+  if (!category) return '';
+  const c = category.toLowerCase().trim();
+  if (c === 'entrance') return locale === 'pl' ? 'Wejście' : locale === 'uk' ? 'Вхід' : 'Entrance';
+  if (c === 'inside') return locale === 'pl' ? 'Wnętrze' : locale === 'uk' ? 'Інтер’єр' : 'Inside';
+  if (c === 'toilet') return locale === 'pl' ? 'Toaleta PRM' : locale === 'uk' ? 'Інклюзивна вбиральня' : 'Accessible Toilet';
+  if (c === 'surroundings') return locale === 'pl' ? 'Otoczenie' : locale === 'uk' ? 'Територія' : 'Surroundings';
+  if (c === 'general') return locale === 'pl' ? 'Ogólne' : locale === 'uk' ? 'Загальне' : 'General';
+  return category;
+}
+
 export function getLocalizedFactValue(val: string, locale: Locale): string {
   if (!val) return '';
 
@@ -1551,6 +1622,34 @@ export function getLocalizedFactValue(val: string, locale: Locale): string {
   if (lower === 'yes' || lower === 'wheelchair=yes' || lower === '(wheelchair=yes)') {
     return locale === 'pl' ? 'Dostępne' : locale === 'uk' ? 'Доступно' : 'Accessible';
   }
+  if (lower === 'designated') {
+    return locale === 'pl' ? 'Dedykowane dla osób z niepełnosprawnościami' : locale === 'uk' ? 'Спеціально облаштоване' : 'Designated accessible';
+  }
+  if (lower === 'winda obecna') {
+    return locale === 'pl' ? 'Dostępna winda' : locale === 'uk' ? 'Ліфт наявний' : 'Elevator available';
+  }
+  if (lower.includes('traffic_signals=yes') && lower.includes('tactile_paving=yes')) {
+    return locale === 'pl'
+      ? 'Sygnalizacja dźwiękowa i pasy dotykowe'
+      : locale === 'uk'
+        ? 'Звуковий світлофор та тактильна плитка'
+        : 'Traffic signals & tactile paving';
+  }
+
+  // Replace common API prefixes like "yes (", "no (", "limited ("
+  cleaned = cleaned.replace(/^yes\s*\((.*)\)$/i, (_match, p1) => {
+    return locale === 'pl' ? `Dostępne (${p1})` : locale === 'uk' ? `Доступно (${p1})` : `Accessible (${p1})`;
+  });
+  cleaned = cleaned.replace(/^no\s*\((.*)\)$/i, (_match, p1) => {
+    return locale === 'pl' ? `Niedostępne (${p1})` : locale === 'uk' ? `Недоступно (${p1})` : `Not accessible (${p1})`;
+  });
+  cleaned = cleaned.replace(/^limited\s*\((.*)\)$/i, (_match, p1) => {
+    return locale === 'pl' ? `Częściowo dostępne (${p1})` : locale === 'uk' ? `Частково доступно (${p1})` : `Partially accessible (${p1})`;
+  });
+
+  // Strip raw tag expressions like ramp=no, ramp=yes
+  cleaned = cleaned.replace(/ramp=no/gi, locale === 'pl' ? 'brak rampy' : locale === 'uk' ? 'без пандуса' : 'no ramp');
+  cleaned = cleaned.replace(/ramp=yes/gi, locale === 'pl' ? 'rampa obecna' : locale === 'uk' ? 'є пандус' : 'ramp present');
 
   // Strip any orphan raw tag key=value strings if present
   cleaned = cleaned.replace(/\s*\([a-z_]+=[a-z_]+\)/gi, '').trim();
