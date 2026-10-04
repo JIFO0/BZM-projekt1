@@ -257,6 +257,7 @@ export default function MapHomeScreen() {
         return routeBarriers;
       case 'all':
       default:
+        // Wszystkie: bariery na trasie i w mieście
         return allCityBarriers;
     }
   }, [barrierViewMode, routeBarriers, allCityBarriers]);
@@ -403,6 +404,16 @@ export default function MapHomeScreen() {
   const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | 'report' | null>(null);
 
   const displayedFindings = useMemo(() => {
+    // If barrierViewMode is 'none', do not show any barrier markers or citizen reports
+    if (barrierViewMode === 'none') {
+      return [];
+    }
+
+    // Only show citizen reports when viewing all barriers ('all')
+    if (barrierViewMode === 'route') {
+      return baseMapFindings;
+    }
+
     const reports = citizenReportsAsFindings([
       ...serverHazards.map((hazard) => ({
         id: hazard.id,
@@ -420,7 +431,7 @@ export default function MapHomeScreen() {
       })),
     ]);
     return [...baseMapFindings, ...reports];
-  }, [baseMapFindings, serverHazards, localReports]);
+  }, [baseMapFindings, serverHazards, localReports, barrierViewMode]);
 
   // Clicked map location popup state
   const [clickedLocation, setClickedLocation] = useState<{

@@ -272,20 +272,15 @@ export default function RouteScreen() {
     [serverHazards, localReports],
   );
 
-  // Filter displayed findings based on barrier view mode. Reports stay on the map wherever they are.
+  // Filter displayed findings based on barrier view mode
   const displayedFindings = useMemo(() => {
-    const base = (() => {
-      switch (barrierViewMode) {
-        case 'none':
-          return [];
-        case 'route':
-          return activeRouteReport?.findings || [];
-        case 'all':
-        default:
-          return allCityBarriers;
-      }
-    })();
-    return [...base, ...reportFindings];
+    if (barrierViewMode === 'none') {
+      return [];
+    }
+    if (barrierViewMode === 'route') {
+      return activeRouteReport?.findings || [];
+    }
+    return [...allCityBarriers, ...reportFindings];
   }, [barrierViewMode, activeRouteReport?.findings, allCityBarriers, reportFindings]);
 
   if (loading) {

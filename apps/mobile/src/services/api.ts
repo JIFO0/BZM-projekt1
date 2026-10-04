@@ -23,6 +23,7 @@ import {
   OsmOverpassProvider,
   OsmRoutingProvider,
 } from '@krakow-bez-barier/sources';
+import { getAllCityFacts } from '@/services/barriers';
 
 function getMapyApiKey(): string {
   return process.env.EXPO_PUBLIC_MAPY_API_KEY || '';
@@ -227,6 +228,15 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     }
   }
 
+  // Merge known curated city barriers (krakow center barriers, etc.) with OSM facts
+  const cityFacts = getAllCityFacts();
+  const existingFactIds = new Set(facts.map((f) => f.id));
+  for (const cf of cityFacts) {
+    if (!existingFactIds.has(cf.id)) {
+      facts.push(cf);
+    }
+  }
+
   // 3. Deterministic route analysis in core
   const report = analyzeRoute({
     routeId: `route-${Date.now()}`,
@@ -247,21 +257,33 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     DEMO_SNAPSHOT.routes[1]!;
 
   if (isSample) {
+    const shortestFacts = [...sampleShortest.facts];
+    const shortestFactIds = new Set(shortestFacts.map((f) => f.id));
+    for (const cf of cityFacts) {
+      if (!shortestFactIds.has(cf.id)) shortestFacts.push(cf);
+    }
+
     const shortestReport = analyzeRoute({
       routeId: `route-shortest-${Date.now()}`,
       profileId,
       routeCoordinates: sampleShortest.walkingRoute.coordinates,
-      facts: sampleShortest.facts,
+      facts: shortestFacts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,
     });
 
+    const accessibleFacts = [...sampleAccessible.facts];
+    const accessibleFactIds = new Set(accessibleFacts.map((f) => f.id));
+    for (const cf of cityFacts) {
+      if (!accessibleFactIds.has(cf.id)) accessibleFacts.push(cf);
+    }
+
     const accessibleReport = analyzeRoute({
       routeId: `route-accessible-${Date.now()}`,
       profileId,
       routeCoordinates: sampleAccessible.walkingRoute.coordinates,
-      facts: sampleAccessible.facts,
+      facts: accessibleFacts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,
