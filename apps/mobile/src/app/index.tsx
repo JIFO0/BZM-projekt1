@@ -72,7 +72,8 @@ import {
   fetchPlaceServerComments,
   addPlaceServerComment,
 } from '@/services/api';
-import { citizenReportsAsFindings, getAllCityBarriers } from '@/services/barriers';
+import { city } from '@/config/city';
+import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -152,7 +153,7 @@ function extractRouteParams(params: Record<string, any>) {
       if (decoded.toLon !== undefined) toLon = parseFloat(decoded.toLon);
       if (decoded.demoRoute !== undefined) demoRoute = parseInt(decoded.demoRoute, 10);
       if (decoded.variant) variant = decoded.variant;
-    } catch {}
+    } catch { }
   }
 
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -171,7 +172,7 @@ function extractRouteParams(params: Record<string, any>) {
       if (!toName && getVal('toName')) toName = getVal('toName')!;
       if (demoRoute === undefined && getVal('demoRoute')) demoRoute = parseInt(getVal('demoRoute')!, 10);
       if (!variant && getVal('variant')) variant = getVal('variant') as RouteVariantId;
-    } catch {}
+    } catch { }
   }
 
   return { fromName, fromLat, fromLon, toName, toLat, toLon, demoRoute, variant };
@@ -233,29 +234,12 @@ export default function MapHomeScreen() {
     userAccount,
     barrierViewMode,
     setBarrierViewMode,
+    localReports,
   } = useSession();
 
-  // All barriers across Kraków computed with active thresholds
-  const allCityBarriers = useMemo(() => {
-    return getAllCityBarriers(activeThresholds);
-  }, [activeThresholds]);
-
-  // Barriers on the active route
   const routeBarriers = useMemo(() => {
     return activeRouteReport?.findings || [];
   }, [activeRouteReport]);
-
-  const baseMapFindings = useMemo(() => {
-    switch (barrierViewMode) {
-      case 'none':
-        return [];
-      case 'route':
-        return routeBarriers;
-      case 'all':
-      default:
-        return allCityBarriers;
-    }
-  }, [barrierViewMode, routeBarriers, allCityBarriers]);
 
   // Map state
   const [mapCenter, setMapCenter] = useState<{ lat: number; lon: number }>({
@@ -405,17 +389,23 @@ export default function MapHomeScreen() {
   const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | 'report' | null>(null);
 
   const displayedFindings = useMemo(() => {
-    const reports = citizenReportsAsFindings(
-      serverHazards.map((hazard) => ({
+    const reports = citizenReportsAsFindings([
+      ...serverHazards.map((hazard) => ({
         id: hazard.id,
         description: hazard.description,
         position: hazard.position,
         createdAt: hazard.createdAt,
         status: hazard.status,
       }))
-    );
-    return [...baseMapFindings, ...reports];
-  }, [baseMapFindings, serverHazards]);
+    ]);
+    return selectMapFindings({
+      mode: barrierViewMode,
+      routeFindings: routeBarriers,
+      reports,
+      routeCoordinates: activeWalkingRoute?.coordinates,
+      corridorMetres: city.corridorMeters,
+    });
+  }, [barrierViewMode, routeBarriers, serverHazards, activeWalkingRoute?.coordinates]);
 
   // Clicked map location popup state
   const [clickedLocation, setClickedLocation] = useState<{
@@ -531,7 +521,7 @@ export default function MapHomeScreen() {
       try {
         const rev = await reverseGeocodeLocation(coords.lat, coords.lon, locale);
         if (rev?.name) name = rev.name;
-      } catch {}
+      } catch { }
 
       if (pickingTarget === 'start') {
         setFromPos(coords);
@@ -808,7 +798,7 @@ export default function MapHomeScreen() {
             });
           }
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => setLoadingRoute(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -941,8 +931,8 @@ export default function MapHomeScreen() {
         locale === 'pl'
           ? 'Zgłoszenie zostało przesłane na serwer i oznaczone na mapie.'
           : locale === 'uk'
-          ? 'Повідомлення надіслано на сервер та відображено на карті.'
-          : 'Report submitted to server and displayed on map.'
+            ? 'Повідомлення надіслано на сервер та відображено на карті.'
+            : 'Report submitted to server and displayed on map.'
       );
       setTimeout(() => {
         setReportSuccess(false);
@@ -953,9 +943,9 @@ export default function MapHomeScreen() {
       Alert.alert(
         locale === 'pl' ? 'Błąd serwera' : locale === 'uk' ? 'Помилка сервера' : 'Server error',
         err.message ||
-          (locale === 'pl'
-            ? 'Nie udało się zapisać zgłoszenia na serwerze.'
-            : locale === 'uk'
+        (locale === 'pl'
+          ? 'Nie udało się zapisać zgłoszenia na serwerze.'
+          : locale === 'uk'
             ? 'Не вдалося зберегти повідомлення на сервері.'
             : 'Failed to submit report to server.')
       );
@@ -1044,32 +1034,32 @@ export default function MapHomeScreen() {
           startLocation={
             activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
               ? {
-                  name: fromQuery || 'Start',
-                  lat: activeWalkingRoute.coordinates[0]![1],
-                  lon: activeWalkingRoute.coordinates[0]![0],
-                }
+                name: fromQuery || 'Start',
+                lat: activeWalkingRoute.coordinates[0]![1],
+                lon: activeWalkingRoute.coordinates[0]![0],
+              }
               : fromPos && fromPos.lat != null && fromPos.lon != null && fromQuery.trim().length > 0
-              ? {
+                ? {
                   name: fromQuery,
                   lat: fromPos.lat,
                   lon: fromPos.lon,
                 }
-              : undefined
+                : undefined
           }
           endLocation={
             activeWalkingRoute && activeWalkingRoute.coordinates.length > 0
               ? {
-                  name: toQuery || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'),
-                  lat: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1],
-                  lon: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0],
-                }
+                name: toQuery || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'),
+                lat: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![1],
+                lon: activeWalkingRoute.coordinates[activeWalkingRoute.coordinates.length - 1]![0],
+              }
               : toPos && toPos.lat != null && toPos.lon != null && toQuery.trim().length > 0
-              ? {
+                ? {
                   name: toQuery,
                   lat: toPos.lat,
                   lon: toPos.lon,
                 }
-              : undefined
+                : undefined
           }
           onMapClick={handleMapClick}
           isPickingMode={pickingTarget !== null}
@@ -1176,8 +1166,10 @@ export default function MapHomeScreen() {
                 }
                 setBarrierViewMode(newMode);
               }}
-              routeBarriersCount={routeBarriers.length}
-              allBarriersCount={allCityBarriers.length}
+              routeBarriersCount={
+                routeBarriers.filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning').length
+              }
+              allBarriersCount={routeBarriers.length}
               hasActiveRoute={Boolean(activeWalkingRoute)}
             />
           </View>
@@ -1535,7 +1527,7 @@ export default function MapHomeScreen() {
                       {routeVariants ? (
                         <View style={styles.variantSection}>
                           <Text style={[styles.variantSectionTitle, { color: colors.text, fontSize: fontSize(13.5), fontWeight: '700' }]}>
-                            Wybór wariantu trasy:
+                            {t(locale, 'routeVariantHeading')}
                           </Text>
                           <View style={styles.variantButtonsRow}>
                             <Pressable
@@ -1569,7 +1561,7 @@ export default function MapHomeScreen() {
                                     },
                                   ]}
                                 >
-                                  Bez barier
+                                  {t(locale, 'routeVariantAccessible')}
                                 </Text>
                               </View>
                               <Text
@@ -1587,16 +1579,16 @@ export default function MapHomeScreen() {
 
                             <Pressable
                               accessibilityRole="button"
-                              accessibilityState={{ selected: selectedRouteVariant === 'shortest' }}
-                              onPress={() => selectRouteVariant('shortest')}
+                              accessibilityState={{ selected: selectedRouteVariant === 'fastest' }}
+                              onPress={() => selectRouteVariant('fastest')}
                               style={[
                                 styles.variantButton,
                                 {
                                   backgroundColor:
-                                    selectedRouteVariant === 'shortest' ? colors.accent : colors.background,
+                                    selectedRouteVariant === 'fastest' ? colors.accent : colors.background,
                                   borderColor:
-                                    selectedRouteVariant === 'shortest' ? colors.accent : colors.border,
-                                  borderWidth: selectedRouteVariant === 'shortest' ? 2 : 1,
+                                    selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
+                                  borderWidth: selectedRouteVariant === 'fastest' ? 2 : 1,
                                 },
                               ]}
                             >
@@ -1604,60 +1596,72 @@ export default function MapHomeScreen() {
                                 <Lightning
                                   size={16}
                                   weight="bold"
-                                  color={selectedRouteVariant === 'shortest' ? colors.accentText : colors.warningText}
+                                  color={selectedRouteVariant === 'fastest' ? colors.accentText : colors.warningText}
                                 />
                                 <Text
                                   style={[
                                     styles.variantTitle,
                                     {
-                                      color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.text,
+                                      color: selectedRouteVariant === 'fastest' ? colors.accentText : colors.text,
                                       fontSize: fontSize(13),
-                                      fontWeight: selectedRouteVariant === 'shortest' ? '800' : '600',
+                                      fontWeight: selectedRouteVariant === 'fastest' ? '800' : '600',
                                     },
                                   ]}
                                 >
-                                  Najkrótsza
+                                  {t(locale, 'routeVariantFastest')}
                                 </Text>
                               </View>
                               <Text
                                 style={[
                                   styles.variantSub,
                                   {
-                                    color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.muted,
+                                    color: selectedRouteVariant === 'fastest' ? colors.accentText : colors.muted,
                                     fontSize: fontSize(11.5),
                                   },
                                 ]}
                               >
-                                {(routeVariants.shortest.report.lengthMetres / 1000).toFixed(1)} km • {formatBlockerCount(routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length, locale)}
+                                {Math.max(1, Math.round((routeVariants.fastest.walkingRoute.durationSeconds || 60) / 60))} min • {(routeVariants.fastest.report.lengthMetres / 1000).toFixed(1)} km
                               </Text>
                             </Pressable>
                           </View>
 
-                          {selectedRouteVariant === 'shortest' &&
-                            routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length > 0 && (
-                              <View
-                                style={[
-                                  styles.variantWarningCallout,
-                                  {
-                                    backgroundColor: colors.warningBg,
-                                    borderColor: colors.warningBorder,
-                                    borderWidth: 1.5,
-                                  },
-                                ]}
-                              >
-                                <Warning size={18} weight="bold" color={colors.warningText} />
-                                <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
-                                  Trasa najkrótsza jest o{' '}
-                                  {Math.max(
-                                    0,
-                                    routeVariants.accessible.report.lengthMetres - routeVariants.shortest.report.lengthMetres,
-                                  )}{' '}
-                                  m krótsza, ale zawiera{' '}
-                                  {formatBlockerCount(routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length, locale)}{' '}
-                                  dla Twojego profilu. Trasa bez barier omija przeszkody.
-                                </Text>
-                              </View>
-                            )}
+                          {selectedRouteVariant === 'accessible' &&
+                            routeVariants.accessible.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
+                            <View
+                              style={[
+                                styles.variantWarningCallout,
+                                {
+                                  backgroundColor: colors.warningBg,
+                                  borderColor: colors.warningBorder,
+                                  borderWidth: 1.5,
+                                },
+                              ]}
+                            >
+                              <Warning size={18} weight="bold" color={colors.warningText} />
+                              <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
+                                {t(locale, 'routeVariantAccessibleGap')}
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          {selectedRouteVariant === 'fastest' &&
+                            routeVariants.fastest.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
+                            <View
+                              style={[
+                                styles.variantWarningCallout,
+                                {
+                                  backgroundColor: colors.warningBg,
+                                  borderColor: colors.warningBorder,
+                                  borderWidth: 1.5,
+                                },
+                              ]}
+                            >
+                              <Warning size={18} weight="bold" color={colors.warningText} />
+                              <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
+                                {t(locale, 'routeVariantFastestWarning')}
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
                       ) : null}
 
@@ -2025,8 +2029,8 @@ export default function MapHomeScreen() {
                     </GovCard>
                   ) : null}
 
-                  </View>
-                ) : null}
+                </View>
+              ) : null}
 
               {/* TAB 3: PROFIL I NAWIERZCHNIE (PROFILE & ROAD SURFACES) */}
               {activeTab === 'profile' ? (
@@ -2175,18 +2179,18 @@ export default function MapHomeScreen() {
                                 (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'blocker'
                                 ? colors.blockerText
                                 : (activeThresholds.stepsTreatment ??
-                                    (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'warning'
-                                ? colors.warningText
-                                : colors.okText,
+                                  (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'warning'
+                                  ? colors.warningText
+                                  : colors.okText,
                           }}
                         >
                           {(activeThresholds.stepsTreatment ??
                             (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'blocker'
                             ? t(locale, 'blockedStatusBlocked')
                             : (activeThresholds.stepsTreatment ??
-                                (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'warning'
-                            ? t(locale, 'severityWarning')
-                            : t(locale, 'stepsAllowed')}
+                              (activeThresholds.stepsAreBlocker ? 'blocker' : 'warning')) === 'warning'
+                              ? t(locale, 'severityWarning')
+                              : t(locale, 'stepsAllowed')}
                         </Text>
                       </Text>
                       <View style={styles.presetChipsRow}>
@@ -2477,8 +2481,8 @@ export default function MapHomeScreen() {
                   isUploadingPhoto
                     ? (locale === 'pl' ? 'Przesyłanie zdjęcia...' : locale === 'uk' ? 'Завантаження фото...' : 'Uploading photo...')
                     : isSubmittingReport
-                    ? (locale === 'pl' ? 'Wysyłanie na serwer...' : locale === 'uk' ? 'Надсилання на сервер...' : 'Submitting to server...')
-                    : t(locale, 'reportSubmit')
+                      ? (locale === 'pl' ? 'Wysyłanie na serwer...' : locale === 'uk' ? 'Надсилання на сервер...' : 'Submitting to server...')
+                      : t(locale, 'reportSubmit')
                 }
                 icon={<Check size={16} weight="bold" color={colors.accentText} />}
                 variant="primary"

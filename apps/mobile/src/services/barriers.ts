@@ -1,6 +1,7 @@
 import {
   DEMO_SNAPSHOT,
   evaluateFactSeverity,
+  findNearestPointOnRoute,
   type BarrierThresholds,
   type Fact,
   type RouteFinding,
@@ -579,4 +580,44 @@ export function citizenReportsAsFindings(reports: CitizenReportPoint[]): RouteFi
   }
 
   return findings;
+}
+
+export type BarrierMapMode = 'none' | 'route' | 'all';
+
+function findingOnRoute(
+  finding: RouteFinding,
+  routeCoordinates: Array<[number, number]>,
+  corridorMetres: number,
+): boolean {
+  const { lat, lon } = finding.fact.subject;
+  if (lat == null || lon == null) return false;
+  const nearest = findNearestPointOnRoute(routeCoordinates, { lat, lon });
+  return nearest != null && nearest.distanceToLineMetres <= corridorMetres;
+}
+
+/**
+ * Map pins for the active route.
+ * `route` — blockers and warnings on that line.
+ * `all` — every evaluated point on that line, including ones that meet the profile.
+ * `none` — no pins.
+ * Resident reports stay only when they sit on the same line.
+ */
+export function selectMapFindings(input: {
+  mode: BarrierMapMode;
+  routeFindings: RouteFinding[];
+  reports: RouteFinding[];
+  routeCoordinates?: Array<[number, number]>;
+  corridorMetres: number;
+}): RouteFinding[] {
+  if (input.mode === 'none') return [];
+  const coordinates = input.routeCoordinates ?? [];
+  const reportsOnRoute =
+    coordinates.length > 0
+      ? input.reports.filter((report) => findingOnRoute(report, coordinates, input.corridorMetres))
+      : [];
+  const base =
+    input.mode === 'route'
+      ? input.routeFindings.filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning')
+      : input.routeFindings;
+  return [...base, ...reportsOnRoute];
 }

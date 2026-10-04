@@ -9,8 +9,10 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "export:harmony-web": "node ./scripts/export-harmony-web.js",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:apk": "eas build -p android --profile preview"
   },
   "dependencies": {
     "@krakow-bez-barier/core": "*",

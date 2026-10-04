@@ -1,0 +1,2 @@
+# Obfuscation is disabled for the debug-friendly React shell.
+-disable-obfuscation

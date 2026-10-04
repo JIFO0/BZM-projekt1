@@ -23,6 +23,7 @@ import {
   OsmOverpassProvider,
   OsmRoutingProvider,
 } from '@krakow-bez-barier/sources';
+import { getAllCityFacts } from '@/services/barriers';
 
 function getMapyApiKey(): string {
   return process.env.EXPO_PUBLIC_MAPY_API_KEY || '';
@@ -85,7 +86,7 @@ const osmNominatim = new OsmNominatimGeocodingProvider({
 const osmRouting = new OsmRoutingProvider();
 
 
-export type RouteVariantId = 'accessible' | 'shortest';
+export type RouteVariantId = 'accessible' | 'fastest';
 
 export interface RouteVariant {
   id: RouteVariantId;
@@ -128,24 +129,94 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     isSample = true;
     fallbackNotice = 'Tryb symulacji offline: załadowano trasę ze snapshotu.';
   } else {
-    let routed = false;
-
-    // 1. Try self-hosted GraphHopper first (applies dynamic barrier weights)
+    // 1. Try self-hosted GraphHopper first (barrier-light walk and plain fastest walk)
     try {
-      walkingRoute = await graphhopperRouting.route({
+      const pair = await graphhopperRouting.routePair({
         start: start.position,
         end: end.position,
         profileId,
         thresholds: params.thresholds,
       });
-      routed = true;
-      const hasOtherSurface = walkingRoute.surfaceSpans?.some((span) => span.tone === 'other');
-      fallbackNotice = hasOtherSurface
-        ? 'Objazd bez barier wychodzi poza rozsądny dystans, więc trasa idzie krócej po chodniku. Niebieski odcinek ma nawierzchnię z listy „okej”, pomarańczowy — inną.'
-        : 'Trasa zoptymalizowana przez silnik GraphHopper (dynamiczne wagi barier).';
+
+      const loadFacts = async (coordinates: Array<[number, number]>) => {
+        try {
+          const bundle: AccessibilityBundle = await osmOverpass.fetchAroundGeometry({
+            coordinates,
+            corridorMetres: city.corridorMeters,
+          });
+          return bundle.facts;
+        } catch {
+          return [] as Fact[];
+        }
+      };
+
+      const sameLine =
+        pair.accessible.coordinates.length === pair.fastest.coordinates.length &&
+        pair.accessible.lengthMetres === pair.fastest.lengthMetres;
+      const accessibleFacts = await loadFacts(pair.accessible.coordinates);
+      const fastestFacts = sameLine ? accessibleFacts : await loadFacts(pair.fastest.coordinates);
+
+      const accessibleReport = analyzeRoute({
+        routeId: `route-accessible-${Date.now()}`,
+        profileId,
+        routeCoordinates: pair.accessible.coordinates,
+        facts: accessibleFacts,
+        config: city,
+        thresholds: params.thresholds,
+        isSample: false,
+      });
+      const fastestReport = analyzeRoute({
+        routeId: `route-fastest-${Date.now()}`,
+        profileId,
+        routeCoordinates: pair.fastest.coordinates,
+        facts: fastestFacts,
+        config: city,
+        thresholds: params.thresholds,
+        isSample: false,
+      });
+
+      const accessibleHasGap = pair.accessible.surfaceSpans?.some((span) => span.tone === 'other');
+      const notice = accessibleFacts.length === 0 && fastestFacts.length === 0
+        ? 'Nie udało się pobrać barier z OpenStreetMap. Trasa między wskazanymi punktami została zachowana, ale bez oceny krawężników i nawierzchni.'
+        : accessibleHasGap
+          ? 'Objazd bez barier wychodzi poza rozsądny dystans, więc trasa bez barier idzie krócej. Pomarańczowe odcinki nie spełniają kryteriów profilu. Najszybsza trasa piesza jest dostępna osobno.'
+          : 'Trasa bez barier omija zmapowane przeszkody, o ile objazd mieści się w rozsądnym dystansie. Najszybsza trasa piesza maluje na pomarańczowo odcinki poza kryteriami.';
+
+      const variants: Record<RouteVariantId, RouteVariant> = {
+        accessible: {
+          id: 'accessible',
+          title: 'Bez barier',
+          description: 'Trasa z najmniejszą liczbą barier, bez dzikiego objazdu',
+          walkingRoute: pair.accessible,
+          report: accessibleReport,
+          facts: accessibleFacts,
+          isSample: false,
+        },
+        fastest: {
+          id: 'fastest',
+          title: 'Najszybsza',
+          description: 'Najszybsza trasa piesza. Odcinki poza kryteriami są pomarańczowe.',
+          walkingRoute: pair.fastest,
+          report: fastestReport,
+          facts: fastestFacts,
+          isSample: false,
+        },
+      };
+
+      return {
+        walkingRoute: variants.accessible.walkingRoute,
+        report: variants.accessible.report,
+        facts: variants.accessible.facts,
+        fallbackNotice: notice,
+        isSample: false,
+        variants,
+        selectedVariant: 'accessible',
+      };
     } catch {
       // GraphHopper unavailable or point out of sample bounds
     }
+
+    let routed = false;
 
     // 2. Fall back to Mapy.com if GraphHopper couldn't route this area
     if (!routed && hasValidMapyKey() && !debugState.simulateMapyDown) {
@@ -231,6 +302,15 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     }
   }
 
+  // Merge known curated city barriers (krakow center barriers, etc.) with OSM facts
+  const cityFacts = getAllCityFacts();
+  const existingFactIds = new Set(facts.map((f) => f.id));
+  for (const cf of cityFacts) {
+    if (!existingFactIds.has(cf.id)) {
+      facts.push(cf);
+    }
+  }
+
   // 3. Deterministic route analysis in core
   const report = analyzeRoute({
     routeId: `route-${Date.now()}`,
@@ -251,21 +331,33 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     DEMO_SNAPSHOT.routes[1]!;
 
   if (isSample) {
+    const shortestFacts = [...sampleShortest.facts];
+    const shortestFactIds = new Set(shortestFacts.map((f) => f.id));
+    for (const cf of cityFacts) {
+      if (!shortestFactIds.has(cf.id)) shortestFacts.push(cf);
+    }
+
     const shortestReport = analyzeRoute({
       routeId: `route-shortest-${Date.now()}`,
       profileId,
       routeCoordinates: sampleShortest.walkingRoute.coordinates,
-      facts: sampleShortest.facts,
+      facts: shortestFacts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,
     });
 
+    const accessibleFacts = [...sampleAccessible.facts];
+    const accessibleFactIds = new Set(accessibleFacts.map((f) => f.id));
+    for (const cf of cityFacts) {
+      if (!accessibleFactIds.has(cf.id)) accessibleFacts.push(cf);
+    }
+
     const accessibleReport = analyzeRoute({
       routeId: `route-accessible-${Date.now()}`,
       profileId,
       routeCoordinates: sampleAccessible.walkingRoute.coordinates,
-      facts: sampleAccessible.facts,
+      facts: accessibleFacts,
       config: city,
       thresholds: params.thresholds,
       isSample: true,
@@ -281,11 +373,18 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
         facts: sampleAccessible.facts,
         isSample: true,
       },
-      shortest: {
-        id: 'shortest',
-        title: 'Najkrótsza (ul. Grodzka)',
-        description: 'Najkrótszy dystans (920 m), zawiera zabytkowy bruk i schody',
-        walkingRoute: sampleShortest.walkingRoute,
+      fastest: {
+        id: 'fastest',
+        title: 'Najszybsza (ul. Grodzka)',
+        description: 'Najszybszy pieszy wariant demonstracyjny (920 m), zawiera zabytkowy bruk i schody',
+        walkingRoute: {
+          ...sampleShortest.walkingRoute,
+          surfaceSpans: shortestReport.findings.some(
+            (finding) => finding.severity === 'blocker' || finding.severity === 'warning',
+          )
+            ? [{ coordinates: sampleShortest.walkingRoute.coordinates, tone: 'other' }]
+            : undefined,
+        },
         report: shortestReport,
         facts: sampleShortest.facts,
         isSample: true,

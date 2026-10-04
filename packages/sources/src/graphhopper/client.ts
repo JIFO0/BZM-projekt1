@@ -43,6 +43,9 @@ export function buildGraphHopperRequestBody(
     [query.end.lon, query.end.lat],
   ];
 
+  const mode = options?.mode ?? query.mode ?? 'strict';
+  const snapToSidewalk = mode === 'fast' ? false : options?.snapToSidewalk !== false;
+
   return {
     points,
     profile: 'foot',
@@ -50,11 +53,15 @@ export function buildGraphHopperRequestBody(
     points_encoded: false,
     locale: query.lang || 'pl',
     details: ['surface', 'smoothness', 'max_width', 'footway', 'road_class'],
-    custom_model: buildCustomModel(query.thresholds, {
-      includeSlope: options?.includeSlope,
-      mode: options?.mode ?? query.mode ?? 'strict',
-    }),
-    ...(options?.snapToSidewalk === false ? {} : { snap_preventions: SIDEWALK_SNAP_PREVENTIONS }),
+    ...(mode === 'fast'
+      ? {}
+      : {
+          custom_model: buildCustomModel(query.thresholds, {
+            includeSlope: options?.includeSlope,
+            mode,
+          }),
+        }),
+    ...(snapToSidewalk ? { snap_preventions: SIDEWALK_SNAP_PREVENTIONS } : {}),
   };
 }
 
@@ -128,34 +135,46 @@ export async function fetchGraphHopperRoute(
 }
 
 export interface DetourAwareRoute {
+  /** Barrier-light walk, or the practical walk when the detour is unreasonable. */
   result: AccessibleRouteResult;
-  /** True when the practical walk is shown because the barrier-free line is unreasonable. */
+  /** Plain fastest foot route, with no barrier weights. */
+  fastest: AccessibleRouteResult;
+  /** True when the barrier-light line was dropped because the detour is unreasonable. */
   colorBySurface: boolean;
 }
 
 /**
- * Asks GraphHopper for a barrier-free walk and for the practical sidewalk walk.
- * The practical line is returned, with surface spans, only when the barrier-free
- * alternative adds about ten kilometres or swings a few kilometres off to the side.
+ * Asks GraphHopper for a barrier-free walk, the practical sidewalk walk, and
+ * the plain fastest foot route.
+ * The practical line replaces the barrier-free one, with failing segments
+ * marked for orange, only when the barrier-free alternative adds about ten
+ * kilometres or swings a few kilometres off to the side.
  */
 export async function fetchRouteRespectingDetour(
   query: GraphHopperRouteQuery,
   fetchImpl: typeof fetch = fetch,
 ): Promise<DetourAwareRoute> {
-  const [strictSettled, practicalSettled] = await Promise.allSettled([
+  const [strictSettled, practicalSettled, fastSettled] = await Promise.allSettled([
     fetchGraphHopperRoute({ ...query, mode: 'strict' }, fetchImpl),
     fetchGraphHopperRoute({ ...query, mode: 'practical' }, fetchImpl),
+    fetchGraphHopperRoute({ ...query, mode: 'fast' }, fetchImpl),
   ]);
 
   const strict = strictSettled.status === 'fulfilled' ? strictSettled.value : null;
   const practical = practicalSettled.status === 'fulfilled' ? practicalSettled.value : null;
+  const fast = fastSettled.status === 'fulfilled' ? fastSettled.value : null;
+  const fastest = fast ?? practical ?? strict;
 
-  if (!strict && !practical) {
+  if (!strict && !practical && !fast) {
     const reason = strictSettled.status === 'rejected' ? strictSettled.reason : new Error('Brak trasy');
     throw reason instanceof Error ? reason : new Error(String(reason));
   }
-  if (!practical) return { result: strict!, colorBySurface: false };
-  if (!strict) return { result: practical, colorBySurface: true };
+  if (!fastest) {
+    throw new Error('Brak trasy');
+  }
+  if (!practical && !strict) return { result: fastest, fastest, colorBySurface: true };
+  if (!practical) return { result: strict!, fastest, colorBySurface: false };
+  if (!strict) return { result: practical, fastest, colorBySurface: true };
 
   const unreasonable = isBarrierFreeDetourUnreasonable({
     practicalMetres: practical.distanceMeters,
@@ -166,6 +185,6 @@ export async function fetchRouteRespectingDetour(
     ),
   });
 
-  if (unreasonable) return { result: practical, colorBySurface: true };
-  return { result: strict, colorBySurface: false };
+  if (unreasonable) return { result: practical, fastest, colorBySurface: true };
+  return { result: strict, fastest, colorBySurface: false };
 }
