@@ -78,6 +78,7 @@ import {
 } from '@/services/api';
 import {
   citizenReportsAsFindings,
+  getAllCityAmenities,
   getAllCityBarriers,
   selectMapFindings,
 } from '@/services/barriers';
@@ -454,6 +455,7 @@ export default function MapHomeScreen() {
       routeFindings: effectiveFindings,
       reports,
       allCityBarriers,
+      cityAmenities: getAllCityAmenities(activeThresholds),
       routeCoordinates: activeWalkingRoute?.coordinates,
       corridorMetres: city.corridorMeters,
     };

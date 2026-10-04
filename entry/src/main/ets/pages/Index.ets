@@ -20,7 +20,7 @@ struct Index {
 
   build() {
     Column({ space: 12 }) {
-      Text('Kraków bez barier')
+      Text('HarmonyOS accessible navigation')
         .fontSize(32)
         .fontWeight(FontWeight.Bold)
         .fontColor('#FFFFFF')

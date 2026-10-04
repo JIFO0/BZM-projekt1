@@ -194,6 +194,14 @@ export function MapView({
           ? locale === 'pl' ? 'Dostępność dla wózków' : locale === 'uk' ? 'Доступність' : 'Accessibility'
           : f.type === 'report'
           ? locale === 'pl' ? 'Zgłoszenie' : locale === 'uk' ? 'Повідомлення' : 'Report'
+          : f.type === 'elevator'
+          ? locale === 'pl' ? 'Winda' : locale === 'uk' ? 'Ліфт' : 'Lift'
+          : f.type === 'ramp'
+          ? locale === 'pl' ? 'Rampa' : locale === 'uk' ? 'Пандус' : 'Ramp'
+          : f.type === 'crossing'
+          ? locale === 'pl' ? 'Przejście' : locale === 'uk' ? 'Перехід' : 'Crossing'
+          : f.type === 'toilets:wheelchair'
+          ? locale === 'pl' ? 'Toaleta dla wózka' : locale === 'uk' ? 'Туалет' : 'Accessible toilet'
           : f.type;
 
       const localizedVal = getLocalizedFactValue(f.fact.value, locale, f.fact.criterion);
@@ -399,12 +407,13 @@ export function MapView({
 <!DOCTYPE html>
 <html>
 <head>
+  ${(typeof document !== 'undefined' && document.querySelector('base')?.href) ? `<base href="${document.querySelector('base')!.href}" />` : ''}
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4leaflet/1.0.2/proj4leaflet.min.js"></script>
+  <link rel="stylesheet" href="vendor/leaflet.css" />
+  <script src="vendor/leaflet.js"></script>
+  <script src="vendor/proj4.js"></script>
+  <script src="vendor/proj4leaflet.js"></script>
   <style>
     body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #e5e3df; overflow: hidden; }
     .custom-marker {
@@ -797,10 +806,40 @@ export function MapView({
     renderEndpoints(${JSON.stringify(startPin)}, ${JSON.stringify(endPin)});
     renderRoute(${JSON.stringify(route ? { coordinates: route.coordinates, surfaceSpans: route.surfaceSpans } : null)});
 
-    function getObstacleSvgIcon(type, color) {
+    function iconImage(svgMarkup) {
+      var sized = String(svgMarkup).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+      return '<img alt="" draggable="false" width="${obstacleSvgSize}" height="${obstacleSvgSize}" style="display:block;width:${obstacleSvgSize}px;height:${obstacleSvgSize}px;pointer-events:none;" src="data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(sized) + '" />';
+    }
+
+    function getObstacleSvgIcon(type, color, severity) {
       var sWidth = "${obstacleStrokeWidth}";
       var svgW = "${obstacleSvgSize}";
       var svgH = "${obstacleSvgSize}";
+      if (type === 'elevator') {
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<rect x="5" y="3" width="14" height="18" rx="1.5" />' +
+          '<path d="M9 8l3-2 3 2M9 16l3 2 3-2" />' +
+          '</svg>';
+      }
+      if (type === 'ramp') {
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M4 18h16" />' +
+          '<path d="M4 18L18 8" />' +
+          '<path d="M14 8h4v4" />' +
+          '</svg>';
+      }
+      if (type === 'crossing') {
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M7 20V8M12 20V4M17 20V8" />' +
+          '</svg>';
+      }
+      if (type === 'toilets:wheelchair' || type === 'toilet') {
+        return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
+          '<circle cx="8" cy="5" r="2" />' +
+          '<path d="M6 21v-6l2-3h4l1 3" />' +
+          '<circle cx="17" cy="16" r="4" />' +
+          '</svg>';
+      }
       if (type === 'steps') {
         return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M21 5h-5v5h-5v5H6v5H3" />' +
@@ -823,9 +862,11 @@ export function MapView({
           '</svg>';
       }
       if (type === 'wheelchair') {
+        var denied = severity === 'blocker' || severity === 'warning';
         return '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="' + sWidth + '" stroke-linecap="round" stroke-linejoin="round">' +
           '<circle cx="12" cy="5" r="2.5" />' +
           '<path d="M9 19a5 5 0 1 0 5-5H9v-5h4" />' +
+          (denied ? '<path d="M5 5l14 14" />' : '<path d="M16 16l2 2 4-4" />') +
           '</svg>';
       }
       if (type === 'incline') {
@@ -879,14 +920,12 @@ export function MapView({
         seenAt[pileKey] = pile + 1;
         var lat = m.lat + pile * 0.00004;
         var lon = m.lon + pile * 0.00004;
-        var iconSvg = getObstacleSvgIcon(m.type, m.color);
-        var label = escHtml(m.short || m.value || '');
+        var iconSvg = iconImage(getObstacleSvgIcon(m.type, m.color, m.severity));
         var isWarning = m.severity === 'warning';
         var badgeBg = isWarning ? '#FEF9C3' : '#FFFFFF';
         var icon = L.divIcon({
           className: 'custom-marker',
-          html: '<div class="custom-marker-badge" style="background-color:' + badgeBg + '; border-color:' + m.color + '; color:' + m.color + ';" title="' + escHtml(m.title) + '">' + iconSvg + '</div>' +
-            (label ? '<div class="custom-marker-label" style="border-color:' + m.color + '; color:' + m.color + ';">' + label + '</div>' : ''),
+          html: '<div class="custom-marker-badge" style="background-color:' + badgeBg + '; border-color:' + m.color + '; color:' + m.color + ';" title="' + escHtml(m.title) + '">' + iconSvg + '</div>',
           iconSize: [${customMarkerSize}, ${customMarkerSize}],
           iconAnchor: [${customMarkerAnchor}, ${customMarkerAnchor}]
         });

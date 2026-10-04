@@ -28,6 +28,8 @@ export function buildRouteAccessibilityQuery(bboxStr: string): string {
   node["highway"="steps"](${bboxStr});
   node["highway"="elevator"](${bboxStr});
   node["ramp"](${bboxStr});
+  node["wheelchair"](${bboxStr});
+  node["toilets:wheelchair"](${bboxStr});
   way["highway"="steps"](${bboxStr});
   way["highway"="footway"](${bboxStr});
   way["highway"="path"](${bboxStr});
@@ -39,6 +41,9 @@ export function buildRouteAccessibilityQuery(bboxStr: string): string {
   way["kerb"](${bboxStr});
   way["kerb:height"](${bboxStr});
   way["highway"="elevator"](${bboxStr});
+  way["ramp"](${bboxStr});
+  way["wheelchair"](${bboxStr});
+  way["toilets:wheelchair"](${bboxStr});
 );
 out geom tags;`;
 }
@@ -443,6 +448,31 @@ out center tags qt;`;
             subject: { type: 'place', ref: id, lat, lon },
             criterion: 'toilets:wheelchair',
             value: String(tags['toilets:wheelchair']),
+            status: statusFromOsmTags({
+              conflicting: false,
+              checkDate,
+              now,
+              stalenessMonths: this.stalenessMonths,
+            }),
+            source: {
+              name: 'OpenStreetMap',
+              url: `https://www.openstreetmap.org/${el.type}/${el.id}`,
+              licence: 'ODbL',
+              objectId: id,
+            },
+            retrievedAt,
+            lastEditedAt,
+            lastConfirmedAt: checkDate,
+          });
+        }
+
+        if ((tags.ramp && tags.ramp !== 'no') || tags['ramp:wheelchair'] === 'yes') {
+          const rampValue = tags.ramp && tags.ramp !== 'no' ? String(tags.ramp) : 'yes';
+          facts.push({
+            id: `${id}-ramp`,
+            subject: { type: subjectType, ref: id, lat, lon },
+            criterion: 'ramp',
+            value: rampValue,
             status: statusFromOsmTags({
               conflicting: false,
               checkDate,

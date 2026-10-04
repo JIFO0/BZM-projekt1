@@ -154,8 +154,9 @@ export function evaluateFactSeverity(
     };
   }
 
-  if (crit === 'wheelchair') {
-    if (val === 'no' || val.includes('no')) {
+  if (crit === 'wheelchair' || crit === 'entrance:wheelchair') {
+    const token = val.trim().split(/[\s(,;]/)[0] ?? '';
+    if (token === 'no') {
       const treatment = thresholds.stepsTreatment ?? (thresholds.stepsAreBlocker ? 'blocker' : 'warning');
       const isBlocker = treatment === 'blocker';
       return {
@@ -166,20 +167,28 @@ export function evaluateFactSeverity(
           : 'Ograniczenie dostępności dla wózka',
       };
     }
-    if (val === 'limited' || val.includes('limited')) {
+    if (token === 'limited') {
       return {
         severity: 'warning',
         type: 'wheelchair',
         evidence: 'Ograniczona dostępność dla wózka',
       };
     }
-    if (val === 'yes') {
+    if (token === 'yes' || token === 'designated') {
       return {
         severity: 'ok',
         type: 'wheelchair',
         evidence: 'Dostępne dla wózka',
       };
     }
+  }
+
+  if (crit === 'toilets:wheelchair' && /^(yes|designated)\b/.test(val.trim())) {
+    return {
+      severity: 'ok',
+      type: 'toilets:wheelchair',
+      evidence: 'Toaleta przystosowana dla wózka',
+    };
   }
 
   if (crit === 'elevator' || crit === 'highway:elevator') {

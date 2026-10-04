@@ -531,6 +531,31 @@ export function getAllCityBarriers(thresholds: BarrierThresholds): RouteFinding[
   return barriers;
 }
 
+const AMENITY_TYPES = new Set(['elevator', 'ramp', 'wheelchair', 'toilets:wheelchair', 'crossing']);
+
+/** City points that help the user: ramps, lifts, wheelchair-accessible entrances and toilets, crossings. */
+export function getAllCityAmenities(thresholds: BarrierThresholds): RouteFinding[] {
+  const amenities: RouteFinding[] = [];
+  for (const fact of getAllCityFacts()) {
+    const evaluated = evaluateFactSeverity(fact, thresholds);
+    const crit = fact.criterion.toLowerCase();
+    const isToiletOk = crit === 'toilets:wheelchair' && /^(yes|tak)/i.test(fact.value.trim());
+    const helpful =
+      evaluated.severity === 'ok' ||
+      isToiletOk ||
+      (evaluated.severity === 'info' && AMENITY_TYPES.has(evaluated.type));
+    if (!helpful) continue;
+    amenities.push({
+      id: `city-amenity-${fact.id}`,
+      distanceFromStartMetres: 0,
+      type: isToiletOk ? 'toilets:wheelchair' : evaluated.type,
+      severity: 'ok',
+      fact: { ...fact, value: evaluated.evidence || fact.value },
+    });
+  }
+  return amenities;
+}
+
 export interface CitizenReportPoint {
   id: string;
   description: string;
@@ -600,7 +625,7 @@ function findingOnRoute(
  * - When no route is active: displays all citizen reports (plus all city barriers if mode is 'all', or blocker/warning barriers if mode is 'route').
  * - When an active route exists:
  *   - 'route': shows blockers/warnings along the route corridor and citizen reports within the corridor.
- *   - 'all': shows all measured sidewalk points along the route corridor and citizen reports within the corridor.
+ *   - 'all': shows barriers and amenities (ramps, lifts, wheelchair access, crossings) along the route.
  *   - 'none': hides all findings.
  */
 export function selectMapFindings(input: {
@@ -608,6 +633,7 @@ export function selectMapFindings(input: {
   routeFindings: RouteFinding[];
   reports: RouteFinding[];
   allCityBarriers?: RouteFinding[];
+  cityAmenities?: RouteFinding[];
   routeCoordinates?: [number, number][];
   corridorMetres: number;
   /** User reports sit on the pavement beside the walked line. */
@@ -640,7 +666,28 @@ export function selectMapFindings(input: {
   const problems = sidewalk.filter(
     (finding) => finding.severity === 'blocker' || finding.severity === 'warning',
   );
-  const described = sidewalk.filter((finding) => finding.severity !== 'unknown');
-  const base = input.mode === 'route' ? problems : described.length > 0 ? described : sidewalk;
-  return [...base, ...reportsOnRoute];
+  if (input.mode === 'route') {
+    return [...problems, ...reportsOnRoute];
+  }
+
+  const facilityMetres = Math.max(sidewalkMetres, 80);
+  const isAmenity = (finding: RouteFinding) =>
+    finding.severity === 'ok' ||
+    finding.severity === 'info' ||
+    finding.type === 'elevator' ||
+    finding.type === 'ramp' ||
+    finding.type === 'wheelchair' ||
+    finding.type === 'toilets:wheelchair' ||
+    finding.type === 'crossing';
+  const amenities = [...input.routeFindings, ...(input.cityAmenities ?? [])].filter(
+    (finding) => isAmenity(finding) && onSidewalk(finding, facilityMetres),
+  );
+  const seen = new Set<string>();
+  const allPoints: RouteFinding[] = [];
+  for (const finding of [...sidewalk, ...amenities]) {
+    if (finding.severity === 'unknown' || seen.has(finding.id)) continue;
+    seen.add(finding.id);
+    allPoints.push(finding);
+  }
+  return [...allPoints, ...reportsOnRoute];
 }

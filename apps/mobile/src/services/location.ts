@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
-import { getHarmonyNativeLocation } from '@/services/harmony';
+import { getHarmonyNativeLocation, isHarmonyOS } from '@/services/harmony';
 
 export interface UserCoordinates {
   lat: number;
@@ -103,15 +103,21 @@ export async function getCurrentUserLocation(): Promise<UserLocationResult | nul
     return null;
   }
 
-  // 0. Native OpenHarmony LocationKit check
-  const harmonyLoc = getHarmonyNativeLocation();
-  if (harmonyLoc) {
-    const address = await tryReverseGeocode(harmonyLoc.lat, harmonyLoc.lon);
-    return {
-      lat: harmonyLoc.lat,
-      lon: harmonyLoc.lon,
-      address,
-    };
+  // 0. Native OpenHarmony LocationKit. The first fix can arrive after the permission dialog.
+  if (isHarmonyOS()) {
+    let harmonyLoc = getHarmonyNativeLocation();
+    for (let attempt = 0; attempt < 16 && !harmonyLoc; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      harmonyLoc = getHarmonyNativeLocation();
+    }
+    if (harmonyLoc) {
+      const address = await tryReverseGeocode(harmonyLoc.lat, harmonyLoc.lon);
+      return {
+        lat: harmonyLoc.lat,
+        lon: harmonyLoc.lon,
+        address,
+      };
+    }
   }
 
   // 1. Web navigator.geolocation direct fallback for reliability
@@ -185,6 +191,26 @@ export async function watchUserLocation(
   const granted = await checkOrRequestLocationPermission();
   if (!granted) {
     return null;
+  }
+
+  if (isHarmonyOS()) {
+    let stopped = false;
+    const publish = () => {
+      if (stopped) return;
+      const loc = getHarmonyNativeLocation();
+      if (!loc) return;
+      onUpdate({
+        lat: loc.lat,
+        lon: loc.lon,
+        address: 'Moja lokalizacja',
+      });
+    };
+    publish();
+    const timer = setInterval(publish, 2500);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
   }
 
   // Web live watch

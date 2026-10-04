@@ -4,6 +4,7 @@ import { vibrator, sensor } from '@kit.SensorServiceKit';
 import { batteryInfo, deviceInfo, BusinessError } from '@kit.BasicServicesKit';
 import { connection } from '@kit.NetworkKit';
 import { geoLocationManager } from '@kit.LocationKit';
+import { picker } from '@kit.CoreFileKit';
 import { common, ConfigurationConstant } from '@kit.AbilityKit';
 
 const TAG = 'KrakowWeb';
@@ -11,6 +12,8 @@ const TAG = 'KrakowWeb';
 class NativeHarmonyBridge {
   private heading: number = 0;
   private context?: common.UIAbilityContext;
+  private cachedLocation: string = '';
+  private locationStarted: boolean = false;
 
   constructor(context?: common.UIAbilityContext) {
     this.context = context;
@@ -22,6 +25,57 @@ class NativeHarmonyBridge {
       }, { interval: 'normal' });
     } catch (err) {
       hilog.warn(0x0000, TAG, 'sensor.on ORIENTATION failed: %{public}s', JSON.stringify(err));
+    }
+    this.startLocation();
+  }
+
+  startLocation(): void {
+    if (!this.locationStarted) {
+      this.locationStarted = true;
+      const request: geoLocationManager.LocationRequest = {
+        priority: geoLocationManager.LocationRequestPriority.FIRST_FIX,
+        scenario: geoLocationManager.LocationRequestScenario.NAVIGATION,
+        timeInterval: 2,
+        distanceInterval: 0,
+        maxAccuracy: 0
+      };
+      try {
+        geoLocationManager.on('locationChange', request, (location: geoLocationManager.Location) => {
+          this.rememberLocation(location);
+        });
+      } catch (err) {
+        hilog.warn(0x0000, TAG, 'locationChange subscribe failed: %{public}s', JSON.stringify(err));
+        this.locationStarted = false;
+      }
+    }
+    this.refreshLocation();
+  }
+
+  private rememberLocation(location: geoLocationManager.Location): void {
+    if (!location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
+      return;
+    }
+    this.cachedLocation = JSON.stringify({
+      lat: location.latitude,
+      lon: location.longitude,
+      accuracy: location.accuracy ?? 0
+    });
+  }
+
+  private refreshLocation(): void {
+    const current: geoLocationManager.CurrentLocationRequest = {
+      priority: geoLocationManager.LocationRequestPriority.FIRST_FIX,
+      scenario: geoLocationManager.LocationRequestScenario.UNSET,
+      maxAccuracy: 0
+    };
+    try {
+      geoLocationManager.getCurrentLocation(current).then((location: geoLocationManager.Location) => {
+        this.rememberLocation(location);
+      }).catch((err: Object) => {
+        hilog.warn(0x0000, TAG, 'getCurrentLocation failed: %{public}s', JSON.stringify(err));
+      });
+    } catch (err) {
+      hilog.warn(0x0000, TAG, 'getCurrentLocation exception: %{public}s', JSON.stringify(err));
     }
   }
 
@@ -88,18 +142,19 @@ class NativeHarmonyBridge {
   }
 
   getNativeLocation(): string {
+    if (this.cachedLocation.length > 0) {
+      return this.cachedLocation;
+    }
     try {
       const loc = geoLocationManager.getLastLocation();
       if (loc && typeof loc.latitude === 'number' && typeof loc.longitude === 'number') {
-        return JSON.stringify({
-          lat: loc.latitude,
-          lon: loc.longitude,
-          accuracy: loc.accuracy ?? 0,
-        });
+        this.rememberLocation(loc);
+        return this.cachedLocation;
       }
     } catch (err) {
       hilog.warn(0x0000, TAG, 'geoLocationManager.getLastLocation failed: %{public}s', JSON.stringify(err));
     }
+    this.refreshLocation();
     return '';
   }
 
@@ -168,8 +223,31 @@ struct ReactApp {
         .height('100%')
         .onGeolocationShow((event) => {
           if (event) {
+            this.bridge.startLocation();
             event.geolocation.invoke(event.origin, true, false);
           }
+        })
+        .onShowFileSelector((event) => {
+          if (!event) {
+            return false;
+          }
+          try {
+            const photoSelectOptions = new picker.PhotoSelectOptions();
+            photoSelectOptions.MIMEType = picker.PhotoViewMIMETypes.IMAGE_TYPE;
+            photoSelectOptions.maxSelectNumber = 1;
+            const photoPicker = new picker.PhotoViewPicker();
+            photoPicker.select(photoSelectOptions).then((result: picker.PhotoSelectResult) => {
+              const uris = result.photoUris ?? [];
+              event.result.handleFileList(uris);
+            }).catch((err: Object) => {
+              hilog.warn(0x0000, TAG, 'photo picker failed: %{public}s', JSON.stringify(err));
+              event.result.handleFileList([]);
+            });
+          } catch (err) {
+            hilog.warn(0x0000, TAG, 'photo picker exception: %{public}s', JSON.stringify(err));
+            event.result.handleFileList([]);
+          }
+          return true;
         })
         .onPageEnd(() => {
           this.controller.runJavaScript(

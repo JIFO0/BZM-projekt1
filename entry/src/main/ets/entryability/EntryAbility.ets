@@ -41,19 +41,25 @@ export default class EntryAbility extends UIAbility {
       'ohos.permission.APPROXIMATELY_LOCATION',
       'ohos.permission.LOCATION'
     ];
+    const loadReact = () => {
+      windowStage.loadContent('pages/ReactApp', (err) => {
+        if (err.code) {
+          hilog.error(0x0000, TAG, 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
+          return;
+        }
+        hilog.info(0x0000, TAG, 'Succeeded in loading the content.');
+      });
+    };
+
     abilityAccessCtrl.createAtManager()
       .requestPermissionsFromUser(this.context, permissions)
+      .then(() => {
+        loadReact();
+      })
       .catch((err: Object) => {
         hilog.error(0x0000, TAG, 'Location permission request failed: %{public}s', JSON.stringify(err));
+        loadReact();
       });
-
-    windowStage.loadContent('pages/ReactApp', (err) => {
-      if (err.code) {
-        hilog.error(0x0000, TAG, 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
-        return;
-      }
-      hilog.info(0x0000, TAG, 'Succeeded in loading the content.');
-    });
   }
 
   onWindowStageDestroy(): void {

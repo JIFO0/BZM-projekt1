@@ -18,6 +18,7 @@ import {
 import {
   GraphHopperRoutingProvider,
   MapyGeocodingProvider,
+  MapyRoutingProvider,
   OsmNominatimGeocodingProvider,
   OsmOverpassProvider,
 } from '@krakow-bez-barier/sources';
@@ -253,17 +254,41 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
           `Wybrany punkt trasy (${start.name} lub ${end.name}) znajduje się poza wczytanym obszarem mapy GraphHopper. Trasa bez barier może być wyznaczona tylko na zmapowanym obszarze.`
         );
       }
-      // On mobile / HarmonyOS / offline: fallback to sample snapshot route with barriers
-      console.warn('[planAndAnalyzeRoute] GraphHopper offline or unreachable, using verified demo route snapshot:', err);
-      const sample = DEMO_SNAPSHOT.routes[0]!;
-      isSample = true;
-      fallbackNotice = 'Silnik GraphHopper offline – wczytano przykładową zweryfikowaną trasę z barierami w centrum Krakowa.';
-      pair = {
-        accessible: sample.walkingRoute,
-        fastest: sample.walkingRoute,
-        accessibleFacts: sample.facts || [],
-        fastestFacts: sample.facts || [],
-      };
+      console.warn('[planAndAnalyzeRoute] GraphHopper unreachable:', err);
+      if (hasValidMapyKey()) {
+        try {
+          const mapy = new MapyRoutingProvider({ apiKey: getMapyApiKey() });
+          const walked = await mapy.route({
+            start: start.position,
+            end: end.position,
+            profileId,
+            thresholds: params.thresholds,
+          });
+          if (walked.coordinates.length > 1) {
+            pair = {
+              accessible: walked,
+              fastest: walked,
+              accessibleFacts: [],
+              fastestFacts: [],
+            };
+            fallbackNotice =
+              'Silnik GraphHopper jest niedostępny na tym urządzeniu. Trasa piesza pochodzi z Mapy.com, a bariery wzdłuż niej z OpenStreetMap.';
+          }
+        } catch (mapyErr) {
+          console.warn('[planAndAnalyzeRoute] Mapy.com routing failed:', mapyErr);
+        }
+      }
+      if (!pair) {
+        const sample = DEMO_SNAPSHOT.routes[0]!;
+        isSample = true;
+        fallbackNotice = 'Silnik GraphHopper offline – wczytano przykładową zweryfikowaną trasę z barierami w centrum Krakowa.';
+        pair = {
+          accessible: sample.walkingRoute,
+          fastest: sample.walkingRoute,
+          accessibleFacts: sample.facts || [],
+          fastestFacts: sample.facts || [],
+        };
+      }
     }
 
     const loadFacts = async (coordinates: [number, number][]) => {

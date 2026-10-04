@@ -2,7 +2,7 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "Kraków bez barier"
+      "value": "HarmonyOS accessible navigation"
     },
     {
       "name": "EntryAbility_desc",
@@ -10,7 +10,7 @@
     },
     {
       "name": "EntryAbility_label",
-      "value": "Kraków bez barier"
+      "value": "HarmonyOS accessible navigation"
     },
     {
       "name": "location_reason",

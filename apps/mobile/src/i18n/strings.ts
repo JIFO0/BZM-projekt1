@@ -1,7 +1,7 @@
 export type Locale = 'pl' | 'en' | 'uk';
 
 const pl = {
-  appName: 'Kraków bez barier',
+  appName: 'HarmonyOS accessible navigation',
   profileTitle: 'Wybór profilu mobilności',
   profileLead:
     'Wybierz profil do analizy barier. Aplikacja nie zbiera danych o niepełnosprawności, nie zakłada kont i działa w 100% lokalnie na urządzeniu.',
@@ -488,7 +488,7 @@ const pl = {
 };
 
 const en: typeof pl = {
-  appName: 'Kraków without barriers',
+  appName: 'HarmonyOS accessible navigation',
   profileTitle: 'Mobility profile selection',
   profileLead:
     'Select a profile for barrier analysis. The app does not collect disability data, does not require accounts, and runs 100% locally on your device.',
@@ -972,7 +972,7 @@ const en: typeof pl = {
 };
 
 const uk: typeof pl = {
-  appName: 'Краків без бар’єрів',
+  appName: 'HarmonyOS accessible navigation',
   profileTitle: 'Вибір профілю мобільності',
   profileLead:
     'Виберіть профіль для аналізу бар’єрів. Додаток не збирає дані про інвалідність, не створює облікових записів і працює на 100% локально на пристрої.',

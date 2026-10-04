@@ -56,7 +56,7 @@ function RootNavigatorInner() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="index" options={{ headerShown: false, title: 'Kraków bez barier' }} />
+        <Stack.Screen name="index" options={{ headerShown: false, title: 'HarmonyOS accessible navigation' }} />
         <Stack.Screen name="search" options={{ headerShown: false, title: 'Wyszukiwarka tras i miejsc' }} />
         <Stack.Screen name="place" options={{ headerShown: false, title: 'Szczegóły miejsca' }} />
         <Stack.Screen name="route" options={{ headerShown: false, title: 'Raport trasy' }} />

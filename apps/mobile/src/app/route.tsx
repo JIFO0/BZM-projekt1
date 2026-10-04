@@ -52,6 +52,7 @@ import { triggerGentleHaptic } from '@/services/haptics';
 import { city } from '@/config/city';
 import {
   citizenReportsAsFindings,
+  getAllCityAmenities,
   getAllCityBarriers,
   selectMapFindings,
 } from '@/services/barriers';
@@ -284,10 +285,11 @@ export default function RouteScreen() {
       routeFindings: activeRouteReport?.findings || [],
       reports: reportFindings,
       allCityBarriers,
+      cityAmenities: getAllCityAmenities(activeThresholds),
       routeCoordinates: activeWalkingRoute?.coordinates,
       corridorMetres: city.corridorMeters,
     });
-  }, [barrierViewMode, activeRouteReport?.findings, activeWalkingRoute?.coordinates, reportFindings, allCityBarriers]);
+  }, [barrierViewMode, activeRouteReport?.findings, activeWalkingRoute?.coordinates, reportFindings, allCityBarriers, activeThresholds]);
 
   if (loading) {
     return (
