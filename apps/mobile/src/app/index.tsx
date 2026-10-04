@@ -71,6 +71,8 @@ import {
   uploadPhotoToServer,
   fetchPlaceServerComments,
   addPlaceServerComment,
+  checkRoutingEngineHealth,
+  type RoutingEngineHealth,
 } from '@/services/api';
 import { city } from '@/config/city';
 import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
@@ -250,14 +252,28 @@ export default function MapHomeScreen() {
 
 
 
-  // Proactively request / fetch location on mount
+  // Routing Engine (GraphHopper) health & coverage status
+  const [engineStatus, setEngineStatus] = useState<RoutingEngineHealth | null>(null);
+
   useEffect(() => {
-    fetchUserLocation().then((loc) => {
-      if (loc) {
-        setMapCenter({ lat: loc.lat, lon: loc.lon });
+    let active = true;
+    checkRoutingEngineHealth().then((status) => {
+      if (active) {
+        setEngineStatus(status);
+        if (!status.online) {
+          setStatusMessage(
+            locale === 'pl'
+              ? '⚠️ Silnik tras bez barier jest offline. Uruchom usługę w backendzie.'
+              : '⚠️ Barrier-free routing engine is offline. Start backend service.'
+          );
+          setTimeout(() => setStatusMessage(null), 6000);
+        }
       }
     });
-  }, [fetchUserLocation]);
+    return () => {
+      active = false;
+    };
+  }, [locale]);
 
   // Popup menu / sheet state (Google/Apple Maps style)
   const [popupExpanded, setPopupExpanded] = useState(false);
@@ -551,7 +567,14 @@ export default function MapHomeScreen() {
         });
       }
     } catch (err: any) {
-      Alert.alert(t(locale, 'routeErrorTitle'), err.message || t(locale, 'routeErrorMsg'));
+      // CLEAR existing route completely so no misleading route is shown
+      setActiveWalkingRoute(null);
+      setActiveRouteReport(null);
+      setActiveRouteFacts([]);
+      setRouteVariants(null);
+      const errMsg = err?.message || t(locale, 'routeErrorMsg');
+      setStatusMessage(`⚠️ ${errMsg}`);
+      Alert.alert(t(locale, 'routeErrorTitle'), errMsg);
     } finally {
       setLoadingRoute(false);
     }
@@ -1520,6 +1543,48 @@ export default function MapHomeScreen() {
               {/* TAB 1: TRASA (ROUTE PLANNING & ANALYSIS) */}
               {activeTab === 'route' ? (
                 <View style={styles.formSection}>
+                  {/* Engine status warning if offline */}
+                  {engineStatus && !engineStatus.online ? (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        padding: 12,
+                        borderRadius: 8,
+                        marginBottom: 12,
+                        backgroundColor: colors.warningBg,
+                        borderColor: colors.warningBorder,
+                        borderWidth: 1,
+                      }}
+                    >
+                      <Warning size={22} color={colors.warningText} weight="bold" />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: colors.warningText }}>
+                          {locale === 'pl'
+                            ? 'Silnik tras bez barier jest niedostępny'
+                            : 'Barrier-free routing engine unavailable'}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: colors.warningText, marginTop: 2 }}>
+                          {locale === 'pl'
+                            ? 'Aplikacja nie wyznacza tras zastępczych po jezdniach. Uruchom usługę GraphHopper.'
+                            : 'App will not fall back to road routes. Ensure GraphHopper is running.'}
+                        </Text>
+                        <Pressable
+                          onPress={() => {
+                            checkRoutingEngineHealth().then(setEngineStatus);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel="Sprawdź ponownie połączenie z silnikiem"
+                          style={{ marginTop: 6 }}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: 'bold', color: colors.accent, textDecorationLine: 'underline' }}>
+                            {locale === 'pl' ? 'Sprawdź ponownie połączenie' : 'Retry connection'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : null}
+
                   {/* Point A (Start) */}
                   <LocationPicker
                     label={t(locale, 'from')}

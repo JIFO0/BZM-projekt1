@@ -82,7 +82,7 @@ export async function fetchGraphHopperRoute(
   fetchImpl: typeof fetch = fetch,
 ): Promise<AccessibleRouteResult> {
   const url = buildGraphHopperUrl(query.apiBase);
-  let includeSlope = true;
+  let includeSlope = query.includeSlope ?? false;
   let snapToSidewalk = true;
   let response: Response | null = null;
   let errorDetail = '';
