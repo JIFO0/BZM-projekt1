@@ -614,7 +614,14 @@ export function selectMapFindings(input: {
 }): RouteFinding[] {
   if (input.mode === 'none') return [];
   const coordinates = input.routeCoordinates ?? [];
-  if (coordinates.length === 0) return [];
+  if (coordinates.length === 0) {
+    const problems = input.routeFindings.filter(
+      (finding) => finding.severity === 'blocker' || finding.severity === 'warning',
+    );
+    const described = input.routeFindings.filter((finding) => finding.severity !== 'unknown');
+    const base = input.mode === 'route' ? problems : described.length > 0 ? described : input.routeFindings;
+    return [...base, ...input.reports];
+  }
 
   const sidewalkMetres = Math.max(input.corridorMetres, 40);
   const onSidewalk = (finding: RouteFinding, metres: number) =>

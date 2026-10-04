@@ -64,6 +64,11 @@ export function resolveBackendApiUrl(): string {
   }
   if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
+    const isLocalScheme = protocol === 'resource:' || protocol === 'file:' || !hostname || hostname === 'rawfile';
+    if (isLocalScheme) {
+      return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+    }
     if (hostname === 'accessible.krakow.local') {
       return window.location.origin;
     }
@@ -95,6 +100,11 @@ export function resolveGraphHopperUrl(): string {
   }
   if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
+    const isLocalScheme = protocol === 'resource:' || protocol === 'file:' || !hostname || hostname === 'rawfile';
+    if (isLocalScheme) {
+      return process.env.EXPO_PUBLIC_GRAPHHOPPER_URL || 'http://localhost:8989';
+    }
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:8989';
     }
@@ -242,12 +252,17 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
           `Wybrany punkt trasy (${start.name} lub ${end.name}) znajduje się poza wczytanym obszarem mapy GraphHopper. Trasa bez barier może być wyznaczona tylko na zmapowanym obszarze.`
         );
       }
-      if (/połączyć|connect|fetch|network/i.test(msg)) {
-        throw new Error(
-          `Brak połączenia z silnikiem tras bez barier (GraphHopper na ${resolveGraphHopperUrl()}). Upewnij się, że usługa backendu jest uruchomiona. Aplikacja nie wyświetla tras po drogach bez weryfikacji barier.`
-        );
-      }
-      throw new Error(`Błąd wyznaczania trasy bez barier: ${msg}`);
+      // On mobile / HarmonyOS / offline: fallback to sample snapshot route with barriers
+      console.warn('[planAndAnalyzeRoute] GraphHopper offline or unreachable, using verified demo route snapshot:', err);
+      const sample = DEMO_SNAPSHOT.routes[0]!;
+      isSample = true;
+      fallbackNotice = 'Silnik GraphHopper offline – wczytano przykładową zweryfikowaną trasę z barierami w centrum Krakowa.';
+      pair = {
+        accessible: sample.walkingRoute,
+        fastest: sample.walkingRoute,
+        accessibleFacts: sample.facts || [],
+        fastestFacts: sample.facts || [],
+      };
     }
 
     const loadFacts = async (coordinates: [number, number][]) => {
@@ -265,8 +280,8 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
     const sameLine =
       pair.accessible.coordinates.length === pair.fastest.coordinates.length &&
       pair.accessible.lengthMetres === pair.fastest.lengthMetres;
-    const accessibleOverpass = await loadFacts(pair.accessible.coordinates);
-    const fastestOverpass = sameLine ? accessibleOverpass : await loadFacts(pair.fastest.coordinates);
+    const accessibleOverpass = isSample ? [] : await loadFacts(pair.accessible.coordinates);
+    const fastestOverpass = isSample || sameLine ? accessibleOverpass : await loadFacts(pair.fastest.coordinates);
     const accessibleFacts = mergeRouteFacts(pair.accessibleFacts, accessibleOverpass);
     const fastestFacts = mergeRouteFacts(pair.fastestFacts, fastestOverpass);
 
@@ -277,7 +292,7 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
       facts: accessibleFacts,
       config: city,
       thresholds: params.thresholds,
-      isSample: false,
+      isSample: isSample,
     });
     const fastestReport = analyzeRoute({
       routeId: `route-fastest-${Date.now()}`,
@@ -286,7 +301,7 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
       facts: fastestFacts,
       config: city,
       thresholds: params.thresholds,
-      isSample: false,
+      isSample: isSample,
     });
 
     const accessibleHasGap = pair.accessible.surfaceSpans?.some((span) => span.tone === 'other');
@@ -304,7 +319,7 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
         walkingRoute: pair.accessible,
         report: accessibleReport,
         facts: accessibleFacts,
-        isSample: false,
+        isSample: isSample,
       },
       fastest: {
         id: 'fastest',
@@ -313,7 +328,7 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
         walkingRoute: pair.fastest,
         report: fastestReport,
         facts: fastestFacts,
-        isSample: false,
+        isSample: isSample,
       },
     };
 
@@ -321,8 +336,8 @@ export async function planAndAnalyzeRoute(params: PlanRouteParams): Promise<Plan
       walkingRoute: variants.accessible.walkingRoute,
       report: variants.accessible.report,
       facts: variants.accessible.facts,
-      fallbackNotice: notice,
-      isSample: false,
+      fallbackNotice: fallbackNotice || notice,
+      isSample: isSample,
       variants,
       selectedVariant: 'accessible',
     };

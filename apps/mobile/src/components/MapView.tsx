@@ -101,40 +101,27 @@ export function MapView({
         const win = iframeRef.current.contentWindow as any;
         if (msg.type === 'SET_MARKERS' && typeof win.updateMarkers === 'function') {
           win.updateMarkers(msg.markers);
-          return;
-        }
-        if (msg.type === 'SET_USER_LOCATION' && typeof win.updateUserMarker === 'function') {
+        } else if (msg.type === 'SET_USER_LOCATION' && typeof win.updateUserMarker === 'function') {
           win.updateUserMarker(msg.lat, msg.lon);
-          return;
-        }
-        if (msg.type === 'SET_HEADING' && typeof win.updateUserMarker === 'function') {
+        } else if (msg.type === 'SET_HEADING' && typeof win.updateUserMarker === 'function') {
           win.updateUserMarker(undefined, undefined, (msg as any).heading);
-          return;
-        }
-        if (msg.type === 'SET_CENTER' && typeof win.setMapCenter === 'function') {
+        } else if (msg.type === 'SET_CENTER' && typeof win.setMapCenter === 'function') {
           win.setMapCenter(msg.lat, msg.lon, msg.zoom);
-          return;
-        }
-        if (msg.type === 'SET_CLICKED_LOCATION' && typeof win.updateClickedMarker === 'function') {
+        } else if (msg.type === 'SET_CLICKED_LOCATION' && typeof win.updateClickedMarker === 'function') {
           win.updateClickedMarker(msg.lat, msg.lon);
-          return;
-        }
-        if (msg.type === 'CLEAR_CLICKED_LOCATION' && typeof win.clearClickedMarker === 'function') {
+        } else if (msg.type === 'CLEAR_CLICKED_LOCATION' && typeof win.clearClickedMarker === 'function') {
           win.clearClickedMarker();
-          return;
-        }
-        if (msg.type === 'SET_ENDPOINTS' && typeof win.updateEndpoints === 'function') {
+        } else if (msg.type === 'SET_ENDPOINTS' && typeof win.updateEndpoints === 'function') {
           win.updateEndpoints(msg.startLocation, msg.endLocation);
-          return;
-        }
-        if (msg.type === 'SET_ROUTE' && typeof win.updateRoute === 'function') {
+        } else if (msg.type === 'SET_ROUTE' && typeof win.updateRoute === 'function') {
           win.updateRoute(msg.route);
-          return;
         }
       } catch {
-        // Fallback to postMessage
+        // Fallback or cross-origin boundary
       }
-      iframeRef.current.contentWindow.postMessage(JSON.stringify(msg), '*');
+      try {
+        iframeRef.current.contentWindow.postMessage(JSON.stringify(msg), '*');
+      } catch {}
     } else if (Platform.OS !== 'web' && webViewRef.current) {
       if (msg.type === 'SET_MARKERS') {
         const js = `if (typeof updateMarkers === 'function') { updateMarkers(${JSON.stringify(msg.markers || [])}); } true;`;
@@ -862,7 +849,18 @@ export function MapView({
     }
 
     window.updateMarkers = renderMarkers;
-    renderMarkers(${JSON.stringify(markersData)});
+    if (window._pendingMarkers) {
+      renderMarkers(window._pendingMarkers);
+      window._pendingMarkers = null;
+    } else {
+      renderMarkers(${JSON.stringify(markersData)});
+    }
+
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(JSON.stringify({ type: 'MAP_READY' }), '*');
+      }
+    } catch (e) {}
 
     var userMarker = null;
     window._currentHeading = null;
@@ -977,7 +975,11 @@ export function MapView({
         var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (!data) return;
         if (data.type === 'SET_MARKERS') {
-          window.updateMarkers(data.markers);
+          if (typeof window.updateMarkers === 'function') {
+            window.updateMarkers(data.markers);
+          } else {
+            window._pendingMarkers = data.markers;
+          }
         } else if (data.type === 'SET_CENTER') {
           window.setMapCenter(data.lat, data.lon, data.zoom);
         } else if (data.type === 'SET_USER_LOCATION') {
@@ -1028,7 +1030,10 @@ export function MapView({
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (!data) return;
-        if (data.type === 'MAP_CLICK' && onMapClick) {
+        if (data.type === 'MAP_READY') {
+          isMapLoaded.current = true;
+          flushPendingUpdates();
+        } else if (data.type === 'MAP_CLICK' && onMapClick) {
           onMapClick({ lat: data.lat, lon: data.lon });
         } else if (data.type === 'MAP_MOVE_END') {
           currentPositionRef.current = { lat: data.lat, lon: data.lon, zoom: data.zoom };
@@ -1037,7 +1042,7 @@ export function MapView({
     };
     window.addEventListener('message', handleWindowMessage);
     return () => window.removeEventListener('message', handleWindowMessage);
-  }, [onMapClick]);
+  }, [onMapClick, flushPendingUpdates]);
 
   return (
     <View

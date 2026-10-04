@@ -75,7 +75,7 @@ import {
   type RoutingEngineHealth,
 } from '@/services/api';
 import { city } from '@/config/city';
-import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
+import { citizenReportsAsFindings, getAllCityBarriers, selectMapFindings } from '@/services/barriers';
 import { triggerGentleHaptic } from '@/services/haptics';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
@@ -422,8 +422,10 @@ export default function MapHomeScreen() {
         status: hazard.status,
       }))
     ]);
+    const cityBarriers = getAllCityBarriers(activeThresholds);
+    const effectiveFindings = routeBarriers.length > 0 ? routeBarriers : cityBarriers;
     const shared = {
-      routeFindings: routeBarriers,
+      routeFindings: effectiveFindings,
       reports,
       routeCoordinates: activeWalkingRoute?.coordinates,
       corridorMetres: city.corridorMeters,
@@ -433,7 +435,7 @@ export default function MapHomeScreen() {
       problems: selectMapFindings({ ...shared, mode: 'route' }),
       evaluated: selectMapFindings({ ...shared, mode: 'all' }),
     };
-  }, [barrierViewMode, routeBarriers, serverHazards, activeWalkingRoute?.coordinates]);
+  }, [barrierViewMode, routeBarriers, serverHazards, activeWalkingRoute?.coordinates, activeThresholds]);
   const displayedFindings = mapPins.displayed;
 
   // Clicked map location popup state
@@ -1249,18 +1251,16 @@ export default function MapHomeScreen() {
           isPickingMode={pickingTarget !== null}
         />
 
-        {activeWalkingRoute ? (
-          <View style={styles.floatingBarrierControl}>
-            <BarrierViewControl
-              compact
-              mode={barrierViewMode}
-              onChangeMode={setBarrierViewMode}
-              hasActiveRoute
-              routeBarriersCount={mapPins.problems.length}
-              allBarriersCount={mapPins.evaluated.length}
-            />
-          </View>
-        ) : null}
+        <View style={styles.floatingBarrierControl}>
+          <BarrierViewControl
+            compact
+            mode={barrierViewMode}
+            onChangeMode={setBarrierViewMode}
+            hasActiveRoute={Boolean(activeWalkingRoute)}
+            routeBarriersCount={mapPins.problems.length}
+            allBarriersCount={mapPins.evaluated.length}
+          />
+        </View>
 
         {/* Floating Map Action Buttons (Apple / Google Maps style) */}
         <View style={styles.floatingControlsRight}>
