@@ -10,8 +10,9 @@ import type {
 /**
  * `strict` forbids mapped barriers.
  * `practical` keeps the sidewalk walk when a barrier-free detour is unreasonable.
+ * `fast` is the plain foot profile: the fastest pedestrian line, with no barrier weights.
  */
-export type RoutingWeightMode = 'strict' | 'practical';
+export type RoutingWeightMode = 'strict' | 'practical' | 'fast';
 
 export interface GraphHopperRouteQuery {
   apiBase: string;

@@ -89,6 +89,50 @@ export class GraphHopperRoutingProvider implements RoutingProvider {
     };
   }
 
+  /**
+   * Barrier-light walk (without a wild detour) and the plain fastest foot walk.
+   * Failing segments are attached as surface spans so the map can paint them orange.
+   */
+  async routePair(request: RouteRequest): Promise<{ accessible: WalkingRoute; fastest: WalkingRoute }> {
+    const profileThresholds =
+      request.thresholds ||
+      this.thresholds ||
+      DEFAULT_PROFILE_THRESHOLDS[request.profileId] ||
+      DEFAULT_PROFILE_THRESHOLDS.wheelchair;
+
+    const planned = await fetchRouteRespectingDetour(
+      {
+        apiBase: this.apiBase,
+        start: request.start,
+        end: request.end,
+        waypoints: request.waypoints,
+        thresholds: profileThresholds,
+        lang: 'pl',
+      },
+      this.fetchFn,
+    );
+
+    const retrievedAt = new Date().toISOString();
+    return {
+      accessible: {
+        provider: 'graphhopper',
+        lengthMetres: planned.result.distanceMeters,
+        durationSeconds: planned.result.timeSeconds,
+        coordinates: planned.result.geometry.coordinates,
+        retrievedAt,
+        surfaceSpans: planned.colorBySurface ? planned.result.surfaceSpans ?? [] : undefined,
+      },
+      fastest: {
+        provider: 'graphhopper',
+        lengthMetres: planned.fastest.distanceMeters,
+        durationSeconds: planned.fastest.timeSeconds,
+        coordinates: planned.fastest.geometry.coordinates,
+        retrievedAt,
+        surfaceSpans: planned.fastest.surfaceSpans ?? [],
+      },
+    };
+  }
+
   async routeDetailed(
     request: RouteRequest,
     customThresholds?: BarrierThresholds,

@@ -73,7 +73,8 @@ import {
   fetchPlaceServerComments,
   addPlaceServerComment,
 } from '@/services/api';
-import { citizenReportsAsFindings, getAllCityBarriers } from '@/services/barriers';
+import { city } from '@/config/city';
+import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -239,27 +240,9 @@ export default function MapHomeScreen() {
     setBarrierViewMode,
   } = useSession();
 
-  // All barriers across Kraków computed with active thresholds
-  const allCityBarriers = useMemo(() => {
-    return getAllCityBarriers(activeThresholds);
-  }, [activeThresholds]);
-
-  // Barriers on the active route
   const routeBarriers = useMemo(() => {
     return activeRouteReport?.findings || [];
   }, [activeRouteReport]);
-
-  const baseMapFindings = useMemo(() => {
-    switch (barrierViewMode) {
-      case 'none':
-        return [];
-      case 'route':
-        return routeBarriers;
-      case 'all':
-      default:
-        return allCityBarriers;
-    }
-  }, [barrierViewMode, routeBarriers, allCityBarriers]);
 
   // Map state
   const [mapCenter, setMapCenter] = useState<{ lat: number; lon: number }>({
@@ -419,8 +402,14 @@ export default function MapHomeScreen() {
         status: report.status,
       })),
     ]);
-    return [...baseMapFindings, ...reports];
-  }, [baseMapFindings, serverHazards, localReports]);
+    return selectMapFindings({
+      mode: barrierViewMode,
+      routeFindings: routeBarriers,
+      reports,
+      routeCoordinates: activeWalkingRoute?.coordinates,
+      corridorMetres: city.corridorMeters,
+    });
+  }, [barrierViewMode, routeBarriers, serverHazards, localReports, activeWalkingRoute?.coordinates]);
 
   // Clicked map location popup state
   const [clickedLocation, setClickedLocation] = useState<{
@@ -1155,8 +1144,10 @@ export default function MapHomeScreen() {
                 }
                 setBarrierViewMode(newMode);
               }}
-              routeBarriersCount={routeBarriers.length}
-              allBarriersCount={allCityBarriers.length}
+              routeBarriersCount={
+                routeBarriers.filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning').length
+              }
+              allBarriersCount={routeBarriers.length}
               hasActiveRoute={Boolean(activeWalkingRoute)}
             />
           </View>

@@ -52,34 +52,68 @@ function surfaceTone(
   return severity === 'warning' || severity === 'blocker' ? 'other' : 'ok';
 }
 
+const BAD_SMOOTHNESS = new Set(['bad', 'very_bad', 'horrible', 'very_horrible', 'impassable']);
+
 /**
- * Splits the route geometry on GraphHopper surface intervals.
- * Unmapped surfaces stay `ok` (drawn blue). A mapped surface outside the
- * okay list is `other` (drawn orange).
+ * A geometry index fails the profile when a mapped surface, steps, width or
+ * smoothness is a warning or a blocker. Missing tags stay `ok` (drawn blue):
+ * lack of data is not painted as a barrier.
+ */
+function expectationTone(
+  details: Record<string, Array<[number, number, string | number | null]>> | undefined,
+  index: number,
+  thresholds: BarrierThresholds,
+): RouteSurfaceSpan['tone'] {
+  if (surfaceTone(findDetailValue<string>(details, 'surface', index), thresholds) === 'other') {
+    return 'other';
+  }
+
+  const road = findDetailValue<string>(details, 'road_class', index);
+  if (road && String(road).toLowerCase() === 'steps') {
+    const treatment =
+      thresholds.stepsTreatment ?? (thresholds.stepsAreBlocker ? 'blocker' : 'warning');
+    if (treatment !== 'allowed') return 'other';
+  }
+
+  const widthRaw = findDetailValue<number | string>(details, 'max_width', index);
+  const width =
+    widthRaw == null || widthRaw === 'missing' || String(widthRaw).trim() === ''
+      ? null
+      : Number(widthRaw);
+  if (
+    width !== null &&
+    Number.isFinite(width) &&
+    thresholds.minWidthMetres > 0 &&
+    evaluateWidth(width, thresholds) === 'blocker'
+  ) {
+    return 'other';
+  }
+
+  const smoothness = findDetailValue<string>(details, 'smoothness', index);
+  if (smoothness && BAD_SMOOTHNESS.has(String(smoothness).toLowerCase())) return 'other';
+
+  return 'ok';
+}
+
+/**
+ * Splits the route geometry where the profile is or is not met.
+ * Unmapped attributes stay `ok` (drawn blue). A segment that fails the
+ * profile is `other` (drawn orange).
  */
 export function buildSurfaceSpans(
   coordinates: [number, number][],
-  surfaceDetails: Array<[number, number, string | number | null]> | undefined,
+  details: Record<string, Array<[number, number, string | number | null]>> | undefined,
   thresholds: BarrierThresholds,
 ): RouteSurfaceSpan[] {
   if (coordinates.length < 2) return [];
 
-  const intervals =
-    surfaceDetails && surfaceDetails.length > 0
-      ? surfaceDetails
-      : ([[0, coordinates.length - 1, null]] as Array<[number, number, string | number | null]>);
-
   const spans: RouteSurfaceSpan[] = [];
-  for (const [start, end, raw] of intervals) {
-    const from = Math.max(0, start);
-    const to = Math.min(coordinates.length - 1, end);
-    if (to <= from) continue;
-    const slice = coordinates.slice(from, to + 1);
-    if (slice.length < 2) continue;
-    const tone = surfaceTone(raw, thresholds);
+  for (let index = 0; index < coordinates.length - 1; index++) {
+    const tone = expectationTone(details, index, thresholds);
+    const slice: [number, number][] = [coordinates[index]!, coordinates[index + 1]!];
     const previous = spans[spans.length - 1];
     if (previous && previous.tone === tone) {
-      previous.coordinates.push(...slice.slice(1));
+      previous.coordinates.push(slice[1]!);
     } else {
       spans.push({ coordinates: slice, tone });
     }
@@ -387,7 +421,7 @@ export function mapGraphHopperPathToResult(
       honestyNote,
     },
     source: OSM_SOURCE,
-    surfaceSpans: buildSurfaceSpans(coordinates, details.surface, thresholds),
+    surfaceSpans: buildSurfaceSpans(coordinates, details, thresholds),
   };
 }
 

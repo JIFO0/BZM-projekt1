@@ -437,14 +437,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         isSample: curVariants.accessible.isSample,
       });
 
-      const updatedShortestReport = analyzeRoute({
-        routeId: curVariants.shortest.report.routeId,
+      const updatedFastestReport = analyzeRoute({
+        routeId: curVariants.fastest.report.routeId,
         profileId,
-        routeCoordinates: curVariants.shortest.walkingRoute.coordinates,
-        facts: curVariants.shortest.facts,
+        routeCoordinates: curVariants.fastest.walkingRoute.coordinates,
+        facts: curVariants.fastest.facts,
         config: city,
         thresholds: activeThresholds,
-        isSample: curVariants.shortest.isSample,
+        isSample: curVariants.fastest.isSample,
       });
 
       const nextVariants: Record<RouteVariantId, RouteVariant> = {
@@ -452,9 +452,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           ...curVariants.accessible,
           report: updatedAccessibleReport,
         },
-        shortest: {
-          ...curVariants.shortest,
-          report: updatedShortestReport,
+        fastest: {
+          ...curVariants.fastest,
+          report: updatedFastestReport,
         },
       };
 
