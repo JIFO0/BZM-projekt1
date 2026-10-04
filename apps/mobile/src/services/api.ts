@@ -39,12 +39,16 @@ export function resolveBackendApiUrl(): string {
   }
   if (typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname;
+    if (hostname === 'accessible.krakow.local') {
+      return window.location.origin;
+    }
+    if (hostname.endsWith('.local')) {
+      return `http://api.${hostname}`;
+    }
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:3000';
     }
-    if (hostname && !hostname.endsWith('.local')) {
-      return `http://${hostname}:3000`;
-    }
+    return `http://${hostname}:3000`;
   }
   return 'http://localhost:3000';
 }
@@ -917,7 +921,8 @@ export async function createServerHazard(data: {
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to create hazard: HTTP ${res.status}`);
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to create hazard: HTTP ${res.status}`);
   }
   const created: ServerRouteHazard = await res.json();
   return {

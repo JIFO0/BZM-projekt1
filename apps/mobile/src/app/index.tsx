@@ -28,7 +28,6 @@ import {
   Warning,
   Wheelchair,
   X,
-  User,
 } from 'phosphor-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -225,8 +224,6 @@ export default function MapHomeScreen() {
     selectRouteVariant,
     activePlaceReport,
     setActivePlaceReport,
-    localReports,
-    addLocalReport,
     userLocation,
     isLocating,
     fetchUserLocation,
@@ -234,7 +231,6 @@ export default function MapHomeScreen() {
     fontSize,
     isHighContrast,
     userAccount,
-    setUserModalVisible,
     barrierViewMode,
     setBarrierViewMode,
   } = useSession();
@@ -310,6 +306,8 @@ export default function MapHomeScreen() {
   const [reportPos, setReportPos] = useState<LonLat | null>(null);
 
   const [serverHazards, setServerHazards] = useState<ServerRouteHazard[]>([]);
+  const [reportEmail, setReportEmail] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   // New Hazard Report with Photo state
   const [newReportCategory, setNewReportCategory] = useState<'hole' | 'obstacle' | 'flood' | 'surface' | 'other'>('obstacle');
@@ -390,6 +388,10 @@ export default function MapHomeScreen() {
     }
   };
 
+  useEffect(() => {
+    loadServerHazards();
+  }, []);
+
   const loadPlaceComments = async (placeId: string) => {
     try {
       const comments = await fetchPlaceServerComments(placeId);
@@ -403,24 +405,17 @@ export default function MapHomeScreen() {
   const [pickingTarget, setPickingTarget] = useState<'start' | 'end' | 'place' | 'report' | null>(null);
 
   const displayedFindings = useMemo(() => {
-    const reports = citizenReportsAsFindings([
-      ...serverHazards.map((hazard) => ({
+    const reports = citizenReportsAsFindings(
+      serverHazards.map((hazard) => ({
         id: hazard.id,
         description: hazard.description,
         position: hazard.position,
         createdAt: hazard.createdAt,
         status: hazard.status,
-      })),
-      ...localReports.map((report) => ({
-        id: report.id,
-        description: report.description,
-        position: report.position,
-        createdAt: report.createdAt,
-        status: report.status,
-      })),
-    ]);
+      }))
+    );
     return [...baseMapFindings, ...reports];
-  }, [baseMapFindings, serverHazards, localReports]);
+  }, [baseMapFindings, serverHazards]);
 
   // Clicked map location popup state
   const [clickedLocation, setClickedLocation] = useState<{
@@ -887,8 +882,18 @@ export default function MapHomeScreen() {
     });
   };
 
-  // Submit hazard report (local + server with photo)
-  const handleSubmitLocalReport = async () => {
+  // Submit hazard report directly to server with email and optional photo
+  const handleSubmitServerReport = async () => {
+    const trimmedEmail = reportEmail.trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
+      Alert.alert(
+        t(locale, 'warningTitle'),
+        locale === 'pl'
+          ? 'Podaj poprawny adres e-mail (jest wymagany do weryfikacji zgłoszenia).'
+          : 'Please provide a valid email address (required for report verification).'
+      );
+      return;
+    }
     if (!reportDesc.trim()) {
       Alert.alert(t(locale, 'warningTitle'), t(locale, 'reportDescRequired'));
       return;
@@ -905,42 +910,58 @@ export default function MapHomeScreen() {
       setIsUploadingPhoto(true);
       try {
         uploadedUrl = await uploadPhotoToServer(newReportPhoto, `hazard-${Date.now()}.jpg`);
-      } catch {
-        uploadedUrl = newReportPhoto;
+      } catch (err: any) {
+        Alert.alert(
+          locale === 'pl' ? 'Błąd zdjęcia' : 'Photo error',
+          err.message || 'Nie udało się przesłać zdjęcia.'
+        );
+        setIsUploadingPhoto(false);
+        return;
       } finally {
         setIsUploadingPhoto(false);
       }
     }
 
+    setIsSubmittingReport(true);
     try {
-      const email = userAccount?.email || 'uzytkownik@krakow.pl';
       await createServerHazard({
         description: reportDesc.trim(),
         category: newReportCategory,
-        email,
+        email: trimmedEmail,
         photoUrl: uploadedUrl,
         position,
       });
-      loadServerHazards();
-    } catch {
-      // Local fallback still keeps the obstacle on the map.
+      await loadServerHazards();
+
+      setReportDesc('');
+      setNewReportPhoto(null);
+      setReportSuccess(true);
+      setMapCenter({ lat: position.lat, lon: position.lon });
+      setStatusMessage(
+        locale === 'pl'
+          ? 'Zgłoszenie zostało przesłane na serwer i oznaczone na mapie.'
+          : locale === 'uk'
+          ? 'Повідомлення надіслано на сервер та відображено на карті.'
+          : 'Report submitted to server and displayed on map.'
+      );
+      setTimeout(() => {
+        setReportSuccess(false);
+        setStatusMessage(null);
+        setReportPopupOpen(false);
+      }, 2000);
+    } catch (err: any) {
+      Alert.alert(
+        locale === 'pl' ? 'Błąd serwera' : locale === 'uk' ? 'Помилка сервера' : 'Server error',
+        err.message ||
+          (locale === 'pl'
+            ? 'Nie udało się zapisać zgłoszenia na serwerze.'
+            : locale === 'uk'
+            ? 'Не вдалося зберегти повідомлення на сервері.'
+            : 'Failed to submit report to server.')
+      );
+    } finally {
+      setIsSubmittingReport(false);
     }
-
-    addLocalReport(reportDesc.trim(), {
-      photoUrl: uploadedUrl,
-      category: newReportCategory,
-      position,
-    });
-
-    setReportDesc('');
-    setNewReportPhoto(null);
-    setReportSuccess(true);
-    setMapCenter({ lat: position.lat, lon: position.lon });
-    setStatusMessage('Zgłoszenie zostało zapisane i oznaczone na mapie jako przeszkoda.');
-    setTimeout(() => {
-      setReportSuccess(false);
-      setStatusMessage(null);
-    }, 4000);
   };
 
   // Add Place Accessibility Validation with Photo
@@ -2286,54 +2307,34 @@ export default function MapHomeScreen() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingBottom: 28, gap: 10 }}
             >
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  userAccount
-                    ? `${t(locale, 'userAccountVerifiedResident')}: ${userAccount.displayName}`
-                    : t(locale, 'userAccountLoginBtn')
-                }
-                onPress={() => setUserModalVisible(true)}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  paddingVertical: 6,
-                  paddingHorizontal: 10,
-                  borderRadius: 8,
-                  backgroundColor: userAccount
-                    ? (isHighContrast ? colors.accent : 'rgba(34, 197, 94, 0.15)')
-                    : (isHighContrast ? colors.surface : 'rgba(0, 92, 169, 0.08)'),
-                  borderWidth: 1,
-                  borderColor: userAccount ? '#22C55E' : colors.border,
-                }}
-              >
-                {userAccount ? (
-                  <ShieldCheck
-                    size={16}
-                    color={isHighContrast ? colors.accentText : '#16A34A'}
-                    weight="fill"
-                  />
-                ) : (
-                  <User size={16} color={colors.accent} weight="bold" />
-                )}
-                <Text
-                  style={{
-                    flex: 1,
-                    fontSize: fontSize(12),
-                    fontWeight: '700',
-                    color: isHighContrast
-                      ? colors.text
-                      : userAccount
-                        ? '#15803D'
-                        : colors.accent,
-                  }}
-                >
-                  {userAccount
-                    ? `Zalogowany: ${userAccount.displayName} (${userAccount.email})`
-                    : 'Zgłaszasz anonimowo. Zaloguj się adresem e-mail'}
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontSize: fontSize(13), fontWeight: '700', color: colors.text }}>
+                  {locale === 'pl' ? 'Twój adres e-mail (wymagany):' : 'Your email address (required):'}
                 </Text>
-              </Pressable>
+                <TextInput
+                  value={reportEmail}
+                  onChangeText={setReportEmail}
+                  placeholder={locale === 'pl' ? 'np. jan.kowalski@example.com' : 'e.g. john@example.com'}
+                  placeholderTextColor={colors.muted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={[
+                    styles.input,
+                    {
+                      color: colors.text,
+                      borderColor: colors.border,
+                      backgroundColor: colors.background,
+                      fontSize: fontSize(14),
+                      borderWidth: isHighContrast ? 2 : 1,
+                      minHeight: 44,
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                    },
+                  ]}
+                />
+              </View>
 
               <LocationPicker
                 label={t(locale, 'reportLocationLabel')}
@@ -2472,11 +2473,17 @@ export default function MapHomeScreen() {
               ) : null}
 
               <GovButton
-                title={isUploadingPhoto ? 'Przesyłanie zdjęcia...' : t(locale, 'reportSubmit')}
+                title={
+                  isUploadingPhoto
+                    ? (locale === 'pl' ? 'Przesyłanie zdjęcia...' : locale === 'uk' ? 'Завантаження фото...' : 'Uploading photo...')
+                    : isSubmittingReport
+                    ? (locale === 'pl' ? 'Wysyłanie na serwer...' : locale === 'uk' ? 'Надсилання на сервер...' : 'Submitting to server...')
+                    : t(locale, 'reportSubmit')
+                }
                 icon={<Check size={16} weight="bold" color={colors.accentText} />}
                 variant="primary"
-                loading={isUploadingPhoto}
-                onPress={handleSubmitLocalReport}
+                loading={isUploadingPhoto || isSubmittingReport}
+                onPress={handleSubmitServerReport}
               />
             </ScrollView>
           </KeyboardAvoidingView>

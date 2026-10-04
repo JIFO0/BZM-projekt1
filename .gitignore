@@ -59,3 +59,9 @@ backend/data/*.pbf
 data/tiles/
 packages/cli/data/tiles/
 
+# Server uploads and persistent data
+uploads/
+backend/data/uploads/
+backend/data/reports/
+data/reports/
+

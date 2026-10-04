@@ -13,64 +13,93 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useEffect } from 'react';
 
 import {
   NotePencil,
-  FloppyDisk,
   MapTrifold,
   Globe,
   ListChecks,
   Warning,
   CheckCircle,
-  User,
-  ShieldCheck,
   Camera,
   Image as ImageIcon,
   Trash,
+  EnvelopeSimple,
+  PaperPlaneTilt,
 } from 'phosphor-react-native';
 import { DebugModal } from '@/components/DebugModal';
 import { CredibilityNote } from '@/components/CredibilityNote';
 import { GovButton } from '@/components/GovButton';
 import { GovCard } from '@/components/GovCard';
 import { GovFooter } from '@/components/GovFooter';
-import { useState } from 'react';
 import { KrakowHeader } from '@/components/KrakowHeader';
 import { t } from '@/i18n/strings';
 import { pickPhotoAsync } from '@/services/photo';
-import { uploadPhotoToServer, createServerHazard } from '@/services/api';
+import {
+  uploadPhotoToServer,
+  createServerHazard,
+  fetchServerHazards,
+  type ServerRouteHazard,
+} from '@/services/api';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
 export default function ReportCorrectionScreen() {
   const {
     locale,
-    localReports,
-    addLocalReport,
     activeRouteReport,
     colors,
     fontSize,
     isHighContrast,
     increasedSpacing,
     dyslexicFont,
-    userAccount,
-    setUserModalVisible,
   } = useSession();
 
+  const [email, setEmail] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<'hole' | 'obstacle' | 'flood' | 'surface' | 'other'>('obstacle');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
   const [debugVisible, setDebugVisible] = useState(false);
+  const [serverHazards, setServerHazards] = useState<ServerRouteHazard[]>([]);
 
-  const handleSubmitLocal = async () => {
+  const loadHazards = async () => {
+    try {
+      const list = await fetchServerHazards();
+      setServerHazards(list);
+    } catch {
+      // Non-fatal
+    }
+  };
+
+  useEffect(() => {
+    loadHazards();
+  }, []);
+
+  const handleSubmit = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
+      Alert.alert(
+        locale === 'pl' ? 'Błąd' : locale === 'uk' ? 'Помилка' : 'Error',
+        locale === 'pl'
+          ? 'Podaj poprawny adres e-mail (jest wymagany do weryfikacji zgłoszenia).'
+          : locale === 'uk'
+          ? 'Введіть дійсну адресу електронної пошти.'
+          : 'Please enter a valid email address (required for report verification).'
+      );
+      return;
+    }
+
     if (!description.trim()) {
       Alert.alert(
         locale === 'pl' ? 'Błąd' : locale === 'uk' ? 'Помилка' : 'Error',
         locale === 'pl'
           ? 'Wpisz treść uwagi lub przeszkody.'
           : locale === 'uk'
-            ? 'Введіть опис зауваження або перешкоди.'
-            : 'Please enter description of the issue or barrier.'
+          ? 'Введіть опис зауваження або перешкоди.'
+          : 'Please enter description of the barrier.'
       );
       return;
     }
@@ -80,42 +109,38 @@ export default function ReportCorrectionScreen() {
 
     try {
       if (photoUri) {
-        const uploadRes = await uploadPhotoToServer(photoUri);
+        const uploadRes = await uploadPhotoToServer(photoUri, `hazard-${Date.now()}.jpg`);
         if (uploadRes) {
           serverPhotoUrl = uploadRes;
-        } else {
-          serverPhotoUrl = photoUri;
         }
       }
 
-      // Also create server hazard so it propagates to the community
-      try {
-        let lat = 50.0619;
-        let lon = 19.9373;
-        if (activeRouteReport && activeRouteReport.findings.length > 0) {
-          lat = activeRouteReport.findings[0]!.fact.subject.lat;
-          lon = activeRouteReport.findings[0]!.fact.subject.lon;
-        }
-        await createServerHazard({
-          category: 'other',
-          description: description.trim(),
-          position: { lat, lon },
-          photoUrl: serverPhotoUrl,
-        });
-      } catch {
-        // Fallback gracefully
+      let lat = 50.0619;
+      let lon = 19.9373;
+      if (activeRouteReport && activeRouteReport.findings.length > 0) {
+        lat = activeRouteReport.findings[0]!.fact.subject.lat;
+        lon = activeRouteReport.findings[0]!.fact.subject.lon;
       }
 
-      addLocalReport(description.trim(), {
+      await createServerHazard({
+        description: description.trim(),
+        category,
+        email: trimmedEmail,
+        position: { lat, lon },
         photoUrl: serverPhotoUrl,
       });
+
+      await loadHazards();
 
       setDescription('');
       setPhotoUri(null);
       setSuccessMsg(true);
       setTimeout(() => setSuccessMsg(false), 4000);
     } catch (e: any) {
-      Alert.alert(locale === 'pl' ? 'Błąd' : 'Error', e.message || 'Nie udało się zapisać zgłoszenia.');
+      Alert.alert(
+        locale === 'pl' ? 'Błąd serwera' : locale === 'uk' ? 'Помилка сервера' : 'Server error',
+        e.message || 'Nie udało się zapisać zgłoszenia na serwerze.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -138,11 +163,19 @@ export default function ReportCorrectionScreen() {
         locale === 'pl'
           ? `Nie można otworzyć linku: ${osmUrl}`
           : locale === 'uk'
-            ? `Не вдалося відкрити посилання: ${osmUrl}`
-            : `Cannot open link: ${osmUrl}`
+          ? `Не вдалося відкрити посилання: ${osmUrl}`
+          : `Cannot open link: ${osmUrl}`
       );
     }
   };
+
+  const categories = [
+    { id: 'obstacle' as const, label: locale === 'pl' ? 'Krawężnik / schody' : locale === 'uk' ? 'Бордюр / сходи' : 'Curb / steps' },
+    { id: 'hole' as const, label: locale === 'pl' ? 'Wyrwa / dziura' : locale === 'uk' ? 'Вирва / яма' : 'Pothole / gap' },
+    { id: 'surface' as const, label: locale === 'pl' ? 'Bruk / nawierzchnia' : locale === 'uk' ? 'Бруківка / покриття' : 'Surface / cobbles' },
+    { id: 'flood' as const, label: locale === 'pl' ? 'Zalanie / kałuża' : locale === 'uk' ? 'Затоплення / калюжа' : 'Flooding / puddle' },
+    { id: 'other' as const, label: locale === 'pl' ? 'Inna przeszkoda' : locale === 'uk' ? 'Інша перешкода' : 'Other barrier' },
+  ];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -186,57 +219,40 @@ export default function ReportCorrectionScreen() {
           </Text>
         </GovCard>
 
-        {/* User Account Verification / Authentication Banner */}
-        {userAccount ? (
-          <GovCard variant="ok">
-            <View style={styles.cardHeaderRow}>
-              <ShieldCheck size={20} color={colors.okText} weight="fill" />
-              <Text
-                style={{
-                  color: colors.okText,
-                  fontWeight: '800',
-                  fontSize: fontSize(14.5),
-                }}
-              >
-                {t(locale, 'userAccountVerifiedResident')}: {userAccount.displayName}
-              </Text>
-            </View>
+        {/* Required Email Field */}
+        <GovCard variant="default">
+          <View style={styles.cardHeaderRow}>
+            <EnvelopeSimple size={20} color={colors.accent} weight="bold" />
             <Text
-              style={[
-                styles.body,
-                { color: colors.text, fontSize: fontSize(13), marginTop: 4 },
-              ]}
+              accessibilityRole="header"
+              style={[styles.cardTitle, { color: colors.text, fontSize: fontSize(16) }]}
             >
-              {t(locale, 'userAccountReportNoticeVerified')} ({userAccount.email})
+              {locale === 'pl' ? 'Twój adres e-mail (wymagany)' : locale === 'uk' ? 'Ваша електронна пошта (обов’язково)' : 'Your email address (required)'}
             </Text>
-          </GovCard>
-        ) : (
-          <GovCard variant="default">
-            <View style={styles.cardHeaderRow}>
-              <User size={20} color={colors.accent} weight="bold" />
-              <Text
-                style={{
-                  color: colors.text,
-                  fontWeight: '700',
-                  fontSize: fontSize(13.5),
-                  flex: 1,
-                }}
-              >
-                {t(locale, 'userAccountReportNoticeAnon')}
-              </Text>
-            </View>
-            <View style={{ marginTop: spacing.xs }}>
-              <GovButton
-                title={t(locale, 'userAccountLoginBtn')}
-                icon={<User size={16} color="#FFFFFF" weight="bold" />}
-                variant="primary"
-                onPress={() => setUserModalVisible(true)}
-              />
-            </View>
-          </GovCard>
-        )}
+          </View>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder={locale === 'pl' ? 'np. jan.kowalski@example.com' : 'e.g. john@example.com'}
+            placeholderTextColor={colors.muted}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[
+              styles.input,
+              {
+                color: colors.text,
+                borderColor: colors.border,
+                backgroundColor: colors.background,
+                fontSize: fontSize(15),
+                minHeight: 48,
+                borderWidth: isHighContrast ? 2.5 : 1.5,
+              },
+            ]}
+          />
+        </GovCard>
 
-        {/* Local Submission Form */}
+        {/* Hazard Submission Form */}
         <GovCard variant="default">
           <View style={styles.cardHeaderRow}>
             <NotePencil size={20} color={colors.accent} weight="bold" />
@@ -247,6 +263,39 @@ export default function ReportCorrectionScreen() {
               {t(locale, 'reportObstacleDesc')}
             </Text>
           </View>
+
+          {/* Category Chips */}
+          <Text style={{ color: colors.text, fontSize: fontSize(13.5), fontWeight: '700', marginTop: 4 }}>
+            {locale === 'pl' ? 'Kategoria przeszkody:' : locale === 'uk' ? 'Категорія перешкоди:' : 'Hazard category:'}
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginVertical: 6 }}>
+            {categories.map((cat) => (
+              <Pressable
+                key={cat.id}
+                accessibilityRole="button"
+                onPress={() => setCategory(cat.id)}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: category === cat.id ? colors.accent : colors.background,
+                  borderWidth: 1.5,
+                  borderColor: category === cat.id ? colors.accent : colors.border,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: fontSize(12),
+                    color: category === cat.id ? colors.accentText : colors.text,
+                    fontWeight: '700',
+                  }}
+                >
+                  {cat.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
           <TextInput
             value={description}
             onChangeText={setDescription}
@@ -262,13 +311,14 @@ export default function ReportCorrectionScreen() {
                 backgroundColor: colors.background,
                 fontSize: fontSize(15),
                 borderWidth: isHighContrast ? 2.5 : 1.5,
+                marginTop: 6,
               },
             ]}
           />
 
           {/* Photo attachment (public) */}
           <Text style={{ color: colors.text, fontSize: fontSize(13.5), fontWeight: '700', marginTop: 10 }}>
-            {locale === 'pl' ? 'Dołącz zdjęcie przeszkody (widoczne dla wszystkich):' : 'Attach hazard photo (public):'}
+            {locale === 'pl' ? 'Dołącz zdjęcie przeszkody (widoczne dla wszystkich):' : locale === 'uk' ? 'Додати фото перешкоди:' : 'Attach hazard photo (public):'}
           </Text>
 
           <View style={styles.photoActionsRow}>
@@ -282,7 +332,7 @@ export default function ReportCorrectionScreen() {
             >
               <Camera size={16} weight="bold" color={colors.accent} />
               <Text style={[styles.photoBtnText, { color: colors.text, fontSize: fontSize(13) }]}>
-                {locale === 'pl' ? 'Zrób zdjęcie (Aparat)' : 'Take photo'}
+                {locale === 'pl' ? 'Zrób zdjęcie (Aparat)' : locale === 'uk' ? 'Зробити фото' : 'Take photo'}
               </Text>
             </Pressable>
 
@@ -296,7 +346,7 @@ export default function ReportCorrectionScreen() {
             >
               <ImageIcon size={16} weight="bold" color={colors.accent} />
               <Text style={[styles.photoBtnText, { color: colors.text, fontSize: fontSize(13) }]}>
-                {locale === 'pl' ? 'Wybierz z galerii' : 'From gallery'}
+                {locale === 'pl' ? 'Wybierz z galerii' : locale === 'uk' ? 'Обрати з галереї' : 'From gallery'}
               </Text>
             </Pressable>
           </View>
@@ -327,11 +377,19 @@ export default function ReportCorrectionScreen() {
           ) : null}
 
           <GovButton
-            title={isSubmitting ? (locale === 'pl' ? 'Wysyłanie...' : 'Submitting...') : t(locale, 'reportSubmit')}
-            icon={isSubmitting ? <ActivityIndicator size="small" color="#fff" /> : <FloppyDisk size={18} color="#fff" weight="bold" />}
+            title={
+              isSubmitting
+                ? (locale === 'pl'
+                    ? 'Wysyłanie na serwer...'
+                    : locale === 'uk'
+                    ? 'Надсилання на сервер...'
+                    : 'Submitting to server...')
+                : t(locale, 'reportSubmit')
+            }
+            icon={isSubmitting ? <ActivityIndicator size="small" color="#fff" /> : <PaperPlaneTilt size={18} color="#fff" weight="bold" />}
             variant="primary"
             disabled={isSubmitting}
-            onPress={handleSubmitLocal}
+            onPress={handleSubmit}
           />
         </GovCard>
 
@@ -358,7 +416,7 @@ export default function ReportCorrectionScreen() {
           />
         </GovCard>
 
-        {/* Local Reports Queue List */}
+        {/* Server Hazards List */}
         <View style={styles.queueSection}>
           <View style={styles.cardHeaderRow}>
             <ListChecks size={20} color={colors.accent} weight="bold" />
@@ -366,43 +424,48 @@ export default function ReportCorrectionScreen() {
               accessibilityRole="header"
               style={[styles.queueTitle, { color: colors.text, fontSize: fontSize(17.5) }]}
             >
-              {t(locale, 'localReportsQueue')} ({localReports.length})
+              {locale === 'pl' ? 'Zgłoszone przeszkody na serwerze:' : 'Reported obstacles on server:'} ({serverHazards.length})
             </Text>
           </View>
 
-          {localReports.length === 0 ? (
+          {serverHazards.length === 0 ? (
             <GovCard variant="default">
               <Text style={[styles.body, { color: colors.muted, fontSize: fontSize(14) }]}>
-                {t(locale, 'noLocalReports')}
+                {locale === 'pl' ? 'Brak zgłoszonych przeszkód na serwerze.' : 'No reported obstacles on server.'}
               </Text>
             </GovCard>
           ) : (
-            localReports.map((report) => (
-              <GovCard key={report.id} variant="warning">
+            serverHazards.map((hazard) => (
+              <GovCard key={hazard.id} variant="warning">
                 <View style={styles.itemHeader}>
                   <View style={styles.statusBadgeRow}>
                     <Warning size={16} color={colors.warningText} weight="bold" />
                     <Text style={[styles.statusBadge, { color: colors.warningText, fontSize: fontSize(13) }]}>
-                      {t(locale, 'localReportUnverified')}
+                      {hazard.category ? `[${hazard.category.toUpperCase()}] ` : ''}
+                      {hazard.status === 'confirmed'
+                        ? (locale === 'pl' ? 'Zweryfikowana przeszkoda' : 'Confirmed hazard')
+                        : hazard.status === 'resolved'
+                        ? (locale === 'pl' ? 'Rozwiązana' : 'Resolved')
+                        : (locale === 'pl' ? 'Zgłoszenie społeczne' : 'Community report')}
                     </Text>
                   </View>
                   <Text style={[styles.itemDate, { color: colors.muted, fontSize: fontSize(12) }]}>
-                    {report.createdAt.slice(0, 10)}
+                    {hazard.createdAt.slice(0, 10)}
                   </Text>
                 </View>
                 <Text style={[styles.itemText, { color: colors.text, fontSize: fontSize(14) }]}>
-                  {report.description}
+                  {hazard.description}
                 </Text>
                 <CredibilityNote
                   locale={locale}
                   assessment={credibilityFromReports({
-                    supportCount: report.stillHereCount ?? 0,
-                    photoCount: report.photoUrl ? 1 : 0,
+                    supportCount: hazard.stillHereCount ?? 0,
+                    photoCount: hazard.photoUrl ? 1 : 0,
                   })}
                 />
-                {report.photoUrl ? (
+                {hazard.photoUrl ? (
                   <View style={[styles.reportPhotoContainer, { borderColor: colors.border }]}>
-                    <Image source={{ uri: report.photoUrl }} style={styles.reportThumb} resizeMode="cover" />
+                    <Image source={{ uri: hazard.photoUrl }} style={styles.reportThumb} resizeMode="cover" />
                   </View>
                 ) : null}
               </GovCard>

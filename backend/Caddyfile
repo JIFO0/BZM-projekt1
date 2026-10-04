@@ -14,7 +14,22 @@
 
 # 1. Web Frontend (Expo Production Build)
 http://accessible.krakow.local {
-    reverse_proxy frontend:80
+    handle /api/* {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE"
+        header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+        reverse_proxy api:3000
+    }
+
+    handle /uploads/* {
+        header Access-Control-Allow-Origin "*"
+        header Access-Control-Allow-Methods "GET, OPTIONS"
+        reverse_proxy api:3000
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
 }
 
 # 2. API Backend (Hono / Node.js)

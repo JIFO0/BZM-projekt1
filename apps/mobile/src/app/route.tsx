@@ -142,7 +142,6 @@ export default function RouteScreen() {
     setBarrierViewMode,
     activeThresholds,
     debugState,
-    localReports,
   } = useSession();
 
   const [showMap, setShowMap] = useState(true);
@@ -253,23 +252,16 @@ export default function RouteScreen() {
 
   const reportFindings = useMemo(
     () =>
-      citizenReportsAsFindings([
-        ...serverHazards.map((hazard) => ({
+      citizenReportsAsFindings(
+        serverHazards.map((hazard) => ({
           id: hazard.id,
           description: hazard.description,
           position: hazard.position,
           createdAt: hazard.createdAt,
           status: hazard.status,
-        })),
-        ...localReports.map((report) => ({
-          id: report.id,
-          description: report.description,
-          position: report.position,
-          createdAt: report.createdAt,
-          status: report.status,
-        })),
-      ]),
-    [serverHazards, localReports],
+        }))
+      ),
+    [serverHazards],
   );
 
   // Filter displayed findings based on barrier view mode. Reports stay on the map wherever they are.
