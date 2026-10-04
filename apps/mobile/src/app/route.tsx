@@ -51,7 +51,8 @@ import {
   t,
 } from '@/i18n/strings';
 import { fetchServerHazards, planAndAnalyzeRoute, type RouteVariantId, type ServerRouteHazard } from '@/services/api';
-import { citizenReportsAsFindings, getAllCityBarriers } from '@/services/barriers';
+import { city } from '@/config/city';
+import { citizenReportsAsFindings, selectMapFindings } from '@/services/barriers';
 import { useSession } from '@/state/session';
 import { spacing } from '@/theme/tokens';
 
@@ -246,11 +247,6 @@ export default function RouteScreen() {
     fetchServerHazards().then(setServerHazards).catch(() => {});
   }, []);
 
-  // All city barriers computed with active thresholds
-  const allCityBarriers = useMemo(() => {
-    return getAllCityBarriers(activeThresholds);
-  }, [activeThresholds]);
-
   const reportFindings = useMemo(
     () =>
       citizenReportsAsFindings([
@@ -272,21 +268,15 @@ export default function RouteScreen() {
     [serverHazards, localReports],
   );
 
-  // Filter displayed findings based on barrier view mode. Reports stay on the map wherever they are.
   const displayedFindings = useMemo(() => {
-    const base = (() => {
-      switch (barrierViewMode) {
-        case 'none':
-          return [];
-        case 'route':
-          return activeRouteReport?.findings || [];
-        case 'all':
-        default:
-          return allCityBarriers;
-      }
-    })();
-    return [...base, ...reportFindings];
-  }, [barrierViewMode, activeRouteReport?.findings, allCityBarriers, reportFindings]);
+    return selectMapFindings({
+      mode: barrierViewMode,
+      routeFindings: activeRouteReport?.findings || [],
+      reports: reportFindings,
+      routeCoordinates: activeWalkingRoute?.coordinates,
+      corridorMetres: city.corridorMeters,
+    });
+  }, [barrierViewMode, activeRouteReport?.findings, activeWalkingRoute?.coordinates, reportFindings]);
 
   if (loading) {
     return (
@@ -452,7 +442,7 @@ export default function RouteScreen() {
         {routeVariants ? (
           <GovCard variant="default">
             <Text style={[styles.variantCardTitle, { color: colors.text, fontSize: fontSize(14.5), fontWeight: '700', marginBottom: 8 }]}>
-              Wybór wariantu trasy:
+              {t(locale, 'routeVariantHeading')}
             </Text>
             <View style={styles.variantButtonsRow}>
               <Pressable
@@ -489,7 +479,7 @@ export default function RouteScreen() {
                       },
                     ]}
                   >
-                    Bez barier
+                    {t(locale, 'routeVariantAccessible')}
                   </Text>
                 </View>
                 <Text
@@ -507,19 +497,19 @@ export default function RouteScreen() {
 
               <Pressable
                 accessibilityRole="button"
-                accessibilityState={{ selected: selectedRouteVariant === 'shortest' }}
+                accessibilityState={{ selected: selectedRouteVariant === 'fastest' }}
                 onPress={() => {
-                  selectRouteVariant('shortest');
-                  router.setParams({ variant: 'shortest' });
+                  selectRouteVariant('fastest');
+                  router.setParams({ variant: 'fastest' });
                 }}
                 style={[
                   styles.variantButton,
                   {
                     backgroundColor:
-                      selectedRouteVariant === 'shortest' ? colors.accent : colors.background,
+                      selectedRouteVariant === 'fastest' ? colors.accent : colors.background,
                     borderColor:
-                      selectedRouteVariant === 'shortest' ? colors.accent : colors.border,
-                    borderWidth: selectedRouteVariant === 'shortest' ? 2 : 1,
+                      selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
+                    borderWidth: selectedRouteVariant === 'fastest' ? 2 : 1,
                   },
                 ]}
               >
@@ -527,61 +517,74 @@ export default function RouteScreen() {
                   <Lightning
                     size={18}
                     weight="bold"
-                    color={selectedRouteVariant === 'shortest' ? colors.accentText : colors.warningText}
+                    color={selectedRouteVariant === 'fastest' ? colors.accentText : colors.warningText}
                   />
                   <Text
                     style={[
                       styles.variantTitle,
                       {
-                        color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.text,
+                        color: selectedRouteVariant === 'fastest' ? colors.accentText : colors.text,
                         fontSize: fontSize(14),
-                        fontWeight: selectedRouteVariant === 'shortest' ? '800' : '600',
+                        fontWeight: selectedRouteVariant === 'fastest' ? '800' : '600',
                       },
                     ]}
                   >
-                    Najkrótsza
+                    {t(locale, 'routeVariantFastest')}
                   </Text>
                 </View>
                 <Text
                   style={[
                     styles.variantSub,
                     {
-                      color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.muted,
+                      color: selectedRouteVariant === 'fastest' ? colors.accentText : colors.muted,
                       fontSize: fontSize(12),
                     },
                   ]}
                 >
-                  {(routeVariants.shortest.report.lengthMetres / 1000).toFixed(1)} km • {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length} blokad
+                  {Math.max(1, Math.round((routeVariants.fastest.walkingRoute.durationSeconds || 60) / 60))} min • {(routeVariants.fastest.report.lengthMetres / 1000).toFixed(1)} km
                 </Text>
               </Pressable>
             </View>
 
-            {selectedRouteVariant === 'shortest' &&
-              routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length > 0 && (
-                <View
-                  style={[
-                    styles.variantWarningCallout,
-                    {
-                      backgroundColor: colors.warningBg,
-                      borderColor: colors.warningBorder,
-                      borderWidth: 1.5,
-                      marginTop: 10,
-                    },
-                  ]}
-                >
-                  <Warning size={18} weight="bold" color={colors.warningText} />
-                  <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
-                    Trasa najkrótsza jest o{' '}
-                    {Math.max(
-                      0,
-                      routeVariants.accessible.report.lengthMetres - routeVariants.shortest.report.lengthMetres,
-                    )}{' '}
-                    m krótsza, ale zawiera{' '}
-                    {routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length}{' '}
-                    blokad(y) dla Twojego profilu mobilności (np. schody bez podjazdu, wysoki krawężnik, zabytkowy bruk).
-                  </Text>
-                </View>
-              )}
+            {selectedRouteVariant === 'accessible' &&
+            routeVariants.accessible.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
+              <View
+                style={[
+                  styles.variantWarningCallout,
+                  {
+                    backgroundColor: colors.warningBg,
+                    borderColor: colors.warningBorder,
+                    borderWidth: 1.5,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <Warning size={18} weight="bold" color={colors.warningText} />
+                <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
+                  {t(locale, 'routeVariantAccessibleGap')}
+                </Text>
+              </View>
+            ) : null}
+
+            {selectedRouteVariant === 'fastest' &&
+            routeVariants.fastest.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
+              <View
+                style={[
+                  styles.variantWarningCallout,
+                  {
+                    backgroundColor: colors.warningBg,
+                    borderColor: colors.warningBorder,
+                    borderWidth: 1.5,
+                    marginTop: 10,
+                  },
+                ]}
+              >
+                <Warning size={18} weight="bold" color={colors.warningText} />
+                <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
+                  {t(locale, 'routeVariantFastestWarning')}
+                </Text>
+              </View>
+            ) : null}
           </GovCard>
         ) : null}
 
@@ -816,8 +819,8 @@ export default function RouteScreen() {
               compact
               mode={barrierViewMode}
               onChangeMode={setBarrierViewMode}
-              routeBarriersCount={report.findings.length}
-              allBarriersCount={allCityBarriers.length}
+              routeBarriersCount={(report.findings || []).filter((finding) => finding.severity === 'blocker' || finding.severity === 'warning').length}
+              allBarriersCount={(report.findings || []).length}
               hasActiveRoute={true}
             />
             <MapView

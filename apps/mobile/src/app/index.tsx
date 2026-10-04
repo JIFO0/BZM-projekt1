@@ -1505,7 +1505,7 @@ export default function MapHomeScreen() {
                       {routeVariants ? (
                         <View style={styles.variantSection}>
                           <Text style={[styles.variantSectionTitle, { color: colors.text, fontSize: fontSize(13.5), fontWeight: '700' }]}>
-                            Wybór wariantu trasy:
+                            {t(locale, 'routeVariantHeading')}
                           </Text>
                           <View style={styles.variantButtonsRow}>
                             <Pressable
@@ -1539,7 +1539,7 @@ export default function MapHomeScreen() {
                                     },
                                   ]}
                                 >
-                                  Bez barier
+                                  {t(locale, 'routeVariantAccessible')}
                                 </Text>
                               </View>
                               <Text
@@ -1557,16 +1557,16 @@ export default function MapHomeScreen() {
 
                             <Pressable
                               accessibilityRole="button"
-                              accessibilityState={{ selected: selectedRouteVariant === 'shortest' }}
-                              onPress={() => selectRouteVariant('shortest')}
+                              accessibilityState={{ selected: selectedRouteVariant === 'fastest' }}
+                              onPress={() => selectRouteVariant('fastest')}
                               style={[
                                 styles.variantButton,
                                 {
                                   backgroundColor:
-                                    selectedRouteVariant === 'shortest' ? colors.accent : colors.background,
+                                    selectedRouteVariant === 'fastest' ? colors.accent : colors.background,
                                   borderColor:
-                                    selectedRouteVariant === 'shortest' ? colors.accent : colors.border,
-                                  borderWidth: selectedRouteVariant === 'shortest' ? 2 : 1,
+                                    selectedRouteVariant === 'fastest' ? colors.accent : colors.border,
+                                  borderWidth: selectedRouteVariant === 'fastest' ? 2 : 1,
                                 },
                               ]}
                             >
@@ -1574,60 +1574,72 @@ export default function MapHomeScreen() {
                                 <Lightning
                                   size={16}
                                   weight="bold"
-                                  color={selectedRouteVariant === 'shortest' ? colors.accentText : colors.warningText}
+                                  color={selectedRouteVariant === 'fastest' ? colors.accentText : colors.warningText}
                                 />
                                 <Text
                                   style={[
                                     styles.variantTitle,
                                     {
-                                      color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.text,
+                                      color: selectedRouteVariant === 'fastest' ? colors.accentText : colors.text,
                                       fontSize: fontSize(13),
-                                      fontWeight: selectedRouteVariant === 'shortest' ? '800' : '600',
+                                      fontWeight: selectedRouteVariant === 'fastest' ? '800' : '600',
                                     },
                                   ]}
                                 >
-                                  Najkrótsza
+                                  {t(locale, 'routeVariantFastest')}
                                 </Text>
                               </View>
                               <Text
                                 style={[
                                   styles.variantSub,
                                   {
-                                    color: selectedRouteVariant === 'shortest' ? colors.accentText : colors.muted,
+                                    color: selectedRouteVariant === 'fastest' ? colors.accentText : colors.muted,
                                     fontSize: fontSize(11.5),
                                   },
                                 ]}
                               >
-                                {(routeVariants.shortest.report.lengthMetres / 1000).toFixed(1)} km • {formatBlockerCount(routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length, locale)}
+                                {Math.max(1, Math.round((routeVariants.fastest.walkingRoute.durationSeconds || 60) / 60))} min • {(routeVariants.fastest.report.lengthMetres / 1000).toFixed(1)} km
                               </Text>
                             </Pressable>
                           </View>
 
-                          {selectedRouteVariant === 'shortest' &&
-                            routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length > 0 && (
-                              <View
-                                style={[
-                                  styles.variantWarningCallout,
-                                  {
-                                    backgroundColor: colors.warningBg,
-                                    borderColor: colors.warningBorder,
-                                    borderWidth: 1.5,
-                                  },
-                                ]}
-                              >
-                                <Warning size={18} weight="bold" color={colors.warningText} />
-                                <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
-                                  Trasa najkrótsza jest o{' '}
-                                  {Math.max(
-                                    0,
-                                    routeVariants.accessible.report.lengthMetres - routeVariants.shortest.report.lengthMetres,
-                                  )}{' '}
-                                  m krótsza, ale zawiera{' '}
-                                  {formatBlockerCount(routeVariants.shortest.report.findings.filter((f) => f.severity === 'blocker').length, locale)}{' '}
-                                  dla Twojego profilu. Trasa bez barier omija przeszkody.
-                                </Text>
-                              </View>
-                            )}
+                          {selectedRouteVariant === 'accessible' &&
+                          routeVariants.accessible.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
+                            <View
+                              style={[
+                                styles.variantWarningCallout,
+                                {
+                                  backgroundColor: colors.warningBg,
+                                  borderColor: colors.warningBorder,
+                                  borderWidth: 1.5,
+                                },
+                              ]}
+                            >
+                              <Warning size={18} weight="bold" color={colors.warningText} />
+                              <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
+                                {t(locale, 'routeVariantAccessibleGap')}
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          {selectedRouteVariant === 'fastest' &&
+                          routeVariants.fastest.walkingRoute.surfaceSpans?.some((span) => span.tone === 'other') ? (
+                            <View
+                              style={[
+                                styles.variantWarningCallout,
+                                {
+                                  backgroundColor: colors.warningBg,
+                                  borderColor: colors.warningBorder,
+                                  borderWidth: 1.5,
+                                },
+                              ]}
+                            >
+                              <Warning size={18} weight="bold" color={colors.warningText} />
+                              <Text style={[styles.variantWarningText, { color: colors.warningText, fontSize: fontSize(12.5) }]}>
+                                {t(locale, 'routeVariantFastestWarning')}
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
                       ) : null}
 
