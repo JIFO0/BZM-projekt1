@@ -44,6 +44,8 @@ export interface LocationPickerProps {
   badgeColor?: string;
   point: LocationInputPoint;
   onChangePoint: (point: SelectedLocationPoint) => void;
+  onClear?: () => void;
+  onQueryChange?: (text: string) => void;
   placeholder?: string;
   showMyLocation?: boolean;
   onUseMyLocation?: () => void;
@@ -57,6 +59,8 @@ export function LocationPicker({
   badgeColor,
   point,
   onChangePoint,
+  onClear,
+  onQueryChange,
   placeholder,
   showMyLocation = false,
   onUseMyLocation,
@@ -84,6 +88,7 @@ export function LocationPicker({
 
   const handleQueryChange = (text: string) => {
     setQueryText(text);
+    onQueryChange?.(text);
 
     // If text directly contains valid coordinates, show suggestion immediately
     const directCoords = parseCoordinates(text);
@@ -140,6 +145,7 @@ export function LocationPicker({
     setQueryText('');
     setSuggestions([]);
     setShowDropdown(false);
+    onClear?.();
   };
 
   return (

@@ -74,6 +74,12 @@ export function MapView({
   pendingUserLocation.current = userLocation;
   const pendingClickedLocation = useRef(clickedLocation);
   pendingClickedLocation.current = clickedLocation;
+  const pendingStartLocation = useRef(startLocation);
+  pendingStartLocation.current = startLocation;
+  const pendingEndLocation = useRef(endLocation);
+  pendingEndLocation.current = endLocation;
+  const pendingRoute = useRef(route);
+  pendingRoute.current = route;
 
   const currentPositionRef = useRef<{ lat: number; lon: number; zoom: number } | null>(null);
   const prevRouteRef = useRef(route);
@@ -89,7 +95,7 @@ export function MapView({
   });
 
   // Reliable cross-platform message dispatch to the active Leaflet map
-  const sendToMap = useCallback((msg: { type: string; lat?: number; lon?: number; zoom?: number; markers?: any[] }) => {
+  const sendToMap = useCallback((msg: { type: string; lat?: number; lon?: number; zoom?: number; markers?: any[]; startLocation?: any; endLocation?: any; route?: any }) => {
     if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
       try {
         const win = iframeRef.current.contentWindow as any;
@@ -117,6 +123,14 @@ export function MapView({
           win.clearClickedMarker();
           return;
         }
+        if (msg.type === 'SET_ENDPOINTS' && typeof win.updateEndpoints === 'function') {
+          win.updateEndpoints(msg.startLocation, msg.endLocation);
+          return;
+        }
+        if (msg.type === 'SET_ROUTE' && typeof win.updateRoute === 'function') {
+          win.updateRoute(msg.route);
+          return;
+        }
       } catch {
         // Fallback to postMessage
       }
@@ -139,6 +153,12 @@ export function MapView({
         webViewRef.current.injectJavaScript(js);
       } else if (msg.type === 'CLEAR_CLICKED_LOCATION') {
         const js = `if (typeof clearClickedMarker === 'function') { clearClickedMarker(); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'SET_ENDPOINTS') {
+        const js = `if (typeof updateEndpoints === 'function') { updateEndpoints(${JSON.stringify(msg.startLocation || null)}, ${JSON.stringify(msg.endLocation || null)}); } true;`;
+        webViewRef.current.injectJavaScript(js);
+      } else if (msg.type === 'SET_ROUTE') {
+        const js = `if (typeof updateRoute === 'function') { updateRoute(${JSON.stringify(msg.route || null)}); } true;`;
         webViewRef.current.injectJavaScript(js);
       }
     }
@@ -231,6 +251,15 @@ export function MapView({
         lon: pendingClickedLocation.current.lon,
       });
     }
+    sendToMap({
+      type: 'SET_ENDPOINTS',
+      startLocation: pendingStartLocation.current,
+      endLocation: pendingEndLocation.current,
+    });
+    sendToMap({
+      type: 'SET_ROUTE',
+      route: pendingRoute.current,
+    });
   }, [sendToMap]);
 
   // Smooth dynamic user marker update without reloading iframe / WebView
@@ -257,6 +286,25 @@ export function MapView({
       });
     }
   }, [clickedLocation, sendToMap]);
+
+  // Smooth dynamic endpoint markers update (A & B) without reloading iframe / WebView
+  useEffect(() => {
+    if (!isMapLoaded.current) return;
+    sendToMap({
+      type: 'SET_ENDPOINTS',
+      startLocation,
+      endLocation,
+    });
+  }, [startLocation, endLocation, sendToMap]);
+
+  // Smooth dynamic route polyline update without reloading iframe / WebView
+  useEffect(() => {
+    if (!isMapLoaded.current) return;
+    sendToMap({
+      type: 'SET_ROUTE',
+      route,
+    });
+  }, [route, sendToMap]);
 
   // Smooth dynamic centering
   useEffect(() => {
@@ -290,21 +338,8 @@ export function MapView({
     ? MAPY_ATTRIBUTION.attribution
     : OSM_ATTRIBUTION.attribution;
 
-  const routeSignature = route
-    ? `${route.lengthMetres}:${route.coordinates.length}:${route.coordinates[0]?.join(',') ?? ''}:${route.coordinates[route.coordinates.length - 1]?.join(',') ?? ''}:${(route.surfaceSpans ?? []).map((span) => `${span.tone}:${span.coordinates.length}`).join('|')}`
-    : '';
-  const startSignature = startLocation
-    ? `${startLocation.lat},${startLocation.lon},${startLocation.name}`
-    : '';
-  const endSignature = endLocation ? `${endLocation.lat},${endLocation.lon},${endLocation.name}` : '';
-
   // htmlContent is memoized so it does NOT reload on userLocation updates
   const htmlContent = useMemo(() => {
-    const routeGeoJsonCoords = route ? route.coordinates.map(([lon, lat]) => [lat, lon]) : [];
-    const surfaceSpans = (route?.surfaceSpans ?? []).map((span) => ({
-      tone: span.tone,
-      coordinates: span.coordinates.map(([lon, lat]) => [lat, lon]),
-    }));
     const okRouteColor = isHighContrast ? '#42A5F5' : colors.accent;
     const otherRouteColor = colors.warningBorder;
 
@@ -636,13 +671,51 @@ export function MapView({
       }).addTo(map);
     }
 
-    var routeCoords = ${JSON.stringify(routeGeoJsonCoords)};
-    var surfaceSpans = ${JSON.stringify(surfaceSpans)};
-    var routeLine = null;
-    if (routeCoords.length > 0) {
-      L.polyline(routeCoords, { color: '#FFFFFF', weight: 8, opacity: 0.95 }).addTo(map);
-      if (surfaceSpans.length > 0) {
-        surfaceSpans.forEach(function(span) {
+    var routeLayer = L.layerGroup().addTo(map);
+    var endpointsLayer = L.layerGroup().addTo(map);
+
+    function renderEndpoints(startLoc, endLoc) {
+      if (!map || !endpointsLayer) return;
+      endpointsLayer.clearLayers();
+
+      if (startLoc && typeof startLoc.lat === 'number' && typeof startLoc.lon === 'number') {
+        var startIcon = L.divIcon({
+          className: 'endpoint-marker start',
+          html: 'A',
+          iconSize: [${endpointMarkerSize}, ${endpointMarkerSize}],
+          iconAnchor: [${endpointMarkerAnchor}, ${endpointMarkerAnchor}]
+        });
+        var startPopupLabel = ${JSON.stringify(t(locale, 'from') || 'Start')};
+        var startFallback = ${JSON.stringify(locale === 'pl' ? 'Początek trasy' : locale === 'uk' ? 'Початок маршруту' : 'Start')};
+        L.marker([startLoc.lat, startLoc.lon], { icon: startIcon, zIndexOffset: 10000 }).addTo(endpointsLayer)
+          .bindPopup('<b>' + startPopupLabel + ':</b> ' + (startLoc.name || startFallback));
+      }
+
+      if (endLoc && typeof endLoc.lat === 'number' && typeof endLoc.lon === 'number') {
+        var endIcon = L.divIcon({
+          className: 'endpoint-marker destination',
+          html: 'B',
+          iconSize: [${endpointMarkerSize}, ${endpointMarkerSize}],
+          iconAnchor: [${endpointMarkerAnchor}, ${endpointMarkerAnchor}]
+        });
+        var endPopupLabel = ${JSON.stringify(t(locale, 'to') || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'))};
+        var endFallback = ${JSON.stringify(locale === 'pl' ? 'Koniec trasy' : locale === 'uk' ? 'Кінець маршруту' : 'Destination')};
+        L.marker([endLoc.lat, endLoc.lon], { icon: endIcon, zIndexOffset: 10000 }).addTo(endpointsLayer)
+          .bindPopup('<b>' + endPopupLabel + ':</b> ' + (endLoc.name || endFallback));
+      }
+    }
+
+    function renderRoute(routeData) {
+      if (!map || !routeLayer) return;
+      routeLayer.clearLayers();
+      if (!routeData || !Array.isArray(routeData.coordinates) || routeData.coordinates.length === 0) {
+        return;
+      }
+      var coords = routeData.coordinates.map(function(pt) { return [pt[1], pt[0]]; });
+      L.polyline(coords, { color: '#FFFFFF', weight: 8, opacity: 0.95 }).addTo(routeLayer);
+
+      if (Array.isArray(routeData.surfaceSpans) && routeData.surfaceSpans.length > 0) {
+        routeData.surfaceSpans.forEach(function(span) {
           var isWarning = span.tone === 'other';
           var color = isWarning ? '${otherRouteColor}' : '${okRouteColor}';
           var polyOpts = {
@@ -653,43 +726,19 @@ export function MapView({
           if (isWarning) {
             polyOpts.dashArray = '8, 8';
           }
-          routeLine = L.polyline(span.coordinates, polyOpts).addTo(map);
+          var spanCoords = (span.coordinates || []).map(function(pt) { return [pt[1], pt[0]]; });
+          L.polyline(spanCoords, polyOpts).addTo(routeLayer);
         });
       } else {
-        routeLine = L.polyline(routeCoords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(map);
+        L.polyline(coords, { color: '${colors.accent}', weight: 5, opacity: 0.95 }).addTo(routeLayer);
       }
-      if (!currentPos) {
-        map.fitBounds(L.polyline(routeCoords).getBounds(), { padding: [40, 40] });
-      }
+      map.fitBounds(L.polyline(coords).getBounds(), { padding: [40, 40] });
     }
 
-    var startPin = ${JSON.stringify(startPin)};
-    if (startPin && startPin.lat && startPin.lon) {
-      var startIcon = L.divIcon({
-        className: 'endpoint-marker start',
-        html: 'A',
-        iconSize: [${endpointMarkerSize}, ${endpointMarkerSize}],
-        iconAnchor: [${endpointMarkerAnchor}, ${endpointMarkerAnchor}]
-      });
-      var startPopupLabel = ${JSON.stringify(t(locale, 'from') || 'Start')};
-      var startFallback = ${JSON.stringify(locale === 'pl' ? 'Początek trasy' : locale === 'uk' ? 'Початок маршруту' : 'Start')};
-      L.marker([startPin.lat, startPin.lon], { icon: startIcon, zIndexOffset: 10000 }).addTo(map)
-        .bindPopup('<b>' + startPopupLabel + ':</b> ' + (startPin.name || startFallback));
-    }
-
-    var endPin = ${JSON.stringify(endPin)};
-    if (endPin && endPin.lat && endPin.lon) {
-      var endIcon = L.divIcon({
-        className: 'endpoint-marker destination',
-        html: 'B',
-        iconSize: [${endpointMarkerSize}, ${endpointMarkerSize}],
-        iconAnchor: [${endpointMarkerAnchor}, ${endpointMarkerAnchor}]
-      });
-      var endPopupLabel = ${JSON.stringify(t(locale, 'to') || (locale === 'pl' ? 'Cel' : locale === 'uk' ? 'Ціль' : 'Destination'))};
-      var endFallback = ${JSON.stringify(locale === 'pl' ? 'Koniec trasy' : locale === 'uk' ? 'Кінець маршруту' : 'Destination')};
-      L.marker([endPin.lat, endPin.lon], { icon: endIcon, zIndexOffset: 10000 }).addTo(map)
-        .bindPopup('<b>' + endPopupLabel + ':</b> ' + (endPin.name || endFallback));
-    }
+    window.updateEndpoints = renderEndpoints;
+    window.updateRoute = renderRoute;
+    renderEndpoints(${JSON.stringify(startPin)}, ${JSON.stringify(endPin)});
+    renderRoute(${JSON.stringify(route ? { coordinates: route.coordinates, surfaceSpans: route.surfaceSpans } : null)});
 
     function getObstacleSvgIcon(type, color) {
       var sWidth = "${obstacleStrokeWidth}";
@@ -908,6 +957,10 @@ export function MapView({
           window.updateClickedMarker(data.lat, data.lon);
         } else if (data.type === 'CLEAR_CLICKED_LOCATION') {
           window.clearClickedMarker();
+        } else if (data.type === 'SET_ENDPOINTS') {
+          window.updateEndpoints(data.startLocation, data.endLocation);
+        } else if (data.type === 'SET_ROUTE') {
+          window.updateRoute(data.route);
         }
       } catch (err) {}
     }
@@ -926,9 +979,6 @@ export function MapView({
 </html>
     `;
   }, [
-    routeSignature,
-    startSignature,
-    endSignature,
     zoom,
     tileUrl,
     tileAttribution,
