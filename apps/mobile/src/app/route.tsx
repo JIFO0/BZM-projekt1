@@ -176,7 +176,8 @@ export default function RouteScreen() {
           setActiveRouteFacts(result.facts);
           setActiveRouteIsSample(result.isSample);
           setRouteVariants(result.variants ?? null);
-          const v = routeParams.variant || result.selectedVariant || 'accessible';
+          const raw = routeParams.variant || result.selectedVariant || 'accessible';
+          const v = raw === 'shortest' ? 'fastest' : raw;
           selectRouteVariant(v);
         })
         .catch((err) => {
@@ -219,7 +220,8 @@ export default function RouteScreen() {
           setActiveRouteFacts(result.facts);
           setActiveRouteIsSample(result.isSample);
           setRouteVariants(result.variants ?? null);
-          const v = routeParams.variant || result.selectedVariant || 'accessible';
+          const raw = routeParams.variant || result.selectedVariant || 'accessible';
+          const v = raw === 'shortest' ? 'fastest' : raw;
           selectRouteVariant(v);
         })
         .catch((err) => {
