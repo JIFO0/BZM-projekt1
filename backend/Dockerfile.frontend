@@ -7,7 +7,7 @@ FROM node:26 AS builder
 WORKDIR /app
 
 # Build arguments for build-time configuration
-ARG EXPO_PUBLIC_GRAPHHOPPER_URL=http://hopper.accessible.krakow.local
+ARG EXPO_PUBLIC_GRAPHHOPPER_URL=""
 ARG EXPO_PUBLIC_MAPY_API_KEY=""
 
 ENV EXPO_PUBLIC_GRAPHHOPPER_URL=$EXPO_PUBLIC_GRAPHHOPPER_URL

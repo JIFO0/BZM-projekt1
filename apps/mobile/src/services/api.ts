@@ -52,6 +52,40 @@ function getExpoHostIp(): string | null {
 }
 
 export function resolveBackendApiUrl(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    const { hostname, origin, protocol, port } = window.location;
+    const isLocalScheme = protocol === 'resource:' || protocol === 'file:' || !hostname || hostname === 'rawfile';
+    if (!isLocalScheme) {
+      const proto = protocol === 'http:' ? 'http:' : 'https:';
+      // When served via Caddy gateway, reverse-proxy handles /api/* and /uploads/* on the same origin
+      if (
+        hostname === 'accessible.krakow.local' ||
+        hostname === 'accessible.krakow.guziohub.ovh' ||
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1'
+      ) {
+        // If running on standard gateway ports (Caddy gateway)
+        if (port === '' || port === '80' || port === '443') {
+          return origin;
+        }
+        return 'http://localhost:3000';
+      }
+      if (hostname.endsWith('.local')) {
+        return `http://api.${hostname}`;
+      }
+      if (hostname.endsWith('.guziohub.ovh')) {
+        if (port === '' || port === '80' || port === '443') {
+          return origin;
+        }
+        if (hostname.startsWith('accessible.')) {
+          return `${proto}//api.${hostname}`;
+        }
+        return `${proto}//api.accessible.krakow.guziohub.ovh`;
+      }
+      return `${proto}//${hostname}:3000`;
+    }
+  }
+
   if (process.env.EXPO_PUBLIC_API_URL) {
     const raw = process.env.EXPO_PUBLIC_API_URL;
     if (typeof window === 'undefined' || !window.location) {
@@ -62,33 +96,42 @@ export function resolveBackendApiUrl(): string {
     }
     return raw;
   }
-  if (typeof window !== 'undefined' && window.location) {
-    const { hostname, origin, protocol, port } = window.location;
-    const isLocalScheme = protocol === 'resource:' || protocol === 'file:' || !hostname || hostname === 'rawfile';
-    if (isLocalScheme) {
-      return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-    }
-    // When served via Caddy gateway, reverse-proxy handles /api/* on the same origin
-    if (hostname === 'accessible.krakow.local' || hostname === 'localhost' || hostname === '127.0.0.1') {
-      // If running on port 80/443 (Caddy gateway)
-      if (port === '' || port === '80' || port === '443') {
-        return origin;
-      }
-      return 'http://localhost:3000';
-    }
-    if (hostname.endsWith('.local')) {
-      return `http://api.${hostname}`;
-    }
-    return `http://${hostname}:3000`;
-  }
+
   const expoIp = getExpoHostIp();
   if (expoIp) {
     return `http://${expoIp}:3000`;
   }
-  return 'http://localhost:3000';
+  return 'https://api.accessible.krakow.guziohub.ovh';
 }
 
 export function resolveGraphHopperUrl(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    const { hostname, protocol, port } = window.location;
+    const isLocalScheme = protocol === 'resource:' || protocol === 'file:' || !hostname || hostname === 'rawfile';
+    if (!isLocalScheme) {
+      const proto = protocol === 'http:' ? 'http:' : 'https:';
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        if (port === '80' || port === '443') {
+          return `${proto}//${hostname}`;
+        }
+        return 'http://localhost:8989';
+      }
+      if (hostname === 'accessible.krakow.local' || hostname.endsWith('.local')) {
+        return `http://hopper.${hostname}`;
+      }
+      if (hostname === 'accessible.krakow.guziohub.ovh' || hostname.endsWith('.guziohub.ovh')) {
+        if (hostname.startsWith('hopper.')) {
+          return `${proto}//${hostname}`;
+        }
+        if (hostname.startsWith('accessible.')) {
+          return `${proto}//hopper.${hostname}`;
+        }
+        return `${proto}//hopper.accessible.krakow.guziohub.ovh`;
+      }
+      return `${proto}//${hostname}:8989`;
+    }
+  }
+
   if (process.env.EXPO_PUBLIC_GRAPHHOPPER_URL) {
     const raw = process.env.EXPO_PUBLIC_GRAPHHOPPER_URL;
     if (typeof window === 'undefined' || !window.location) {
@@ -99,26 +142,12 @@ export function resolveGraphHopperUrl(): string {
     }
     return raw;
   }
-  if (typeof window !== 'undefined' && window.location) {
-    const hostname = window.location.hostname;
-    const protocol = window.location.protocol;
-    const isLocalScheme = protocol === 'resource:' || protocol === 'file:' || !hostname || hostname === 'rawfile';
-    if (isLocalScheme) {
-      return process.env.EXPO_PUBLIC_GRAPHHOPPER_URL || 'http://localhost:8989';
-    }
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8989';
-    }
-    if (hostname.endsWith('.local')) {
-      return `http://hopper.${hostname}`;
-    }
-    return `http://${hostname}:8989`;
-  }
+
   const expoIp = getExpoHostIp();
   if (expoIp) {
     return `http://${expoIp}:8989`;
   }
-  return 'http://localhost:8989';
+  return 'https://hopper.accessible.krakow.guziohub.ovh';
 }
 
 export interface RoutingEngineHealth {

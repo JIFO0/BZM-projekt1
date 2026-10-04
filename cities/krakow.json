@@ -71,7 +71,7 @@
     "tileMapset": "basic"
   },
   "graphhopper": {
-    "apiBase": "http://hopper.accessible.krakow.local"
+    "apiBase": "https://hopper.accessible.krakow.guziohub.ovh"
   },
-  "apiBase": "http://api.accessible.krakow.local"
+  "apiBase": "https://api.accessible.krakow.guziohub.ovh"
 }

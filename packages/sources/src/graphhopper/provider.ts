@@ -47,7 +47,7 @@ export class GraphHopperRoutingProvider implements RoutingProvider {
     this.apiBase =
       options?.apiBase ||
       process.env.EXPO_PUBLIC_GRAPHHOPPER_URL ||
-      'http://hopper.accessible.krakow.local';
+      'https://hopper.accessible.krakow.guziohub.ovh';
     this.fetchFn = options?.fetchFn || globalThis.fetch.bind(globalThis);
     this.thresholds = options?.thresholds;
   }
